@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Log terstruktur (TC-44). Setiap baris membawa requestId, clientId, dan userId sehingga satu
+  kejadian bisa ditelusuri sampai ke tenant dan penggunanya.
+
+  Yang dilarang muncul di log dalam bentuk apa pun: password, isi jawaban Siswa, isi soal, dan
+  alamat email. Aturan itu ditegakkan di tempat pemanggilan, bukan oleh berkas ini.
+-->
+<configuration>
+  <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+  <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+    <encoder>
+      <pattern>%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [req=%X{requestId:-} client=%X{clientId:-} user=%X{userId:-}] %logger{36} - %msg%n</pattern>
+    </encoder>
+  </appender>
+
+  <root level="INFO">
+    <appender-ref ref="CONSOLE"/>
+  </root>
+
+  <logger name="com.eduscreen.app" level="DEBUG"/>
+</configuration>

@@ -1,7 +1,18 @@
 spring:
+  flyway:
+    # Data awal HANYA dimuat di profil local. Ia tidak pernah ikut ke environment lain,
+    # sehingga tidak ada jalan data karangan tersasar ke sistem yang memuat data nyata.
+    locations: classpath:db/migration,classpath:db/seed-local
   datasource:
     url: jdbc:postgresql://localhost:5433/eduscreen
     username: eduscreen
     password: eduscreen
   thymeleaf:
     cache: false
+
+server:
+  servlet:
+    session:
+      cookie:
+        # Pengembangan lokal berjalan di HTTP; cookie Secure tidak akan pernah terkirim.
+        secure: false

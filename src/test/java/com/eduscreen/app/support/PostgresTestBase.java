@@ -15,9 +15,13 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  *
  * <p>Container dideklarasikan {@code static} sehingga satu instance dipakai ulang oleh seluruh
  * kelas tes turunan dalam satu JVM, bukan dinyalakan ulang per kelas.
+ *
+ * <p>Profil {@code local} ikut aktif supaya tes mengeksekusi rangkaian bean yang sama dengan
+ * pengembangan sehari-hari — termasuk adapter identity yang berpagar. Datasource-nya tetap
+ * diambil alih {@code @ServiceConnection} dari container, bukan dari application-local.yml.
  */
 @SpringBootTest
-@ActiveProfiles("test")
+@ActiveProfiles({"local", "test"})
 @Testcontainers
 public abstract class PostgresTestBase {
 

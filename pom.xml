@@ -126,6 +126,21 @@
       </plugin>
 
       <!--
+        Tes berjalan di mesin pengembangan, sehingga EDUSCREEN_ENV=local adalah pernyataan
+        yang jujur, bukan siasat untuk melewati pagar TC-04. Tanpa ini, adapter identity
+        menolak start dan seluruh tes integrasi gagal.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <environmentVariables>
+            <EDUSCREEN_ENV>local</EDUSCREEN_ENV>
+          </environmentVariables>
+        </configuration>
+      </plugin>
+
+      <!--
         ADR-0017: JDK 26 juga terpasang di mesin pengembangan dan menjadi bawaan
         /usr/libexec/java_home. Java 26 di luar dukungan Spring Boot 3.5, sehingga
         build bisa berjalan di JDK yang salah tanpa disadari. Batas ditegakkan build,

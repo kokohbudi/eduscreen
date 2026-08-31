@@ -56,23 +56,23 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 **⚠️ CRITICAL**: Tidak ada pekerjaan cerita pengguna yang boleh dimulai sebelum fase ini selesai
 
-- [ ] T010 Implementasikan generator UUID v7 dan tipe pengenal bersama di `src/main/java/com/eduscreen/app/shared/domain/UuidV7.java`
-- [ ] T011 Tulis migrasi skema ketenanan inti (`client`, `app_user`, `ruangan`, `ruangan_member`, `support_access_grant`, `user_invitation`) di `src/main/resources/db/migration/V1__core_tenancy.sql`
-- [ ] T012 [P] Buat entity dan repository `Client` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ClientEntity.java` dan `ClientRepository.java`
-- [ ] T013 [P] Buat entity dan repository `AppUser` dengan `client_id` eksplisit di setiap method di `src/main/java/com/eduscreen/app/modules/assessment/repository/AppUserEntity.java` dan `AppUserRepository.java`
-- [ ] T014 [P] Buat entity dan repository `Ruangan` serta `RuanganMember` di `src/main/java/com/eduscreen/app/modules/assessment/repository/RuanganEntity.java`, `RuanganMemberEntity.java`, dan `RuanganRepository.java`
-- [ ] T015 Definisikan `IdentityProviderPort` di `src/main/java/com/eduscreen/app/modules/identity/port/out/IdentityProviderPort.java`
-- [ ] T016 Implementasikan `DummyIdentityProviderAdapter` dengan `@Profile({"local","demo"})` dan pemeriksaan gagal-cepat `EDUSCREEN_ENV` (TC-04) di `src/main/java/com/eduscreen/app/modules/identity/adapter/out/DummyIdentityProviderAdapter.java`
-- [ ] T017 Tambahkan pemeriksaan saat start yang menggagalkan aplikasi bila `IdentityProviderPort` aktif tidak tepat satu (TC-05) di `src/main/java/com/eduscreen/app/config/IdentityProviderStartupCheck.java`
-- [ ] T018 Susun Spring Security: form login, cookie `HttpOnly; Secure; SameSite=Lax`, perlindungan session fixation, CSRF untuk HTMX (TC-29) di `src/main/java/com/eduscreen/app/config/SecurityConfig.java`
-- [ ] T019 Buat `UserPrincipal` yang membawa `userId`, `clientId`, dan peran di `src/main/java/com/eduscreen/app/shared/security/UserPrincipal.java`
-- [ ] T020 Implementasikan pembatas laju login per akun dan per IP dengan penundaan menaik (TC-33) di `src/main/java/com/eduscreen/app/shared/security/LoginRateLimiter.java`
-- [ ] T021 Buat `GlobalExceptionAdvice` yang merender galat sebagai fragmen dan menjawab `401` + `HX-Redirect` untuk HTMX tak terautentikasi (TC-30, TC-31) di `src/main/java/com/eduscreen/app/shared/web/GlobalExceptionAdvice.java`
-- [ ] T022 [P] Definisikan `NotificationPort` dan implementasikan `SmtpNotificationAdapter` serta `NoOpNotificationAdapter` untuk profil `demo` (TC-49) di `src/main/java/com/eduscreen/app/modules/notification/`
-- [ ] T023 [P] Definisikan `FileStoragePort` dan implementasikan `LocalFileStorageAdapter` (TC-28) di `src/main/java/com/eduscreen/app/modules/storage/`
-- [ ] T024 [P] Susun log terstruktur yang membawa `clientId`, `userId`, `sessionId` dan menyaring password, jawaban, isi soal, serta email (TC-44) di `src/main/java/com/eduscreen/app/config/LoggingConfig.java`
-- [ ] T025 [P] Buat pembantu waktu: penyimpanan UTC, konversi ke zona Client hanya saat render (BR-T01, BR-T02) di `src/main/java/com/eduscreen/app/shared/domain/ClientClock.java`
-- [ ] T026 Buat tata letak dasar Thymeleaf beserta spanduk permanen environment `demo` (TC-47) di `src/main/resources/templates/layout/base.html`
+- [x] T010 Implementasikan generator UUID v7 dan tipe pengenal bersama di `src/main/java/com/eduscreen/app/shared/domain/UuidV7.java`
+- [x] T011 Tulis migrasi skema ketenanan inti (`client`, `app_user`, `ruangan`, `ruangan_member`, `support_access_grant`, `user_invitation`) di `src/main/resources/db/migration/V1__core_tenancy.sql`
+- [x] T012 [P] Buat entity dan repository `Client` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ClientEntity.java` dan `ClientRepository.java`
+- [x] T013 [P] Buat entity dan repository `AppUser` dengan `client_id` eksplisit di setiap method di `src/main/java/com/eduscreen/app/modules/assessment/repository/AppUserEntity.java` dan `AppUserRepository.java`
+- [x] T014 [P] Buat entity dan repository `Ruangan` serta `RuanganMember` di `src/main/java/com/eduscreen/app/modules/assessment/repository/RuanganEntity.java`, `RuanganMemberEntity.java`, dan `RuanganRepository.java`
+- [x] T015 Definisikan `IdentityProviderPort` di `src/main/java/com/eduscreen/app/modules/identity/port/out/IdentityProviderPort.java`
+- [x] T016 Implementasikan `DummyIdentityProviderAdapter` dengan `@Profile({"local","demo"})` dan pemeriksaan gagal-cepat `EDUSCREEN_ENV` (TC-04) di `src/main/java/com/eduscreen/app/modules/identity/adapter/out/DummyIdentityProviderAdapter.java`
+- [x] T017 Tambahkan pemeriksaan saat start yang menggagalkan aplikasi bila `IdentityProviderPort` aktif tidak tepat satu (TC-05) di `src/main/java/com/eduscreen/app/config/IdentityProviderStartupCheck.java`
+- [x] T018 Susun Spring Security: form login, cookie `HttpOnly; Secure; SameSite=Lax`, perlindungan session fixation, CSRF untuk HTMX (TC-29) di `src/main/java/com/eduscreen/app/config/SecurityConfig.java`
+- [x] T019 Buat `UserPrincipal` yang membawa `userId`, `clientId`, dan peran di `src/main/java/com/eduscreen/app/shared/security/UserPrincipal.java`
+- [x] T020 Implementasikan pembatas laju login per akun dan per IP dengan penundaan menaik (TC-33) di `src/main/java/com/eduscreen/app/shared/security/LoginRateLimiter.java`
+- [x] T021 Buat `GlobalExceptionAdvice` yang merender galat sebagai fragmen dan menjawab `401` + `HX-Redirect` untuk HTMX tak terautentikasi (TC-30, TC-31) di `src/main/java/com/eduscreen/app/shared/web/GlobalExceptionAdvice.java`
+- [x] T022 [P] Definisikan `NotificationPort` dan implementasikan `SmtpNotificationAdapter` serta `NoOpNotificationAdapter` untuk profil `demo` (TC-49) di `src/main/java/com/eduscreen/app/modules/notification/`
+- [x] T023 [P] Definisikan `FileStoragePort` dan implementasikan `LocalFileStorageAdapter` (TC-28) di `src/main/java/com/eduscreen/app/modules/storage/`
+- [x] T024 [P] Susun log terstruktur yang membawa `clientId`, `userId`, `sessionId` dan menyaring password, jawaban, isi soal, serta email (TC-44) di `src/main/java/com/eduscreen/app/shared/web/LoggingContextFilter.java` dan `src/main/resources/logback-spring.xml`
+- [x] T025 [P] Buat pembantu waktu: penyimpanan UTC, konversi ke zona Client hanya saat render (BR-T01, BR-T02) di `src/main/java/com/eduscreen/app/shared/domain/ClientClock.java`
+- [x] T026 Buat tata letak dasar Thymeleaf beserta spanduk permanen environment `demo` (TC-47) di `src/main/resources/templates/layout/base.html`
 
 **Checkpoint**: Fondasi siap — cerita pengguna boleh dimulai
 

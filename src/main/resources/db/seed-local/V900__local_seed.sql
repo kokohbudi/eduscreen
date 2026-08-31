@@ -1,0 +1,55 @@
+-- Data awal untuk profil `local` saja.
+--
+-- Berkas ini TIDAK PERNAH dimuat di environment lain: lokasi Flyway `db/seed-local` hanya
+-- terdaftar di application-local.yml. Penomoran V900 menjauhkannya dari migrasi skema
+-- sehingga keduanya tidak pernah bertabrakan.
+--
+-- Seluruh akun di sini memakai password bersama adapter dummy: password123 (ADR-0016).
+-- Itu sah di mesin pengembangan, dan hanya di sana.
+
+insert into client (id, name, timezone, status) values
+    ('01920000-0000-7000-8000-000000000001', 'SD Contoh', 'Asia/Jakarta', 'ACTIVE');
+
+insert into app_user (id, client_id, email, full_name, role, status) values
+    ('01920000-0000-7000-8000-000000000010', null,
+     'admin@eduscreen.id', 'Eduscreen Admin', 'EDUSCREEN_ADMIN', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000011', '01920000-0000-7000-8000-000000000001',
+     'admin@contoh.sch.id', 'Admin Sekolah', 'CLIENT_ADMIN', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000012', '01920000-0000-7000-8000-000000000001',
+     'guru@contoh.sch.id', 'Ibu Sri Wahyuni', 'GURU', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000021', '01920000-0000-7000-8000-000000000001',
+     'siswa1@contoh.sch.id', 'Budi Santoso', 'SISWA', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000022', '01920000-0000-7000-8000-000000000001',
+     'siswa2@contoh.sch.id', 'Siti Aminah', 'SISWA', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000023', '01920000-0000-7000-8000-000000000001',
+     'siswa3@contoh.sch.id', 'Andi Pratama', 'SISWA', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000024', '01920000-0000-7000-8000-000000000001',
+     'siswa4@contoh.sch.id', 'Dewi Lestari', 'SISWA', 'ACTIVE'),
+    ('01920000-0000-7000-8000-000000000025', '01920000-0000-7000-8000-000000000001',
+     'siswa5@contoh.sch.id', 'Rizky Hidayat', 'SISWA', 'ACTIVE');
+
+insert into ruangan (id, client_id, name, status) values
+    ('01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000001',
+     'Kelas 4B 2026/2027', 'ACTIVE'),
+    -- Ruangan kedua membuktikan keanggotaan many-to-many: seorang Siswa berada di kelas
+    -- regulernya sekaligus di grup bimbel (FR-008).
+    ('01920000-0000-7000-8000-000000000031', '01920000-0000-7000-8000-000000000001',
+     'Bimbel Intensif Matematika', 'ACTIVE');
+
+insert into ruangan_member (id, client_id, ruangan_id, user_id, member_role) values
+    ('01920000-0000-7000-8000-000000000040', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000012', 'GURU'),
+    ('01920000-0000-7000-8000-000000000041', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000021', 'SISWA'),
+    ('01920000-0000-7000-8000-000000000042', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000022', 'SISWA'),
+    ('01920000-0000-7000-8000-000000000043', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000023', 'SISWA'),
+    ('01920000-0000-7000-8000-000000000044', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000024', 'SISWA'),
+    ('01920000-0000-7000-8000-000000000045', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000030', '01920000-0000-7000-8000-000000000025', 'SISWA'),
+    ('01920000-0000-7000-8000-000000000046', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000031', '01920000-0000-7000-8000-000000000012', 'GURU'),
+    ('01920000-0000-7000-8000-000000000047', '01920000-0000-7000-8000-000000000001',
+     '01920000-0000-7000-8000-000000000031', '01920000-0000-7000-8000-000000000021', 'SISWA');

@@ -5,7 +5,6 @@ import com.tngtech.archunit.core.importer.ClassFileImporter;
 import com.tngtech.archunit.core.importer.ImportOption;
 import com.tngtech.archunit.lang.ArchRule;
 import com.tngtech.archunit.core.domain.JavaClass;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
@@ -23,9 +22,13 @@ import static org.junit.jupiter.api.Assumptions.assumeTrue;
  * bukan diluluskan — tes yang lulus tanpa memeriksa apa pun adalah kebohongan kecil yang
  * menumpuk.
  *
- * <p>Pelewatan dikendalikan asumsi, bukan flag konfigurasi, sehingga aturan menyala sendiri
- * begitu paket {@code modules.*} lahir di T010 dan seterusnya. Tidak ada yang perlu diingat
- * untuk dicabut.
+ * <p>Pelewatan dikendalikan asumsi, bukan flag konfigurasi, sehingga tiap aturan menyala
+ * sendiri begitu paket yang ia periksa benar-benar ada. Tidak ada yang perlu diingat untuk
+ * dicabut, dan tidak ada aturan yang lulus tanpa memeriksa apa pun.
+ *
+ * <p>Penjaganya spesifik per aturan, bukan satu penjaga untuk semuanya: paket
+ * {@code modules.assessment} lahir lebih dulu daripada paket {@code service}, sehingga penjaga
+ * bersama akan menyalakan aturan yang belum punya bahan untuk diperiksa.
  */
 class ArchUnitRulesTest {
 
@@ -33,24 +36,24 @@ class ArchUnitRulesTest {
             .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
             .importPackages("com.eduscreen.app");
 
-    @BeforeEach
-    void skipUntilModulesExist() {
-        assumeTrue(hasModuleClasses(),
-                "Paket modules.* belum ada (Phase 1). Aturan menyala sendiri di Phase 2.");
-    }
-
-    private static boolean hasModuleClasses() {
+    private static boolean anyClassInPackageContaining(String fragment) {
         for (JavaClass clazz : CLASSES) {
-            if (clazz.getPackageName().startsWith("com.eduscreen.app.modules")) {
+            if (clazz.getPackageName().contains(fragment)) {
                 return true;
             }
         }
         return false;
     }
 
+    private static void requirePackage(String fragment) {
+        assumeTrue(anyClassInPackageContaining(fragment),
+                "Paket '" + fragment + "' belum ada; aturan menyala sendiri begitu ia lahir");
+    }
+
     @Test
     @DisplayName("TC-03: assessment tidak boleh menyentuh identity.adapter")
     void assessmentMustNotReachIntoIdentityAdapters() {
+        requirePackage("modules.assessment");
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..modules.assessment..")
                 .should().accessClassesThat().resideInAPackage("..modules.identity.adapter..")
@@ -62,6 +65,7 @@ class ArchUnitRulesTest {
     @Test
     @DisplayName("TC-02: layer service tidak boleh menyebut nama vendor")
     void serviceLayerMustNotNameVendors() {
+        requirePackage(".service");
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..service..")
                 .should().dependOnClassesThat()
@@ -75,6 +79,7 @@ class ArchUnitRulesTest {
     @Test
     @DisplayName("TC-01: assessment berlapis lurus, tanpa port dan adapter")
     void assessmentMustNotIntroducePortsOrAdapters() {
+        requirePackage("modules.assessment");
         ArchRule rule = noClasses()
                 .that().resideInAPackage("..modules.assessment..")
                 .should().resideInAnyPackage("..modules.assessment.port..", "..modules.assessment.adapter..")

@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:fragment="head(pageTitle)">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="_csrf" th:content="${_csrf?.token}">
+  <meta name="_csrf_header" th:content="${_csrf?.headerName}">
+  <title th:text="|${pageTitle} · Eduscreen|">Eduscreen</title>
+  <link rel="stylesheet" th:href="@{/css/output.css}">
+  <link rel="stylesheet" th:href="@{/vendor/katex/katex.min.css}">
+  <script th:src="@{/vendor/htmx/htmx.min.js}" defer></script>
+  <script th:src="@{/vendor/alpine/cdn.min.js}" defer></script>
+</head>
+<body>
+
+<!--
+  Tata letak dasar seluruh halaman.
+
+  Spanduk demo (TC-47) permanen dan tidak bisa ditutup pengguna. Ia ada supaya tidak ada yang
+  keliru menganggap lingkungan peragaan sebagai sistem sungguhan: di sana autentikasi palsu —
+  satu password berlaku untuk semua akun.
+-->
+<div th:fragment="page(pageTitle, content)" class="min-h-screen bg-slate-50 text-slate-900">
+
+  <div th:if="${@environment.getProperty('eduscreen.demo-banner', T(java.lang.Boolean), false)}"
+       class="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950"
+       role="status">
+    LINGKUNGAN PERAGAAN — data di sini karangan dan autentikasinya tidak nyata.
+    Jangan pernah memasukkan data siswa sungguhan.
+  </div>
+
+  <header class="border-b border-slate-200 bg-white">
+    <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+      <a th:href="@{/}" class="text-lg font-bold tracking-tight text-slate-900">Eduscreen</a>
+      <div sec:authorize="isAuthenticated()" class="flex items-center gap-4 text-sm"
+           xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+        <span class="text-slate-600" th:text="${#authentication.principal.fullName()}">Nama</span>
+        <form th:action="@{/logout}" method="post">
+          <button type="submit" class="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100">
+            Keluar
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <main class="mx-auto max-w-5xl px-4 py-8">
+    <h1 class="mb-6 text-2xl font-bold" th:text="${pageTitle}">Judul</h1>
+    <div th:replace="${content}">Isi halaman</div>
+  </main>
+
+</div>
+</body>
+</html>

@@ -1,9 +1,10 @@
+# Profil tes menumpang di atas profil local; datasource diambil alih Testcontainers.
 spring:
   jpa:
     hibernate:
       ddl-auto: validate
   flyway:
     enabled: true
-
-eduscreen:
-  env: local
+    # Tes berjalan di atas skema kosong, bukan data awal pengembangan, agar hasilnya tidak
+    # bergantung pada isi seed yang bisa berubah.
+    locations: classpath:db/migration
