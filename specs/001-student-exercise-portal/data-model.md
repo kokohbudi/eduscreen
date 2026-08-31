@@ -3,7 +3,7 @@
 **Date**: 2026-08-31 | **Plan**: [plan.md](./plan.md) | **Spec**: [spec.md](./spec.md)
 
 Kosakata mengikuti `CONTEXT.md`. Aturan perilaku yang dirujuk (`BR-*`) tinggal di
-`.scratch/eduscreen/spec.md`; aturan teknis (`TC-*`) di `CONSTITUTION.md`.
+`business-rules.md`; aturan teknis (`TC-*`) di `CONSTITUTION.md`.
 
 ## Konvensi lintas tabel
 

@@ -7,7 +7,7 @@ description: "Task list for Portal Latihan Siswa Eduscreen (v1)"
 
 **Input**: Design documents from `/specs/001-student-exercise-portal/`
 
-**Prerequisites**: plan.md, spec.md, research.md, data-model.md, contracts/
+**Prerequisites**: plan.md, spec.md, business-rules.md, data-model.md, contracts/
 
 **Tests**: Tugas tes **disertakan dan wajib**. Bukan pilihan gaya: `CONSTITUTION.md` mewajibkannya
 — TC-38 (Testcontainers, H2 dilarang), TC-39 (nama tes merujuk `AC-*`), TC-40 (ArchUnit di CI),

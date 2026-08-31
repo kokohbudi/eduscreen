@@ -47,13 +47,13 @@
 
 - Nol penanda `[NEEDS CLARIFICATION]`. Seluruh keputusan bercabang sudah diselesaikan dalam enam
   ronde penggalian kebutuhan sebelum spesifikasi ini disusun; hasilnya tercatat sebagai `BR-*` di
-  `.scratch/eduscreen/spec.md` dan sebagai keputusan di `docs/adr/0001`–`0016`.
+  `business-rules.md` dan sebagai keputusan di `docs/adr/0001`–`0016`.
 - Rujukan `BR-*` pada tiap kebutuhan adalah penunjuk telusur ke sumber aturannya, bukan detail
   implementasi. Setiap kebutuhan tetap bisa dibaca tanpa membuka rujukannya.
 - FR-059 (zona waktu Client) tidak punya skenario penerimaan di dalam cerita pengguna, tetapi
   tercakup di bagian Edge Cases — Client WITA dengan Siswa yang membuka dari WIB.
 
-**Selaras dengan konstitusi** (`.specify/memory/constitution.md` v1.0.0):
+**Selaras dengan konstitusi** (`.specify/memory/constitution.md` v1.1.0):
 
 - Prinsip I (Isolasi Tenant & Anti-IDOR) → FR-001, FR-003, FR-005, SC-008
 - Prinsip II (Otoritas Waktu & State di Sistem) → FR-041 sampai FR-044

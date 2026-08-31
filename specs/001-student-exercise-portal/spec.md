@@ -8,7 +8,7 @@
 
 **Input**: User description: "Portal siswa untuk sekolah dan lembaga bimbingan belajar. Memudahkan proses exercise siswa dalam organisasi client, dan memudahkan guru mendistribusikan soal latihan."
 
-> **Sumber**: perilaku terperinci beserta `BR-*` dan `AC-*` tinggal di `.scratch/eduscreen/spec.md`;
+> **Sumber**: perilaku terperinci beserta `BR-*` dan `AC-*` tinggal di `business-rules.md`;
 > kosakata domain di `CONTEXT.md`; aturan teknis di `CONSTITUTION.md`. Rujukan `BR-*` di bawah
 > menunjuk ke aturan asal, bukan ke detail implementasi.
 

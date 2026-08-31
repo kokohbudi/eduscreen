@@ -1,6 +1,6 @@
 # Konstitusi Teknis Eduscreen
 
-Aturan mengikat untuk seluruh kode Eduscreen. `CONTEXT.md` menetapkan bahasa domain, `.scratch/eduscreen/spec.md` menetapkan perilaku, dan dokumen ini menetapkan **bentuk teknis** yang mewujudkannya. Alasan di balik tiap pasal tercatat di `docs/adr/`.
+Aturan mengikat untuk seluruh kode Eduscreen. `CONTEXT.md` menetapkan bahasa domain, `specs/001-student-exercise-portal/business-rules.md` menetapkan perilaku, dan dokumen ini menetapkan **bentuk teknis** yang mewujudkannya. Alasan di balik tiap pasal tercatat di `docs/adr/`.
 
 Pelanggaran pasal mana pun adalah alasan sah untuk menolak sebuah pull request.
 

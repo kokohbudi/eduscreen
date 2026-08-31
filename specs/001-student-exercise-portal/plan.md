@@ -106,7 +106,7 @@ dicatat sebagai prasyarat rilis di `docs/adr/0016`.
 ```text
 specs/001-student-exercise-portal/
 ├── plan.md              # This file (/speckit-plan command output)
-├── research.md          # Phase 0 output (/speckit-plan command)
+├── business-rules.md    # BR-* rules and AC-* acceptance criteria
 ├── data-model.md        # Phase 1 output (/speckit-plan command)
 ├── quickstart.md        # Phase 1 output (/speckit-plan command)
 ├── contracts/           # Phase 1 output (/speckit-plan command)

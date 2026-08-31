@@ -20,7 +20,7 @@ Prinsip: tidak ada yang berubah pada v1.1.0.
 Version change: (template belum terisi) → 1.0.0
 Bump rationale: Ratifikasi awal. Seluruh placeholder template diganti nilai konkret
                 yang diturunkan dari CONSTITUTION.md (TC-01..TC-49),
-                .scratch/eduscreen/spec.md (BR-*, AC-*), CONTEXT.md, dan docs/adr/0001-0016.
+                specs/001-student-exercise-portal/business-rules.md (BR-*, AC-*), CONTEXT.md, dan docs/adr/0001-0016.
 
 Modified principles:
   [PRINCIPLE_1_NAME] → I. Isolasi Tenant & Anti-IDOR (NON-NEGOTIABLE)
@@ -205,70 +205,25 @@ bisa gagal di CI.
 pada tepian UUID, `timestamptz`, dan constraint khas PostgreSQL, sehingga tes hijau di sana tidak
 membuktikan apa pun tentang produksi.
 
-## Batasan Teknologi & Data
+## Batasan Teknis & Alur Kerja
 
-**Stack yang mengikat.** Perubahan pada baris mana pun menuntut ADR baru.
+Aturan terperinci **tidak diduplikasi di sini**. Ia tinggal di satu tempat, `CONSTITUTION.md` di
+root repo, sebagai 49 aturan bernomor `TC-01`..`TC-49` beserta contoh kode dan alasannya.
+Menyalinnya ke berkas ini akan menciptakan dua sumber kebenaran yang wajib diperbarui bersamaan
+setiap kali salah satunya berubah — dan yang kedua akan tertinggal.
 
-| Lapis | Pilihan |
+| Yang dicari | Di mana |
 | --- | --- |
-| Runtime | Java 25 LTS |
-| Framework | Spring Boot 3.5+ (3.5.x mendukung JDK 17-25) |
-| Database | PostgreSQL 16+ |
-| Persistensi | Spring Data JPA; migrasi lewat Flyway SQL murni |
-| Render | Thymeleaf berbasis fragment, dirender server |
-| Interaktivitas | HTMX untuk pertukaran fragment; Alpine.js untuk state klien |
-| Styling | Tailwind CSS lewat CLI standalone, terikat build Maven |
-| Identity | `IdentityProviderPort`; adapter dummy (`local`/`demo`) → Keycloak |
+| Stack yang mengikat, aturan kode, gerbang pull request | `CONSTITUTION.md` |
+| Istilah domain | `CONTEXT.md` |
+| Perilaku: `BR-*` dan `AC-*` | `specs/001-student-exercise-portal/business-rules.md` |
+| Cerita pengguna, `FR-*`, `SC-*` | `specs/001-student-exercise-portal/spec.md` |
+| Alasan tiap keputusan | `docs/adr/` |
 
-**Skema dan persistensi.**
+Tujuh prinsip di atas adalah lapisan yang dibaca perkakas Spec Kit saat menjalankan Constitution
+Check. Tiap prinsip menyebut kode `TC-*` yang mewujudkannya, sehingga penelusuran dari prinsip ke
+aturan konkret tetap satu langkah.
 
-- Migrasi Flyway adalah sumber kebenaran skema; entity divalidasi terhadapnya. `ddl-auto` selain
-  `validate` dilarang di luar pengembangan lokal (`TC-17`).
-- Penghapusan konten selalu soft delete, ditegakkan otomatis lewat `@SQLRestriction` (`TC-35`,
-  BR-Q04).
-- Setiap perubahan `essayScore` dan perhitungan ulang Result dicatat ke tabel audit hanya-sisip
-  (`TC-37`, BR-G03).
-- Kosakata kode mengikuti `CONTEXT.md`: kolom dan field memakai `client_id` / `clientId`,
-  bukan `tenant_id` / `tenantId`.
-
-**Operasi dan data.**
-
-- Cadangan penuh harian ditambah arsip WAL untuk pemulihan titik waktu, dengan uji pemulihan
-  terjadwal (`TC-43`).
-- Log berformat terstruktur dan wajib membawa `clientId`, `userId`, serta `sessionId` (`TC-44`).
-- Seluruh waktu disimpan UTC dan ditampilkan dalam timezone Client (BR-T01, BR-T02).
-- Sasaran beban v1: 2.000 Session serentak per Client, ~10.000 platform-wide — diperlakukan
-  sebagai hipotesis yang wajib diuji.
-
-## Alur Kerja & Gerbang Mutu
-
-**Hierarki dokumen.** Empat dokumen dengan pembagian tugas yang tidak boleh tertukar:
-
-| Dokumen | Menjawab |
-| --- | --- |
-| `CONTEXT.md` | istilah apa yang dipakai (glosarium, bebas implementasi) |
-| `.scratch/eduscreen/spec.md` | apa yang harus terjadi (`BR-*`, `AC-*`) |
-| `CONSTITUTION.md` | bagaimana bentuk kodenya (`TC-01`..`TC-49`) |
-| `docs/adr/` | mengapa masing-masing dipilih |
-
-Konstitusi ini adalah lapisan prinsip di atas keempatnya dan yang dibaca perkakas Spec Kit.
-
-**Gerbang sebelum pull request digabung.**
-
-1. Perubahan yang menyentuh Session, SessionAnswer, Result, atau berkas membawa tes `404`
-   lintas-Siswa dan lintas-Client (`TC-41`).
-2. Tes ArchUnit hijau (`TC-40`).
-3. Perilaku baru merujuk `BR-*` yang mengaturnya; bila belum ada, `spec.md` diperbarui lebih
-   dulu — bukan sesudah.
-4. Nama tes baru merujuk `AC-*` yang dibuktikannya (`TC-39`).
-5. Istilah domain memakai kosakata `CONTEXT.md`, bukan sinonim yang dihindari di sana.
-
-**Kapan ADR wajib ditulis.** Ketiganya harus benar: keputusannya mahal dibatalkan, mengejutkan
-tanpa konteks, dan merupakan hasil trade-off nyata. Melonggarkan larangan mana pun di Prinsip VI
-selalu memenuhi ketiganya.
-
-**Pelanggaran.** Melanggar pasal mana pun adalah alasan sah untuk menolak sebuah pull request.
-Pelanggaran yang disengaja dan dibenarkan dicatat sebagai ADR, bukan sebagai komentar di kode.
 
 ## Governance
 
