@@ -1,0 +1,7 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5433/eduscreen
+    username: eduscreen
+    password: eduscreen
+  thymeleaf:
+    cache: false

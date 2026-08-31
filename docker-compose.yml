@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16
+    container_name: eduscreen-db
+    environment:
+      POSTGRES_DB: eduscreen
+      POSTGRES_USER: eduscreen
+      POSTGRES_PASSWORD: eduscreen
+    ports:
+      # Host 5433: port 5432 lazim sudah dipakai PostgreSQL proyek lain.
+      - "5433:5432"
+    volumes:
+      - eduscreen-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eduscreen -d eduscreen"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  eduscreen-pgdata:

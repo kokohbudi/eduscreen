@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-parent</artifactId>
+    <version>3.5.16</version>
+    <relativePath/>
+  </parent>
+
+  <groupId>com.eduscreen</groupId>
+  <artifactId>eduscreen</artifactId>
+  <version>0.1.0-SNAPSHOT</version>
+  <name>Eduscreen</name>
+  <description>Portal latihan siswa multi-tenant untuk sekolah dan lembaga bimbingan belajar</description>
+
+  <properties>
+    <!-- ADR-0017: Java 25 LTS. Spring Boot 3.5.x mendukung JDK 17-25. -->
+    <java.version>25</java.version>
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <archunit.version>1.4.1</archunit.version>
+    <frontend-plugin.version>1.15.1</frontend-plugin.version>
+    <node.version>v22.20.0</node.version>
+  </properties>
+
+  <dependencies>
+    <!-- Web & presentasi: dirender server, HTMX menukar fragmen (TC-13, TC-14) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-web</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-thymeleaf</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.thymeleaf.extras</groupId>
+      <artifactId>thymeleaf-extras-springsecurity6</artifactId>
+    </dependency>
+
+    <!-- Keamanan: sesi server berbasis cookie (TC-29) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-security</artifactId>
+    </dependency>
+
+    <!-- Persistensi: skema hanya dari migrasi Flyway (TC-17) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-jpa</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-core</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.flywaydb</groupId>
+      <artifactId>flyway-database-postgresql</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>runtime</scope>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- Email transaksional: undangan akun dan reset password (BR-U04) -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-mail</artifactId>
+    </dependency>
+
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!-- ===== Tes ===== -->
+    <!-- TC-38: PostgreSQL sungguhan lewat Testcontainers. H2 dilarang. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.security</groupId>
+      <artifactId>spring-security-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-testcontainers</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>junit-jupiter</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>postgresql</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <!-- TC-40: batas arsitektur ditegakkan mesin, bukan tinjauan manusia -->
+    <dependency>
+      <groupId>com.tngtech.archunit</groupId>
+      <artifactId>archunit-junit5</artifactId>
+      <version>${archunit.version}</version>
+      <scope>test</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-maven-plugin</artifactId>
+      </plugin>
+
+      <!--
+        ADR-0017: JDK 26 juga terpasang di mesin pengembangan dan menjadi bawaan
+        /usr/libexec/java_home. Java 26 di luar dukungan Spring Boot 3.5, sehingga
+        build bisa berjalan di JDK yang salah tanpa disadari. Batas ditegakkan build,
+        bukan oleh ingatan orang menyetel JAVA_HOME.
+      -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-enforcer-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>enforce-java-25</id>
+            <goals><goal>enforce</goal></goals>
+            <configuration>
+              <rules>
+                <requireJavaVersion>
+                  <version>[25,26)</version>
+                  <message>Eduscreen membutuhkan Java 25 (ADR-0017). Spring Boot 3.5 tidak mendukung JDK 26. Setel JAVA_HOME ke JDK 25.</message>
+                </requireJavaVersion>
+                <requireMavenVersion>
+                  <version>[3.9,)</version>
+                </requireMavenVersion>
+              </rules>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Tailwind CSS dan aset klien; Node hidup di target/, tidak dipasang global -->
+      <plugin>
+        <groupId>com.github.eirslett</groupId>
+        <artifactId>frontend-maven-plugin</artifactId>
+        <version>${frontend-plugin.version}</version>
+        <configuration>
+          <nodeVersion>${node.version}</nodeVersion>
+          <installDirectory>${project.build.directory}</installDirectory>
+        </configuration>
+        <executions>
+          <execution>
+            <id>install-node-and-npm</id>
+            <goals><goal>install-node-and-npm</goal></goals>
+            <phase>generate-resources</phase>
+          </execution>
+          <execution>
+            <id>npm-install</id>
+            <goals><goal>npm</goal></goals>
+            <phase>generate-resources</phase>
+            <configuration><arguments>ci --no-audit --no-fund</arguments></configuration>
+          </execution>
+          <execution>
+            <id>build-css</id>
+            <goals><goal>npm</goal></goals>
+            <phase>generate-resources</phase>
+            <configuration><arguments>run build:css</arguments></configuration>
+          </execution>
+        </executions>
+      </plugin>
+
+      <!-- Salin HTMX, Alpine, dan KaTeX dari node_modules ke static/vendor -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-resources-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>copy-client-vendor</id>
+            <phase>process-resources</phase>
+            <goals><goal>copy-resources</goal></goals>
+            <configuration>
+              <outputDirectory>${project.build.outputDirectory}/static/vendor</outputDirectory>
+              <resources>
+                <resource>
+                  <directory>node_modules/htmx.org/dist</directory>
+                  <targetPath>htmx</targetPath>
+                  <includes><include>htmx.min.js</include></includes>
+                </resource>
+                <resource>
+                  <directory>node_modules/alpinejs/dist</directory>
+                  <targetPath>alpine</targetPath>
+                  <includes><include>cdn.min.js</include></includes>
+                </resource>
+                <resource>
+                  <directory>node_modules/katex/dist</directory>
+                  <targetPath>katex</targetPath>
+                  <includes>
+                    <include>katex.min.js</include>
+                    <include>katex.min.css</include>
+                    <include>fonts/**</include>
+                  </includes>
+                </resource>
+              </resources>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>

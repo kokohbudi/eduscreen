@@ -18,9 +18,7 @@ Panduan menjalankan dan **membuktikan** fitur ini bekerja ujung ke ujung. Detail
 
 ```bash
 # 1. PostgreSQL untuk pengembangan
-docker run -d --name eduscreen-db \
-  -e POSTGRES_DB=eduscreen -e POSTGRES_USER=eduscreen -e POSTGRES_PASSWORD=eduscreen \
-  -p 5432:5432 postgres:16
+docker compose up -d          # PostgreSQL 16 di host port 5433
 
 # 2. Variabel environment wajib — aplikasi menolak start tanpa ini (TC-04)
 export EDUSCREEN_ENV=local

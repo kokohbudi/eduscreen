@@ -1,0 +1,9 @@
+/*
+ * Tailwind v4 memakai konfigurasi CSS-first: sumber kelas dideklarasikan di sini,
+ * bukan di tailwind.config.js. Keluarannya (output.css) dihasilkan saat build dan
+ * tidak diversi.
+ */
+@import "tailwindcss";
+
+@source "../../templates";
+@source "../js";

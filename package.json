@@ -1,0 +1,18 @@
+{
+  "name": "eduscreen-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Aset klien Eduscreen: Tailwind, HTMX, Alpine, KaTeX",
+  "scripts": {
+    "build:css": "tailwindcss -i ./src/main/resources/static/css/input.css -o ./src/main/resources/static/css/output.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
+    "tailwindcss": "^4.1.0"
+  },
+  "dependencies": {
+    "alpinejs": "^3.14.0",
+    "htmx.org": "^2.0.0",
+    "katex": "^0.16.0"
+  }
+}

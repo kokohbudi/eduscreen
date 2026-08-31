@@ -30,3 +30,6 @@ application-local-secrets.yml
 
 # Perkakas
 .impeccable/
+
+# Aset klien yang dihasilkan saat build (disalin dari node_modules)
+src/main/resources/static/vendor/

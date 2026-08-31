@@ -38,15 +38,15 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 **Purpose**: Menyiapkan proyek, build, dan perkakas dasar
 
-- [ ] T001 Buat kerangka proyek Maven dan `pom.xml` dengan Java 25 serta Spring Boot 3.5+ (Web, Security, Data JPA, Validation, Mail, Thymeleaf) di `pom.xml`
-- [ ] T002 Buat kelas utama `EduscreenApplication` di `src/main/java/com/eduscreen/app/EduscreenApplication.java`
-- [ ] T003 [P] Konfigurasikan Tailwind CSS lewat CLI standalone dan `frontend-maven-plugin` di `pom.xml` dan `tailwind.config.js`
-- [ ] T004 [P] Tambahkan aset statis HTMX, Alpine.js, dan KaTeX di `src/main/resources/static/vendor/`
-- [ ] T005 [P] Buat `docker-compose.yml` berisi PostgreSQL 16 untuk pengembangan lokal di `docker-compose.yml`
-- [ ] T006 [P] Susun `application.yml` dengan profil `local` dan `demo`, `ddl-auto: validate`, dan pembacaan `EDUSCREEN_ENV` di `src/main/resources/application.yml`
-- [ ] T007 [P] Konfigurasikan Flyway (lokasi migrasi, penamaan berversi) di `src/main/resources/application.yml`
-- [ ] T008 [P] Buat kelas dasar tes Testcontainers PostgreSQL di `src/test/java/com/eduscreen/app/support/PostgresTestBase.java`
-- [ ] T009 [P] Buat `ArchUnitRulesTest` yang menegakkan TC-01 sampai TC-03 di `src/test/java/com/eduscreen/app/architecture/ArchUnitRulesTest.java`
+- [x] T001 Buat kerangka proyek Maven dan `pom.xml` dengan Java 25 serta Spring Boot 3.5+ (Web, Security, Data JPA, Validation, Mail, Thymeleaf) di `pom.xml`
+- [x] T002 Buat kelas utama `EduscreenApplication` di `src/main/java/com/eduscreen/app/EduscreenApplication.java`
+- [x] T003 [P] Konfigurasikan Tailwind CSS v4 lewat `frontend-maven-plugin` di `pom.xml`, `package.json`, dan `src/main/resources/static/css/input.css` (v4 memakai konfigurasi CSS-first; `tailwind.config.js` tidak dipakai)
+- [x] T004 [P] Tambahkan aset klien HTMX, Alpine.js, dan KaTeX lewat `package.json`, disalin ke `static/vendor/` saat build oleh `maven-resources-plugin` di `pom.xml`
+- [x] T005 [P] Buat `docker-compose.yml` berisi PostgreSQL 16 untuk pengembangan lokal di `docker-compose.yml`
+- [x] T006 [P] Susun `application.yml` dengan profil `local` dan `demo`, `ddl-auto: validate`, dan pembacaan `EDUSCREEN_ENV` di `src/main/resources/application.yml`
+- [x] T007 [P] Konfigurasikan Flyway (lokasi migrasi, penamaan berversi) di `src/main/resources/application.yml`
+- [x] T008 [P] Buat kelas dasar tes Testcontainers PostgreSQL di `src/test/java/com/eduscreen/app/support/PostgresTestBase.java`
+- [x] T009 [P] Buat `ArchUnitRulesTest` yang menegakkan TC-01 sampai TC-03 di `src/test/java/com/eduscreen/app/architecture/ArchUnitRulesTest.java`
 
 ---
 
