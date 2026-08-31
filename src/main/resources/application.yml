@@ -49,6 +49,11 @@ logging:
   level:
     root: INFO
     com.eduscreen.app: DEBUG
+  pattern:
+    # Log terstruktur (TC-44): tiap baris membawa requestId, clientId, dan userId sehingga satu
+    # kejadian bisa ditelusuri sampai ke tenant dan penggunanya. Password, jawaban Siswa, isi
+    # soal, dan alamat email dilarang masuk log; itu ditegakkan di tempat pemanggilan.
+    console: "%d{yyyy-MM-dd'T'HH:mm:ss.SSSXXX} %-5level [req=%X{requestId:-} client=%X{clientId:-} user=%X{userId:-}] %logger{36} - %msg%n"
 
 eduscreen:
   # Dibaca DummyIdentityProviderAdapter (TC-04). Wajib bernilai local atau demo;

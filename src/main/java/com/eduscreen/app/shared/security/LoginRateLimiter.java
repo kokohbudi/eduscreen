@@ -52,7 +52,7 @@ public class LoginRateLimiter {
         if (failures <= 2) {
             return Duration.ZERO;
         }
-        return Duration.ofMillis(Math.min(2_000L, 250L * (1L << Math.min(failures - 3, 3))));
+        return Duration.ofMillis(Math.min(2_000L, 250L * (failures - 2)));
     }
 
     private boolean isBlocked(String key, Instant now) {

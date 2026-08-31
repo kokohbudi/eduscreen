@@ -4,9 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.Clock;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 
 /**
  * Sumber waktu tunggal aplikasi.
@@ -44,8 +42,4 @@ public class ClientClock {
         return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
     }
 
-    /** Menyajikan waktu UTC dalam zona Client, khusus untuk render. */
-    public ZonedDateTime inClientZone(OffsetDateTime utc, ZoneId clientZone) {
-        return utc.atZoneSameInstant(clientZone);
-    }
 }

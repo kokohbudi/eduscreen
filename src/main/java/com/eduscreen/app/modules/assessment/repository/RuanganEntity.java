@@ -8,6 +8,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -33,11 +35,13 @@ public class RuanganEntity {
     @Column(nullable = false)
     private RuanganStatus status = RuanganStatus.ACTIVE;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
 
+    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
-    private OffsetDateTime updatedAt = OffsetDateTime.now();
+    private OffsetDateTime updatedAt;
 
     protected RuanganEntity() {
     }
@@ -75,18 +79,8 @@ public class RuanganEntity {
 
     public void archive() {
         this.status = RuanganStatus.ARCHIVED;
-        touch();
     }
 
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
 
-    public OffsetDateTime getUpdatedAt() {
-        return updatedAt;
-    }
 
-    public void touch() {
-        this.updatedAt = OffsetDateTime.now();
-    }
 }

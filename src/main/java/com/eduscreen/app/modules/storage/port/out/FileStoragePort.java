@@ -19,8 +19,4 @@ public interface FileStoragePort {
     UUID store(byte[] content, String contentType);
 
     InputStream read(UUID fileId);
-
-    boolean exists(UUID fileId);
-
-    void delete(UUID fileId);
 }

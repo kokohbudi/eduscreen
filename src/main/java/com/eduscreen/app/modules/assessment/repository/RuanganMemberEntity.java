@@ -8,6 +8,7 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.OffsetDateTime;
 import java.util.UUID;
@@ -38,8 +39,9 @@ public class RuanganMemberEntity {
     @Column(name = "member_role", nullable = false)
     private MemberRole memberRole;
 
-    @Column(name = "created_at", nullable = false)
-    private OffsetDateTime createdAt = OffsetDateTime.now();
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private OffsetDateTime createdAt;
 
     protected RuanganMemberEntity() {
     }
@@ -72,7 +74,4 @@ public class RuanganMemberEntity {
         return memberRole;
     }
 
-    public OffsetDateTime getCreatedAt() {
-        return createdAt;
-    }
 }

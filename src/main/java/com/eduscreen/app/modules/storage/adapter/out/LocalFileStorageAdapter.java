@@ -57,19 +57,7 @@ public class LocalFileStorageAdapter implements FileStoragePort {
         }
     }
 
-    @Override
-    public boolean exists(UUID fileId) {
-        return Files.exists(pathFor(fileId));
-    }
 
-    @Override
-    public void delete(UUID fileId) {
-        try {
-            Files.deleteIfExists(pathFor(fileId));
-        } catch (IOException e) {
-            throw new UncheckedIOException("Gagal menghapus berkas " + fileId, e);
-        }
-    }
 
     /** Membangun path dari UUID saja, lalu memastikan hasilnya tetap di bawah root. */
     private Path pathFor(UUID fileId) {

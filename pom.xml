@@ -22,6 +22,7 @@
     <java.version>25</java.version>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <archunit.version>1.4.1</archunit.version>
+    <owasp-sanitizer.version>20260313.1</owasp-sanitizer.version>
     <frontend-plugin.version>1.15.1</frontend-plugin.version>
     <node.version>v22.20.0</node.version>
   </properties>
@@ -66,11 +67,6 @@
       <scope>runtime</scope>
     </dependency>
 
-    <dependency>
-      <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-validation</artifactId>
-    </dependency>
-
     <!-- Email transaksional: undangan akun dan reset password (BR-U04) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -80,6 +76,17 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
+    <!--
+      TC-22: konten kaya disanitasi allowlist SAAT MENULIS. Soal ditulis Guru lalu ditayangkan
+      ke seluruh Ruangan, termasuk ke halaman tempat ujian sedang berjalan; satu akun Guru yang
+      jebol menjadi stored XSS dengan sasaran terburuk yang bisa dibayangkan di sistem ini.
+    -->
+    <dependency>
+      <groupId>com.googlecode.owasp-java-html-sanitizer</groupId>
+      <artifactId>owasp-java-html-sanitizer</artifactId>
+      <version>${owasp-sanitizer.version}</version>
     </dependency>
 
     <!-- ===== Tes ===== -->
