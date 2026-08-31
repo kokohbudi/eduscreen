@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Masuk')}"></head>
+<body class="min-h-screen bg-slate-50 text-slate-900">
+
+<div th:if="${@environment.getProperty('eduscreen.demo-banner', T(java.lang.Boolean), false)}"
+     class="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950" role="status">
+  LINGKUNGAN PERAGAAN — data di sini karangan dan autentikasinya tidak nyata.
+</div>
+
+<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
+  <div class="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
+    <h1 class="text-2xl font-bold tracking-tight">Eduscreen</h1>
+    <p class="mt-1 text-sm text-slate-500">Masuk ke portal Anda</p>
+
+    <!--
+      Pesan kegagalan sengaja seragam. Membedakan "akun tidak ditemukan" dari "password salah"
+      mengubah formulir ini menjadi alat memeriksa alamat email mana yang terdaftar.
+    -->
+    <div th:if="${param.error}" role="alert"
+         class="mt-6 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+      Email atau password salah.
+    </div>
+    <div th:if="${param.logout}" role="status"
+         class="mt-6 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+      Anda telah keluar.
+    </div>
+
+    <form th:action="@{/login}" method="post" class="mt-6 space-y-4">
+      <div>
+        <label for="username" class="block text-sm font-medium text-slate-700">Email</label>
+        <input type="email" id="username" name="username" required autofocus autocomplete="username"
+               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+      </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+        <input type="password" id="password" name="password" required autocomplete="current-password"
+               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+      </div>
+      <button type="submit"
+              class="w-full rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        Masuk
+      </button>
+    </form>
+  </div>
+
+  <p class="mt-4 text-center text-xs text-slate-400">
+    Alur undangan dan reset password menyusul.
+  </p>
+</main>
+
+</body>
+</html>

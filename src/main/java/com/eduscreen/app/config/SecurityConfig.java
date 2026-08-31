@@ -45,10 +45,11 @@ public class SecurityConfig {
                 // memeriksa client_id dan peran (TC-26). Soal ujian tidak boleh bocor lewat URL
                 // berkas.
                 .anyRequest().authenticated())
-            // loginPage() sengaja tidak diatur: halaman login bawaan Spring dipakai sampai
-            // AuthController menghadirkan yang sungguhan di T032. Menunjuk ke halaman yang
-            // belum ada hanya menghasilkan 404 di jalur paling penting.
+            // Halaman login dibuat sendiri (LoginController). Halaman bawaan Spring berhenti
+            // didaftarkan begitu authenticationEntryPoint kustom dipasang untuk TC-30, dan
+            // mengakali heuristik itu lebih rapuh daripada menulis satu templat.
             .formLogin(form -> form
+                .loginPage("/login")
                 .loginProcessingUrl("/login")
                 .defaultSuccessUrl("/", true)
                 .failureUrl("/login?error")
