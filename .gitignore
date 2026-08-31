@@ -1,0 +1,32 @@
+# Build
+target/
+*.jar
+*.war
+
+# Tailwind output (dihasilkan saat build)
+src/main/resources/static/css/output.css
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Node (hanya bila kelak dipakai; Tailwind memakai CLI standalone)
+node_modules/
+
+# Rahasia dan lokal
+.env
+.env.local
+application-local-secrets.yml
+
+# Perkakas
+.impeccable/
