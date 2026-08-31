@@ -70,7 +70,7 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 - [x] T021 Buat `GlobalExceptionAdvice` yang merender galat sebagai fragmen dan menjawab `401` + `HX-Redirect` untuk HTMX tak terautentikasi (TC-30, TC-31) di `src/main/java/com/eduscreen/app/shared/web/GlobalExceptionAdvice.java`
 - [x] T022 [P] Definisikan `NotificationPort` dan implementasikan `SmtpNotificationAdapter` serta `NoOpNotificationAdapter` untuk profil `demo` (TC-49) di `src/main/java/com/eduscreen/app/modules/notification/`
 - [x] T023 [P] Definisikan `FileStoragePort` dan implementasikan `LocalFileStorageAdapter` (TC-28) di `src/main/java/com/eduscreen/app/modules/storage/`
-- [x] T024 [P] Susun log terstruktur yang membawa `clientId`, `userId`, `sessionId` dan menyaring password, jawaban, isi soal, serta email (TC-44) di `src/main/java/com/eduscreen/app/shared/web/LoggingContextFilter.java` dan `src/main/resources/logback-spring.xml`
+- [x] T024 [P] Susun log terstruktur yang membawa `clientId`, `userId`, `sessionId` dan menyaring password, jawaban, isi soal, serta email (TC-44) di `src/main/java/com/eduscreen/app/shared/web/LoggingContextFilter.java` dan properti `logging.pattern.console` di `src/main/resources/application.yml`
 - [x] T025 [P] Buat pembantu waktu: penyimpanan UTC, konversi ke zona Client hanya saat render (BR-T01, BR-T02) di `src/main/java/com/eduscreen/app/shared/domain/ClientClock.java`
 - [x] T026 Buat tata letak dasar Thymeleaf beserta spanduk permanen environment `demo` (TC-47) di `src/main/resources/templates/layout/base.html`
 
@@ -123,9 +123,9 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Implementation for User Story 2 — konten
 
-- [ ] T045 [US2] Tulis migrasi taksonomi dan bank soal (`subject`, `topic`, `question`, `question_option`, `exercise`, `exercise_item`) beserta index pencarian di `src/main/resources/db/migration/V2__content.sql`
-- [ ] T046 [P] [US2] Implementasikan `ContentSanitizer` berbasis allowlist OWASP yang menolak `<script>`, `<style>`, `<iframe>`, `on*`, dan `javascript:` (TC-22, TC-23) di `src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java`
-- [ ] T047 [P] [US2] Implementasikan pengekstrak teks polos untuk kolom `*_text` turunan (TC-25) di `src/main/java/com/eduscreen/app/modules/assessment/service/PlainTextExtractor.java`
+- [x] T045 [US2] Tulis migrasi taksonomi dan bank soal (`subject`, `topic`, `question`, `question_option`, `exercise`, `exercise_item`) beserta index pencarian di `src/main/resources/db/migration/V2__content.sql`
+- [x] T046 [P] [US2] Implementasikan `ContentSanitizer` berbasis allowlist OWASP yang menolak `<script>`, `<style>`, `<iframe>`, `on*`, dan `javascript:` (TC-22, TC-23) di `src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java`
+- [x] T047 [P] [US2] Implementasikan pengekstrak teks polos untuk kolom `*_text` turunan (TC-25) sebagai method `toPlainText()` pada `src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java` (kelas terpisah dihapus saat audit: ia hanya mendelegasi ke sanitizer)
 - [ ] T048 [P] [US2] Buat entity dan repository `Subject` serta `Topic` dengan penanda asal `GLOBAL`/`CLIENT` di `src/main/java/com/eduscreen/app/modules/assessment/repository/SubjectEntity.java`, `TopicEntity.java`, dan repositorinya
 - [ ] T049 [P] [US2] Buat entity dan repository `Question` serta `QuestionOption` dengan `@SQLRestriction` untuk soft delete (TC-35) di `src/main/java/com/eduscreen/app/modules/assessment/repository/QuestionEntity.java`, `QuestionOptionEntity.java`, dan `QuestionRepository.java`
 - [ ] T050 [P] [US2] Buat entity dan repository `Exercise` serta `ExerciseItem` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ExerciseEntity.java`, `ExerciseItemEntity.java`, dan `ExerciseRepository.java`
@@ -348,7 +348,6 @@ Task: "Entity Exercise dan ExerciseItem di src/main/java/com/eduscreen/app/modul
 
 # Utilitas konten juga paralel:
 Task: "ContentSanitizer di src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java"
-Task: "PlainTextExtractor di src/main/java/com/eduscreen/app/modules/assessment/service/PlainTextExtractor.java"
 ```
 
 ---
