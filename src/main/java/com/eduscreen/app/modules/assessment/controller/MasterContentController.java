@@ -1,6 +1,7 @@
 package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
@@ -112,12 +113,14 @@ public class MasterContentController {
     public String search(@RequestParam(required = false) UUID subjectId,
                          @RequestParam(required = false) UUID topicId,
                          @RequestParam(required = false) String q,
+                         @RequestParam(required = false) StatusTerbit status,
                          @RequestParam(defaultValue = "0") int page,
                          @RequestParam(required = false) UUID exerciseId,
                          @RequestHeader(value = "HX-Request", required = false) String hxRequest,
                          Model model) {
         model.addAttribute("hasil",
-                questions.searchMaster(subjectId, topicId, q, PageRequest.of(page, UKURAN_HALAMAN)));
+                questions.searchMaster(subjectId, topicId, q, status, PageRequest.of(page, UKURAN_HALAMAN)));
+        model.addAttribute("status", status);
         model.addAttribute("subjectId", subjectId);
         model.addAttribute("topicId", topicId);
         model.addAttribute("q", q);
@@ -224,7 +227,7 @@ public class MasterContentController {
         // Penelusuran konten master saat perakit dibuka; fragmen hasilnya identik dengan yang
         // dipakai ruang kerja Question, hanya dengan exerciseId terisi (FR-071).
         model.addAttribute("hasil",
-                questions.searchMaster(null, null, null, PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
+                questions.searchMaster(null, null, null, null, PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
         model.addAttribute("subjectId", null);
         model.addAttribute("topicId", null);
         model.addAttribute("q", null);

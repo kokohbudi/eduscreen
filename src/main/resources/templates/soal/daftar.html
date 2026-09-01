@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head((master ?: false) ? 'Konten Master' : 'Bank Soal')}"></head>
+<body>
+<div th:replace="~{layout/base :: page((master ?: false) ? 'Konten Master Eduscreen' : 'Bank Soal', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Filter Subject/Topic memakai navigasi biasa (bukan HTMX): setiap pilihan memuat ulang
+         halaman penuh lewat GET, sehingga tautan hasil pencarian tetap bisa disalin dan Topic
+         yang ditampilkan selalu konsisten dengan Subject yang sedang dipilih (FR-013, FR-014). -->
+    <section class="mb-6 rounded border border-slate-200 bg-white p-4">
+      <form method="get" th:action="@{__${basePath ?: '/soal'}__}" class="flex flex-wrap items-end gap-3 text-sm">
+        <div>
+          <label for="subjectId" class="block font-medium text-slate-700">Subject</label>
+          <select id="subjectId" name="subjectId" onchange="this.form.submit()"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+            <option value="">Semua Subject</option>
+            <option th:each="s : ${subjects}" th:value="${s.id}"
+                    th:text="|${s.name} (${s.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|"
+                    th:selected="${subjectId != null and subjectId == s.id}">Subject</option>
+          </select>
+        </div>
+        <div>
+          <label for="topicId" class="block font-medium text-slate-700">Topic</label>
+          <select id="topicId" name="topicId" onchange="this.form.submit()" th:disabled="${subjectId == null}"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100">
+            <option value="">Semua Topic</option>
+            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+                    th:selected="${topicId != null and topicId == t.id}">Topic</option>
+          </select>
+        </div>
+        <div th:if="${master ?: false}">
+          <label for="status" class="block font-medium text-slate-700">Status</label>
+          <select id="status" name="status" onchange="this.form.submit()"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+            <option value="">Semua</option>
+            <option value="DRAF" th:selected="${status != null and status.name() == 'DRAF'}">Draf</option>
+            <option value="TERBIT" th:selected="${status != null and status.name() == 'TERBIT'}">Terbit</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label for="q" class="block font-medium text-slate-700">Cari</label>
+          <input type="text" id="q" name="q" th:value="${q}" placeholder="Kata kunci isi soal..."
+                 class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+        </div>
+        <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Cari
+        </button>
+        <a th:if="${topicId != null}" th:href="@{__${basePath ?: '/soal'}__/baru(topicId=${topicId})}"
+           class="rounded border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100">
+          + Soal baru
+        </a>
+      </form>
+
+      <!-- Tambah Subject/Topic lokal langsung dari sini (FR-013, FR-014): hasilnya satu <option>
+           baru lewat HTMX, ditambahkan tanpa memuat ulang seluruh halaman (TC-14). -->
+      <div class="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs text-slate-600">
+        <form class="flex items-end gap-2" th:attr="hx-post=@{__${subjectCreatePath ?: '/admin/subject'}__}"
+              hx-target="#subjectId" hx-swap="beforeend">
+          <div>
+            <label for="namaSubjectBaru" class="block font-medium">Subject baru</label>
+            <input type="text" id="namaSubjectBaru" name="name" required
+                   class="mt-1 rounded border border-slate-300 px-2 py-1">
+          </div>
+          <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Tambah</button>
+        </form>
+        <form th:if="${subjectId != null}" class="flex items-end gap-2"
+              th:attr="hx-post=@{__${subjectBasePath ?: '/subject'}__/{id}/topic(id=${subjectId})}"
+              hx-target="#topicId" hx-swap="beforeend">
+          <div>
+            <label for="namaTopicBaru" class="block font-medium">Topic baru di Subject ini</label>
+            <input type="text" id="namaTopicBaru" name="name" required
+                   class="mt-1 rounded border border-slate-300 px-2 py-1">
+          </div>
+          <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Tambah</button>
+        </form>
+        <!-- Membetulkan salah ketik nama Subject global. Hanya ruang kerja master: Subject lokal
+             Client belum punya pasangan ubah, dan menawarkannya di sini akan menembak rute yang
+             tidak ada. Sengaja form biasa, bukan HTMX — muat ulang penuh membuat seluruh dropdown
+             ikut benar tanpa menukar satu <option> di tengah <select>. -->
+        <form th:if="${(master ?: false) and subjectId != null}" method="post" class="flex items-end gap-2"
+              th:action="@{/eduscreen/subject/{id}/nama(id=${subjectId})}">
+          <div>
+            <label for="namaSubjectUbah" class="block font-medium">Ubah nama Subject ini</label>
+            <input type="text" id="namaSubjectUbah" name="name" required
+                   class="mt-1 rounded border border-slate-300 px-2 py-1">
+          </div>
+          <button type="submit" class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Simpan</button>
+        </form>
+      </div>
+    </section>
+
+    <div id="hasil-soal" th:replace="~{::hasil}"></div>
+
+  </div>
+
+  <!--
+    Fragmen daftar Subject gabungan GLOBAL + lokal, asal ditandai (FR-013, GET /subject).
+    Hanya berisi <option>: konsumennya (soal/editor.html, exercise/builder.html) mengganti
+    innerHTML <select> miliknya sendiri lewat cascading Subject->Topic, sehingga name/required
+    milik <select> pemanggil tidak pernah ikut terhapus (th:remove="tag" membuang pembungkusnya).
+  -->
+  <select th:fragment="subjects" th:remove="tag">
+    <option value="">-- Subject --</option>
+    <option th:each="s : ${subjects}" th:value="${s.id}"
+            th:text="|${s.name} (${s.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|">Subject</option>
+  </select>
+
+  <!-- Asal dibaca dari entity, bukan ditebak dari siapa yang memanggil: fragmen ini melayani
+       Client Admin (POST /admin/subject) maupun Eduscreen Admin (POST /eduscreen/subject). -->
+  <option th:fragment="opsiSubjectBaru" th:value="${subject.id}"
+          th:text="|${subject.name} (${subject.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|">Subject</option>
+
+  <!-- Fragmen daftar Topic terlihat Client ini (FR-014, GET /subject/{id}/topic); sama alasan
+       th:remove="tag" seperti fragmen subjects di atas. -->
+  <select th:fragment="topics" th:remove="tag">
+    <option value="">-- Topic --</option>
+    <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}">Topic</option>
+  </select>
+
+  <option th:fragment="opsiTopicBaru" th:value="${topic.id}" th:text="${topic.name}">Topic</option>
+
+  <!--
+    Hasil pencarian berhalaman. Dipakai dua kali: langsung sebagai bagian halaman ini, dan
+    dipakai ulang APA ADANYA oleh exercise/builder.html sebagai panel penelusuran bank soal
+    (lihat GET /soal, parameter exerciseId opsional). Saat exerciseId terisi, aksinya menjadi
+    "Tambah ke Exercise" alih-alih "Ubah/Hapus" — satu-satunya perbedaan tampilan antar konteks.
+  -->
+  <div th:fragment="hasil" id="hasil-soal">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2 w-8" th:if="${exerciseId != null}"></th>
+          <th class="py-2">Isi</th>
+          <th class="py-2">Tipe</th>
+          <th class="py-2" th:if="${master ?: false}">Status</th>
+          <th class="py-2">Aksi</th>
+        </tr>
+      </thead>
+      <!-- th:each dibungkus th:block, bukan ditaruh bersama th:replace di elemen yang sama:
+           th:replace berjalan lebih dulu (presedensi 100 vs 200), sehingga fragmennya akan
+           dipanggil sebelum variabel iterasinya sempat terikat. -->
+      <th:block th:each="pertanyaan : ${hasil}">
+        <tbody th:replace="~{::barisSoal}"></tbody>
+      </th:block>
+    </table>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${hasil.totalPages > 0}">
+      <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${hasil.hasPrevious()}"
+           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1}, exerciseId=${exerciseId})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${hasil.hasNext()}"
+           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1}, exerciseId=${exerciseId})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
+    <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">Belum ada soal yang cocok.</p>
+
+    <!-- Menambah beberapa soal sekaligus. hx-include menyapu seluruh centang di halaman ini;
+         HTMX tidak mengirim checkbox yang tidak tercentang, jadi tidak perlu penyaringan sendiri.
+         Kiriman kosong dijawab tanpa perubahan, bukan 400 — mencentang nol soal lalu menekan
+         tombol adalah salah pencet, bukan galat. -->
+    <button th:if="${exerciseId != null and hasil.totalElements > 0}" type="button"
+            th:attr="hx-post=@{__${itemPath ?: '/exercise'}__/{eid}/item/terpilih(eid=${exerciseId})}"
+            hx-include="[name='questionIds']" hx-target="#daftar-item" hx-swap="outerHTML"
+            class="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+      + Tambah soal terpilih
+    </button>
+  </div>
+
+  <!--
+    Satu baris hasil. Dipisah menjadi fragmen supaya penerbitan dan penarikan konten master bisa
+    menukar baris itu saja lewat HTMX, bukan memuat ulang seluruh tabel (TC-14).
+  -->
+  <tbody th:fragment="barisSoal" th:id="|soal-${pertanyaan.id}|"
+         class="border-b border-slate-100 align-top">
+    <tr>
+      <td class="py-2" th:if="${exerciseId != null}">
+        <input type="checkbox" name="questionIds" th:value="${pertanyaan.id}"
+               class="rounded border-slate-300">
+      </td>
+      <td class="py-2" th:text="${#strings.abbreviate(pertanyaan.bodyText, 120)}">Cuplikan isi soal</td>
+      <td class="py-2" th:text="${pertanyaan.type.name() == 'ESSAY' ? 'Esai' : 'Pilihan Ganda'}">Tipe</td>
+
+      <!-- Keadaan terbit hanya ada pada konten master; konten Client tidak memilikinya (FR-066). -->
+      <td class="py-2" th:if="${master ?: false}">
+        <span th:if="${pertanyaan.published}"
+              class="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Terbit</span>
+        <span th:unless="${pertanyaan.published}"
+              class="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">Belum terbit</span>
+      </td>
+
+      <td class="py-2 space-x-2">
+        <span th:if="${exerciseId != null}">
+          <!-- @{...} tidak boleh bersarang di dalam ${...}; jalurnya karena itu datang sebagai
+               atribut model, dengan perakit Exercise Client sebagai bawaan. -->
+          <button type="button" th:attr="hx-post=@{__${itemPath ?: '/exercise'}__/{eid}/item(eid=${exerciseId})},
+                                          hx-vals=|{&quot;questionId&quot;: &quot;${pertanyaan.id}&quot;}|"
+                  hx-target="#daftar-item" hx-swap="outerHTML"
+                  class="rounded border border-emerald-300 px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+            + Tambah ke Exercise
+          </button>
+        </span>
+        <span th:if="${exerciseId == null}">
+          <a th:href="@{__${basePath ?: '/soal'}__/{id}(id=${pertanyaan.id})}" class="text-slate-600 underline">Ubah</a>
+
+          <button th:if="${(master ?: false) and !pertanyaan.published}"
+                  th:attr="hx-post=@{__${basePath ?: '/soal'}__/{id}/terbit(id=${pertanyaan.id})},
+                           hx-target=|#soal-${pertanyaan.id}|"
+                  hx-swap="outerHTML"
+                  class="rounded border border-emerald-300 px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+            Terbitkan
+          </button>
+          <button th:if="${(master ?: false) and pertanyaan.published}"
+                  th:attr="hx-post=@{__${basePath ?: '/soal'}__/{id}/tarik(id=${pertanyaan.id})},
+                           hx-target=|#soal-${pertanyaan.id}|"
+                  hx-swap="outerHTML"
+                  hx-confirm="Tarik soal ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
+                  class="rounded border border-amber-300 px-2 py-1 text-amber-700 hover:bg-amber-50">
+            Tarik
+          </button>
+
+          <button th:attr="hx-delete=@{__${basePath ?: '/soal'}__/{id}(id=${pertanyaan.id})},hx-target=|#soal-${pertanyaan.id}|"
+                  hx-swap="outerHTML"
+                  hx-confirm="Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh."
+                  class="rounded border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50">
+            Hapus
+          </button>
+        </span>
+      </td>
+    </tr>
+  </tbody>
+
+  <tbody th:fragment="konfirmasiHapus">
+    <tr>
+      <td colspan="4" class="py-2 text-sm text-emerald-700" th:text="${pesan}">Soal dihapus.</td>
+    </tr>
+  </tbody>
+
+</div>
+</body>
+</html>

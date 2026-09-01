@@ -155,4 +155,22 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     /** Antrean dashboard: Question master yang masih digarap (BR-O05, FR-066). */
     @Query("select count(q) from QuestionEntity q where q.clientId is null and q.publishedAt is null")
     long countUnpublishedMaster();
+
+    /**
+     * Ruang kerja master, disaring pada yang masih digarap (BR-O05).
+     *
+     * <p>Query terpisah, bukan parameter boolean pada {@link #searchMaster} — pola yang sama
+     * dipakai {@link #searchPublishedMaster}: yang membedakan ketiganya adalah siapa yang boleh
+     * melihat draf, dan perbedaan sepenting itu tidak pantas disembunyikan di balik argumen.
+     */
+    @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is null "
+            + "and (:subjectId is null or q.topicId in (select t.id from TopicEntity t where t.subjectId = :subjectId)) "
+            + "and (:topicId is null or q.topicId = :topicId) "
+            + "and lower(q.bodyText) like :pattern "
+            + "order by q.createdAt desc")
+    Page<QuestionEntity> searchUnpublishedMaster(
+            @Param("subjectId") UUID subjectId,
+            @Param("topicId") UUID topicId,
+            @Param("pattern") String pattern,
+            Pageable pageable);
 }
