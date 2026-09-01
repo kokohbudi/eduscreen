@@ -54,4 +54,33 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Butuh perhatian"))));
     }
+
+    @Test
+    @DisplayName("TC-14: nav Eduscreen muncul di seluruh halaman /eduscreen/**")
+    void navMunculDiSeluruhHalamanEduscreen() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+
+        for (String jalur : List.of("/eduscreen", "/eduscreen/client", "/eduscreen/soal", "/eduscreen/paket")) {
+            mockMvc.perform(get(jalur).with(admin))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(
+                            org.hamcrest.Matchers.containsString("id=\"nav-eduscreen\"")));
+        }
+    }
+
+    @Test
+    @DisplayName("BR-P04: Guru, Siswa, dan Client Admin tidak pernah melihat nav Eduscreen di portalnya")
+    void navEduscreenTidakBocorKePeranClient() throws Exception {
+        var tenants = data.twoTenants();
+
+        mockMvc.perform(get("/guru").with(user(data.principal(tenants.a().guru()))))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("nav-eduscreen"))));
+        mockMvc.perform(get("/siswa").with(user(data.principal(tenants.a().siswa()))))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("nav-eduscreen"))));
+        mockMvc.perform(get("/admin").with(user(data.principal(tenants.a().admin()))))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("nav-eduscreen"))));
+    }
 }

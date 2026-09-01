@@ -20,7 +20,12 @@
   keliru menganggap lingkungan peragaan sebagai sistem sungguhan: di sana autentikasi palsu —
   satu password berlaku untuk semua akun.
 -->
-<div th:fragment="page(pageTitle, content)" class="min-h-screen bg-slate-50 text-slate-900">
+<!-- Token CSRF dipasang sekali di sini, bukan per-halaman: HTMX mewarisi hx-headers dari
+     elemen leluhur, jadi fragmen yang di-swap ke dalam halaman ikut terlindungi tanpa harus
+     membawa tokennya sendiri. Sebelumnya tiap templat memasangnya pada elemen ber-th:remove="tag",
+     yang membuang atributnya bersama tag-nya sehingga semua POST/PUT/DELETE HTMX dijawab 403. -->
+<div th:fragment="page(pageTitle, content)" class="min-h-screen bg-slate-50 text-slate-900"
+     th:attr="hx-headers=|{&quot;${_csrf.headerName}&quot;: &quot;${_csrf.token}&quot;}|">
 
   <div th:if="${@environment.getProperty('eduscreen.demo-banner', T(java.lang.Boolean), false)}"
        class="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950"
@@ -32,6 +37,23 @@
   <header class="border-b border-slate-200 bg-white">
     <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
       <a th:href="@{/}" class="text-lg font-bold tracking-tight text-slate-900">Eduscreen</a>
+
+      <!-- Nav khusus Eduscreen Admin. Templat bukan pagar keamanan — SecurityConfig yang menjaga
+           rute Eduscreen di back end — tapi menampilkan pintu yang tidak boleh dibuka adalah cacat
+           tersendiri, jadi sec:authorize di sini menutupnya di lapis tampilan (BR-P04). -->
+      <nav id="nav-eduscreen" sec:authorize="hasRole('EDUSCREEN_ADMIN')"
+           class="flex items-center gap-4 text-sm"
+           xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
+        <a th:href="@{/eduscreen}" th:classappend="${menuAktif == 'dashboard'} ? 'font-bold text-slate-900' : 'text-slate-600'"
+           class="hover:text-slate-900">Dashboard</a>
+        <a th:href="@{/eduscreen/client}" th:classappend="${menuAktif == 'client'} ? 'font-bold text-slate-900' : 'text-slate-600'"
+           class="hover:text-slate-900">Client</a>
+        <a th:href="@{/eduscreen/soal}" th:classappend="${menuAktif == 'soal'} ? 'font-bold text-slate-900' : 'text-slate-600'"
+           class="hover:text-slate-900">Konten master</a>
+        <a th:href="@{/eduscreen/paket}" th:classappend="${menuAktif == 'paket'} ? 'font-bold text-slate-900' : 'text-slate-600'"
+           class="hover:text-slate-900">Paket</a>
+      </nav>
+
       <div sec:authorize="isAuthenticated()" class="flex items-center gap-4 text-sm"
            xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
         <span class="text-slate-600" th:text="${#authentication.principal.fullName()}">Nama</span>
