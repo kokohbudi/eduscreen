@@ -70,11 +70,18 @@ public class MasterContentController {
 
     // -------------------------------------------------------------- Subject
 
-    /** Subject yang lahir di sini GLOBAL — dibaca semua Client, tidak pernah disalin (BR-O02). */
+    /**
+     * Subject yang lahir di sini GLOBAL — dibaca semua Client, tidak pernah disalin (BR-O02).
+     *
+     * <p>Memuat ulang halaman ke Subject yang baru, bukan menyisipkan satu {@code <option>} lewat
+     * HTMX. Penyisipan itu mendarat di dalam {@code <select>} yang tertutup: penambahan yang
+     * BERHASIL tidak meninggalkan jejak apa pun di layar, dan nama kembar yang dibalas 400 bahkan
+     * tidak ditukar HTMX sama sekali — dua-duanya terbaca sebagai "gagal" oleh yang menekannya.
+     * Sesudah muat ulang, Subject barunya terpilih di penyaring dan form Topic langsung muncul.
+     */
     @PostMapping("/eduscreen/subject")
-    public String createSubject(@RequestParam String name, Model model) {
-        model.addAttribute("subject", taxonomy.createGlobalSubject(name));
-        return "soal/daftar :: opsiSubjectBaru";
+    public String createSubject(@RequestParam String name) {
+        return "redirect:/eduscreen/soal?subjectId=" + taxonomy.createGlobalSubject(name).getId();
     }
 
     /**

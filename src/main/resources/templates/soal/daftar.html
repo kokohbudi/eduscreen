@@ -52,11 +52,12 @@
         </a>
       </form>
 
-      <!-- Tambah Subject/Topic lokal langsung dari sini (FR-013, FR-014): hasilnya satu <option>
-           baru lewat HTMX, ditambahkan tanpa memuat ulang seluruh halaman (TC-14). -->
+      <!-- Tambah Subject/Topic langsung dari sini (FR-013, FR-014). Topic memakai HTMX karena
+           hasilnya satu <option> pada dropdown yang SEDANG dipakai; Subject sengaja memuat ulang
+           halaman supaya penambahannya terlihat dan galatnya terbaca (lihat createSubject). -->
       <div class="mt-3 flex flex-wrap gap-3 border-t border-slate-100 pt-3 text-xs text-slate-600">
-        <form class="flex items-end gap-2" th:attr="hx-post=@{__${subjectCreatePath ?: '/admin/subject'}__}"
-              hx-target="#subjectId" hx-swap="beforeend">
+        <form class="flex items-end gap-2" method="post"
+              th:action="@{__${subjectCreatePath ?: '/admin/subject'}__}">
           <div>
             <label for="namaSubjectBaru" class="block font-medium">Subject baru</label>
             <input type="text" id="namaSubjectBaru" name="name" required
@@ -105,11 +106,6 @@
     <option th:each="s : ${subjects}" th:value="${s.id}"
             th:text="|${s.name} (${s.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|">Subject</option>
   </select>
-
-  <!-- Asal dibaca dari entity, bukan ditebak dari siapa yang memanggil: fragmen ini melayani
-       Client Admin (POST /admin/subject) maupun Eduscreen Admin (POST /eduscreen/subject). -->
-  <option th:fragment="opsiSubjectBaru" th:value="${subject.id}"
-          th:text="|${subject.name} (${subject.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|">Subject</option>
 
   <!-- Fragmen daftar Topic terlihat Client ini (FR-014, GET /subject/{id}/topic); sama alasan
        th:remove="tag" seperti fragmen subjects di atas. -->
