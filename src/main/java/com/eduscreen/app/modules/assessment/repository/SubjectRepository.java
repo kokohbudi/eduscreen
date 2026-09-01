@@ -1,0 +1,37 @@
+package com.eduscreen.app.modules.assessment.repository;
+
+import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
+
+import java.util.List;
+import java.util.UUID;
+
+/** Seluruh pembacaan milik Client menyaring {@code clientId} secara eksplisit (TC-36). */
+public interface SubjectRepository extends JpaRepository<SubjectEntity, UUID> {
+
+    List<SubjectEntity> findByClientIdOrderByNameAsc(UUID clientId);
+
+    /**
+     * Penjaga duplikat nama Subject GLOBAL; jaring terakhirnya indeks unik
+     * {@code subject_global_name_unique} (V7). Yang sudah dihapus tidak ikut terhitung — filter
+     * {@code deleted_at is null} datang dari {@code @SQLRestriction} di entity.
+     */
+    boolean existsByOriginAndNameIgnoreCase(ContentOrigin origin, String name);
+
+    /** Subject yang boleh dilihat satu Client: GLOBAL milik Eduscreen plus miliknya (FR-013). */
+    @Query("select s from SubjectEntity s where s.origin = com.eduscreen.app.modules.assessment.domain.ContentOrigin.GLOBAL or s.clientId = :clientId order by s.name asc")
+    List<SubjectEntity> findVisibleTo(@Param("clientId") UUID clientId);
+
+    /**
+     * Antrean dashboard: Subject GLOBAL yang belum punya satu pun Topic (BR-O05). Di ruang kerja
+     * master, tombol "+ Soal baru" hanya muncul setelah Topic dipilih — Subject tanpa Topic
+     * adalah jalan buntu yang tidak menjelaskan dirinya sendiri.
+     */
+    @Query("select s from SubjectEntity s "
+            + "where s.origin = com.eduscreen.app.modules.assessment.domain.ContentOrigin.GLOBAL "
+            + "and not exists (select t.id from TopicEntity t where t.subjectId = s.id) "
+            + "order by s.name asc")
+    List<SubjectEntity> findGlobalWithoutTopic();
+}

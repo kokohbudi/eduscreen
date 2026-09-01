@@ -56,4 +56,28 @@ public interface ExerciseRepository extends JpaRepository<ExerciseEntity, UUID> 
     /** Kartu dashboard: paket master yang sudah terbit dan karena itu bisa diadopsi (FR-067). */
     @Query("select count(e) from ExerciseEntity e where e.clientId is null and e.publishedAt is not null")
     long countPublishedMaster();
+
+    /**
+     * Antrean dashboard: paket master yang macet di gerbang FR-069 — masih draf, tapi memuat
+     * Question yang belum terbit sehingga penerbitannya pasti ditolak (BR-O05).
+     *
+     * <p>Satu query untuk seluruh paket, bukan perulangan
+     * {@code QuestionRepository.findUnpublishedInExercise} per paket yang N+1.
+     */
+    @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is null "
+            + "and exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id "
+            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null)) "
+            + "order by e.updatedAt desc")
+    List<ExerciseEntity> findMasterBlocked();
+
+    /**
+     * Antrean dashboard: paket master yang tinggal diklik — draf, berisi (FR-072), dan seluruh
+     * isinya sudah terbit (BR-O05).
+     */
+    @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is null "
+            + "and exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id) "
+            + "and not exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id "
+            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null)) "
+            + "order by e.updatedAt desc")
+    List<ExerciseEntity> findMasterReadyToPublish();
 }

@@ -59,6 +59,10 @@ Catatan izin yang tidak jelas dari tabel:
 
 Mengelola Subject `GLOBAL`, Topic `GLOBAL`, Question `owner = EDUSCREEN`, dan Exercise `owner = EDUSCREEN`. Perubahan di sini tidak pernah merambat ke Client yang sudah mengadopsi (ADR-0001).
 
+- **BR-O03** — Nama Subject `GLOBAL` tunggal, dibandingkan tanpa memandang kapital maupun spasi tepi. Subject `GLOBAL` ada justru agar semua sekolah memakai satu ejaan (ADR-0004); duplikat di dalamnya merusak alasan itu. Subject lokal tidak terikat aturan ini — dua Client berhak menamai Subject-nya sama karena taksonomi mereka terisolasi.
+- **BR-O04** — Nama Subject `GLOBAL` boleh diperbaiki kapan saja. Karena Subject `GLOBAL` tidak pernah disalin (BR-O02), perbaikan itu langsung terlihat semua Client tanpa satu pun salinan ikut berubah.
+- **BR-O05** — Pekerjaan konten master yang macet karena aturan penerbitan harus terlihat tanpa dicari. Paket yang isinya belum terbit (FR-069), paket kosong (FR-072), dan Subject global tanpa Topic adalah jalan buntu yang tidak menjelaskan dirinya sendiri di layar tempat ia dibuat.
+
 ### 6.3 Client Admin — Ruangan dan akun
 
 1. Buat Ruangan dengan nama yang memuat periode (`Kelas 4B 2026/2027`).
