@@ -126,12 +126,16 @@ class EduscreenDashboardIT extends PostgresTestBase {
     void subjectBuntuMasukAntreanLaluKeluar() {
         var subject = taxonomy.createGlobalSubject("Kimia Kelas 11 buntu dashboard");
 
-        assertThat(dashboard.antrean().subjectBuntu().tampil())
+        // Diperiksa lewat query penuh (subjects.findGlobalWithoutTopic()), bukan
+        // dashboard.antrean().subjectBuntu().tampil(): daftar tampilan dipotong lima dan diurut
+        // nama, jadi di database tes bersama ia bergantung pada kelas tes mana yang kebetulan
+        // jalan lebih dulu meninggalkan berapa banyak Subject GLOBAL buntu lain.
+        assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());
 
         taxonomy.createGlobalTopic(subject.getId(), "Asam Basa");
 
-        assertThat(dashboard.antrean().subjectBuntu().tampil())
+        assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).doesNotContain(subject.getId());
     }
 
@@ -145,7 +149,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
         // terlihat di ruang kerja master, jadi Subject-nya TETAP buntu bagi Eduscreen Admin.
         taxonomy.createClientTopic(subject.getId(), client.getId(), "Bab lokal sekolah");
 
-        assertThat(dashboard.antrean().subjectBuntu().tampil())
+        assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());
     }
 
