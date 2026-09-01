@@ -149,10 +149,10 @@
       <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
       <div class="space-x-2">
         <a th:if="${hasil.hasPrevious()}"
-           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1}, exerciseId=${exerciseId})}"
+           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, status=${status}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1}, exerciseId=${exerciseId})}"
            class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
         <a th:if="${hasil.hasNext()}"
-           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1}, exerciseId=${exerciseId})}"
+           th:href="@{__${basePath ?: '/soal'}__(subjectId=${subjectId}, topicId=${topicId}, q=${q}, type=${type}, status=${status}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1}, exerciseId=${exerciseId})}"
            class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
       </div>
     </div>

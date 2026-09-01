@@ -17,7 +17,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** TC-14: dashboard dan halaman Client berdiri sebagai dua halaman terpisah. */
+/** BR-O05: dashboard dan halaman Client berdiri sebagai dua halaman terpisah. */
 @AutoConfigureMockMvc
 class EduscreenDashboardRenderTest extends PostgresTestBase {
 
@@ -25,7 +25,7 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
     @Autowired TestData data;
 
     @Test
-    @DisplayName("TC-14 (BR-O05): dashboard merender antrean berisi paket yang macet")
+    @DisplayName("BR-O05: dashboard merender antrean berisi paket yang macet")
     void dashboardMerenderAntrean() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
@@ -42,7 +42,7 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-14: /eduscreen/client memuat daftar Client dan form onboarding, bukan antrean")
+    @DisplayName("BR-O05: /eduscreen/client memuat daftar Client dan form onboarding, bukan antrean")
     void halamanClientMemuatOnboarding() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         data.client("SD Render Dashboard");
@@ -56,7 +56,7 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-14: nav Eduscreen muncul di seluruh halaman /eduscreen/**")
+    @DisplayName("BR-P04: nav Eduscreen muncul di seluruh halaman /eduscreen/**")
     void navMunculDiSeluruhHalamanEduscreen() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
 

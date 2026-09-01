@@ -3,6 +3,7 @@ package com.eduscreen.app.modules;
 import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
+import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
@@ -38,11 +39,14 @@ class EduscreenDashboardIT extends PostgresTestBase {
     TaxonomyService taxonomy;
     @Autowired
     SubjectRepository subjects;
+    @Autowired
+    ExerciseRepository exercises;
 
     @Test
     @DisplayName("BR-O05: kartu menghitung Client, Question master, dan paket terbit")
     void kartuMenghitungMilikEduscreen() {
         var sebelum = dashboard.kartu();
+        var antreanSebelum = dashboard.antrean();
 
         data.client("SD Dashboard1");
         TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
@@ -51,12 +55,15 @@ class EduscreenDashboardIT extends PostgresTestBase {
         data.masterExercise("Paket dashboard terbit", List.of(terbit));
 
         var sesudah = dashboard.kartu();
+        var antreanSesudah = dashboard.antrean();
 
         assertThat(sesudah.client()).isEqualTo(sebelum.client() + 1);
         // Dua Question master lahir: satu terbit, satu draf. Kartu menghitung keduanya.
         assertThat(sesudah.questionMaster()).isEqualTo(sebelum.questionMaster() + 2);
         // masterExercise() melahirkan paket DRAF, jadi kartu "paket terbit" tidak bergerak.
         assertThat(sesudah.paketTerbit()).isEqualTo(sebelum.paketTerbit());
+        // Dari dua Question master di atas, hanya satu yang draf (masterMcq tanpa publish).
+        assertThat(antreanSesudah.questionDraf()).isEqualTo(antreanSebelum.questionDraf() + 1);
     }
 
     @Test
@@ -156,6 +163,8 @@ class EduscreenDashboardIT extends PostgresTestBase {
     @Test
     @DisplayName("BR-P04 (FR-080): pekerjaan macet milik sebuah Client tidak pernah masuk antrean Eduscreen")
     void antreanTidakMemuatPekerjaanClient() {
+        var questionDrafSebelum = dashboard.antrean().questionDraf();
+
         ClientEntity client = data.client("SD Dashboard3");
         var guru = data.user(client, UserRole.GURU, "Guru Antrean");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
@@ -165,12 +174,19 @@ class EduscreenDashboardIT extends PostgresTestBase {
 
         var antrean = dashboard.antrean();
 
-        assertThat(antrean.paketMacet().tampil())
+        // Diperiksa lewat query penuh, bukan Baris.tampil(): daftar tampilan dipotong lima nama
+        // dan subjectBuntu diurut nama, jadi kalau suatu hari filter tenant hilang dari query,
+        // baris milik Client cuma tertangkap kalau kebetulan masuk lima besar. Pengunci batas
+        // tenant tidak boleh bergantung pada kebetulan seperti itu.
+        assertThat(exercises.findMasterBlocked())
                 .extracting(ExerciseEntity::getId).doesNotContain(paketClient.getId());
-        assertThat(antrean.paketSiapTerbit().tampil())
+        assertThat(exercises.findMasterReadyToPublish())
                 .extracting(ExerciseEntity::getId).doesNotContain(paketClient.getId());
-        assertThat(antrean.subjectBuntu().tampil())
+        assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).doesNotContain(subjectClient.getId());
+        // soalClient lahir lewat data.mcq(...) tanpa publishedAt, tapi ber-clientId — tidak boleh
+        // ikut terhitung sebagai Question master draf.
+        assertThat(antrean.questionDraf()).isEqualTo(questionDrafSebelum);
     }
 
     @Test

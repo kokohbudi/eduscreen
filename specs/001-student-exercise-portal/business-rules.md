@@ -3,7 +3,7 @@
 **Feature**: [spec.md](./spec.md) | **Konstitusi**: `CONSTITUTION.md` | **Glosarium**: `CONTEXT.md`
 
 Berkas ini memuat perilaku terperinci yang menjadi rujukan `FR-*` di [spec.md](./spec.md):
-**69 aturan bisnis** `BR-*` dan **54 kriteria penerimaan** `AC-*`.
+**72 aturan bisnis** `BR-*` dan **54 kriteria penerimaan** `AC-*`.
 
 Yang TIDAK ada di sini karena sudah punya rumah sendiri, agar tidak ada dua sumber kebenaran:
 
@@ -61,7 +61,7 @@ Mengelola Subject `GLOBAL`, Topic `GLOBAL`, Question `owner = EDUSCREEN`, dan Ex
 
 - **BR-O03** — Nama Subject `GLOBAL` tunggal, dibandingkan tanpa memandang kapital maupun spasi tepi. Subject `GLOBAL` ada justru agar semua sekolah memakai satu ejaan (ADR-0004); duplikat di dalamnya merusak alasan itu. Subject lokal tidak terikat aturan ini — dua Client berhak menamai Subject-nya sama karena taksonomi mereka terisolasi.
 - **BR-O04** — Nama Subject `GLOBAL` boleh diperbaiki kapan saja. Karena Subject `GLOBAL` tidak pernah disalin (BR-O02), perbaikan itu langsung terlihat semua Client tanpa satu pun salinan ikut berubah.
-- **BR-O05** — Pekerjaan konten master yang macet karena aturan penerbitan harus terlihat tanpa dicari. Paket yang isinya belum terbit (FR-069), paket kosong (FR-072), dan Subject global tanpa Topic adalah jalan buntu yang tidak menjelaskan dirinya sendiri di layar tempat ia dibuat.
+- **BR-O05** — Pekerjaan konten master yang macet karena aturan penerbitan harus terlihat tanpa dicari. Paket yang isinya belum terbit (FR-069) dan Subject global tanpa Topic adalah jalan buntu yang tidak menjelaskan dirinya sendiri di layar tempat ia dibuat.
 
 ### 6.3 Client Admin — Ruangan dan akun
 

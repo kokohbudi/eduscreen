@@ -66,7 +66,8 @@ public interface ExerciseRepository extends JpaRepository<ExerciseEntity, UUID> 
      */
     @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is null "
             + "and exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id "
-            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null)) "
+            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null "
+            + "and q.clientId is null)) "
             + "order by e.updatedAt desc")
     List<ExerciseEntity> findMasterBlocked();
 
@@ -77,7 +78,8 @@ public interface ExerciseRepository extends JpaRepository<ExerciseEntity, UUID> 
     @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is null "
             + "and exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id) "
             + "and not exists (select i.id from ExerciseItemEntity i where i.exerciseId = e.id "
-            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null)) "
+            + "and i.questionId in (select q.id from QuestionEntity q where q.publishedAt is null "
+            + "and q.clientId is null)) "
             + "order by e.updatedAt desc")
     List<ExerciseEntity> findMasterReadyToPublish();
 }
