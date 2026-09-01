@@ -6,6 +6,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.util.HtmlUtils;
 
@@ -30,6 +31,18 @@ public class GlobalExceptionAdvice {
                 .body(fragment("Data tidak ditemukan."));
     }
 
+    /** Jendela pengerjaan sudah tertutup: batas waktu terlewat atau Assignment ditutup (BR-T08). */
+    @ExceptionHandler(GoneException.class)
+    public ResponseEntity<String> handleGone(GoneException exception) {
+        return ResponseEntity.status(HttpStatus.GONE).body(fragment(escape(exception.getMessage())));
+    }
+
+    /** Gerbang validasi penerbitan: muatan terbaca, aturannya yang tidak terpenuhi (ADR-0003). */
+    @ExceptionHandler(UnprocessableException.class)
+    public ResponseEntity<String> handleUnprocessable(UnprocessableException exception) {
+        return ResponseEntity.unprocessableEntity().body(fragment(escape(exception.getMessage())));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<String> handleInvalidInput(IllegalArgumentException exception) {
         return ResponseEntity.badRequest().body(fragment(escape(exception.getMessage())));
@@ -38,6 +51,23 @@ public class GlobalExceptionAdvice {
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<String> handleConflict(IllegalStateException exception) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(fragment(escape(exception.getMessage())));
+    }
+
+    /**
+     * Berkas statis yang tidak ada adalah 404 biasa, bukan kegagalan internal.
+     *
+     * <p>Tanpa penangan ini ia jatuh ke {@link #handleUnexpected} dan menghasilkan satu
+     * {@code log.error} berikut stack trace penuh untuk setiap permintaan — termasuk
+     * {@code /favicon.ico} yang diminta setiap tab browser tanpa diminta siapa pun. Log
+     * operasional lalu dipenuhi jejak yang bukan masalah, dan galat sungguhan tenggelam di
+     * antaranya. Dicatat pada level debug: alamat yang salah masih berguna saat menelusuri
+     * tautan aset yang putus.
+     */
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<String> handleStaticNotFound(NoResourceFoundException exception) {
+        log.debug("Berkas statis tidak ditemukan: {}", exception.getResourcePath());
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(fragment("Berkas tidak ditemukan."));
     }
 
     @ExceptionHandler(Exception.class)
