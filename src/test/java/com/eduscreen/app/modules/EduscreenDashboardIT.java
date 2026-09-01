@@ -136,6 +136,20 @@ class EduscreenDashboardIT extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("BR-O05 (TC-36): Topic milik Client di bawah Subject global tidak mengeluarkannya dari antrean buntu")
+    void topicClientTidakMembuatSubjectGlobalBerhentiBuntu() {
+        ClientEntity client = data.client("SD Dashboard4");
+        var subject = taxonomy.createGlobalSubject("Kimia Kelas 12 buntu client");
+
+        // FR-014: Client boleh menggantungkan Topic lokal di bawah Subject GLOBAL. Topic itu tidak
+        // terlihat di ruang kerja master, jadi Subject-nya TETAP buntu bagi Eduscreen Admin.
+        taxonomy.createClientTopic(subject.getId(), client.getId(), "Bab lokal sekolah");
+
+        assertThat(dashboard.antrean().subjectBuntu().tampil())
+                .extracting(SubjectEntity::getId).contains(subject.getId());
+    }
+
+    @Test
     @DisplayName("BR-P04 (FR-080): pekerjaan macet milik sebuah Client tidak pernah masuk antrean Eduscreen")
     void antreanTidakMemuatPekerjaanClient() {
         ClientEntity client = data.client("SD Dashboard3");

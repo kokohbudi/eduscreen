@@ -25,13 +25,18 @@ public interface SubjectRepository extends JpaRepository<SubjectEntity, UUID> {
     List<SubjectEntity> findVisibleTo(@Param("clientId") UUID clientId);
 
     /**
-     * Antrean dashboard: Subject GLOBAL yang belum punya satu pun Topic (BR-O05). Di ruang kerja
-     * master, tombol "+ Soal baru" hanya muncul setelah Topic dipilih — Subject tanpa Topic
+     * Antrean dashboard: Subject GLOBAL yang belum punya satu pun Topic GLOBAL (BR-O05). Di ruang
+     * kerja master, tombol "+ Soal baru" hanya muncul setelah Topic dipilih — Subject tanpa Topic
      * adalah jalan buntu yang tidak menjelaskan dirinya sendiri.
+     *
+     * <p>Subquery menyaring {@code t.origin = GLOBAL} dengan sengaja: Client boleh menggantungkan
+     * Topic lokal di bawah Subject GLOBAL (FR-014), tapi Topic itu tidak terlihat di ruang kerja
+     * master, jadi ia tidak pernah membuat Subject berhenti buntu bagi Eduscreen Admin (TC-36).
      */
     @Query("select s from SubjectEntity s "
             + "where s.origin = com.eduscreen.app.modules.assessment.domain.ContentOrigin.GLOBAL "
-            + "and not exists (select t.id from TopicEntity t where t.subjectId = s.id) "
+            + "and not exists (select t.id from TopicEntity t where t.subjectId = s.id "
+            + "and t.origin = com.eduscreen.app.modules.assessment.domain.ContentOrigin.GLOBAL) "
             + "order by s.name asc")
     List<SubjectEntity> findGlobalWithoutTopic();
 }
