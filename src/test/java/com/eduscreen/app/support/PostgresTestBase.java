@@ -34,8 +34,12 @@ import org.testcontainers.containers.PostgreSQLContainer;
 @ActiveProfiles({"local", "test"})
 public abstract class PostgresTestBase {
 
+    /**
+     * {@code protected}, bukan package-private: tes migrasi perlu koordinat containernya untuk
+     * membuat database sendiri di dalamnya, terpisah dari database bersama seluruh suite.
+     */
     @ServiceConnection
-    static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16")
+    protected static final PostgreSQLContainer<?> POSTGRES = new PostgreSQLContainer<>("postgres:16")
             .withDatabaseName("eduscreen")
             .withUsername("eduscreen")
             .withPassword("eduscreen");

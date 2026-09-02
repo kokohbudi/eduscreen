@@ -128,9 +128,9 @@ public class QuestionService {
      */
     @Transactional
     public QuestionEntity create(QuestionDraft draft, UUID clientId) {
-        // Topic wajib boleh ditulisi pemilik ini: GLOBAL untuk konten master, GLOBAL atau milik
-        // sendiri untuk konten Client (FR-015, FR-061, AC-Q04). Selain itu diperlakukan seolah
-        // tidak ada.
+        // Topic wajib berada di dalam Paket milik pemilik ini: Paket master untuk konten
+        // Eduscreen, Paket milik sendiri untuk konten Client (FR-061, AC-Q04, ADR-0018).
+        // Selain itu diperlakukan seolah tidak ada.
         TopicEntity topic = taxonomy.requireWritableTopic(draft.topicId(), clientId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());

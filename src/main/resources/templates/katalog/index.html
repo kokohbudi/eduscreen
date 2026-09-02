@@ -34,7 +34,7 @@
         <div>
           <label for="subjectIdKatalog" class="block font-medium text-slate-700">Subject</label>
           <select id="subjectIdKatalog" name="subjectId"
-                  onchange="htmx.ajax('GET', '/subject/' + this.value + '/topic', {target: '#topicIdKatalog', swap: 'innerHTML'})"
+                  onchange="htmx.ajax('GET', '/katalog/subject/' + this.value + '/topic', {target: '#topicIdKatalog', swap: 'innerHTML'})"
                   class="mt-1 rounded border border-slate-300 px-2 py-1.5">
             <option value="">Semua Subject</option>
             <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"

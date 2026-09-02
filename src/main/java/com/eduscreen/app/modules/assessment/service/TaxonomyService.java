@@ -49,9 +49,20 @@ public class TaxonomyService {
         return subjects.findVisibleTo(clientId);
     }
 
+    /**
+     * Topic di bawah satu Subject milik satu pemilik konten; {@code ownerClientId} null berarti
+     * Eduscreen.
+     *
+     * <p>Menggantikan "Topic yang terlihat Client" yang berlaku sebelum ADR-0018. Kepemilikan
+     * Topic kini diwarisi dari Paket, dan Paket tidak pernah dipakai bersama: yang dipakai
+     * bersama hanya Subject. Daftar campuran master-plus-milik-sendiri karena itu tidak lagi
+     * mewakili apa pun yang bisa dikerjakan pemanggilnya.
+     */
     @Transactional(readOnly = true)
-    public List<TopicEntity> visibleTopics(UUID subjectId, UUID clientId) {
-        return topics.findVisibleTo(subjectId, clientId);
+    public List<TopicEntity> topicsOwnedBy(UUID subjectId, UUID ownerClientId) {
+        return ownerClientId == null
+                ? topics.findMasterOwnedIn(subjectId)
+                : topics.findOwnedBy(subjectId, ownerClientId);
     }
 
     @Transactional
@@ -197,20 +208,6 @@ public class TaxonomyService {
             throw new ResourceNotFoundException("Subject tidak ditemukan");
         }
         return subject;
-    }
-
-    /** Sama seperti {@link #requireVisibleSubject}, tapi untuk Topic. */
-    @Transactional(readOnly = true)
-    public TopicEntity requireVisibleTopic(UUID id, UUID clientId) {
-        if (id == null) {
-            // Ditangkap di sini, bukan dibiarkan sampai ke repository: `findById(null)` meledak
-            // sebagai galat internal dan pengguna menerima 500 untuk formulir yang sekadar
-            // kurang satu isian. Soal tanpa Topic adalah masukan yang salah, bukan kerusakan
-            // sistem (FR-015, AC-Q04).
-            throw new IllegalArgumentException("Soal wajib melekat pada satu Topic");
-        }
-        return topics.findVisible(id, clientId)
-                .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));
     }
 
     /**

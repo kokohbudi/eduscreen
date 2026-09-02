@@ -12,6 +12,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,13 +56,26 @@ public class CatalogController {
                           Model model) {
         UUID clientId = admin.requireClientId();
         model.addAttribute("subjects", taxonomy.visibleSubjects(clientId));
-        model.addAttribute("topics", subjectId != null ? taxonomy.visibleTopics(subjectId, clientId) : List.of());
+        // Topic MASTER, bukan milik Client ini: yang disaring di layar ini adalah konten
+        // Eduscreen, dan soal master tidak pernah berada di dalam Paket milik sebuah sekolah.
+        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, null) : List.of());
         // Paket master adalah Exercise ber-clientId null, dan hanya yang TERBIT boleh muncul
         // di sini: konten yang masih digarap Eduscreen tidak pernah terlihat Client (FR-067).
         model.addAttribute("paket",
                 exercises.listPublishedMaster(null, PageRequest.of(0, 100)).getContent());
         isiHasilSoal(clientId, subjectId, topicId, q, page, model);
         return "katalog/index";
+    }
+
+    /**
+     * Isi ulang daftar Topic katalog saat Subject berganti. Jalur terpisah dari
+     * {@code /subject/{id}/topic} milik bank soal: yang satu menawarkan Topic master untuk
+     * disaring, yang lain Topic milik Client untuk ditulisi (ADR-0018).
+     */
+    @GetMapping("/katalog/subject/{id}/topic")
+    public String catalogTopics(@PathVariable UUID id, Model model) {
+        model.addAttribute("topics", taxonomy.topicsOwnedBy(id, null));
+        return "soal/daftar :: topics";
     }
 
     /** Fragmen hasil untuk penelusuran HTMX; bentuknya identik dengan yang ada di halaman penuh. */

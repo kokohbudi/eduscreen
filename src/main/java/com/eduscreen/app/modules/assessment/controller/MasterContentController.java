@@ -103,7 +103,7 @@ public class MasterContentController {
     @GetMapping("/eduscreen/subject/{id}/topic")
     public String topics(@PathVariable UUID id, Model model) {
         taxonomy.requireGlobalSubject(id);
-        model.addAttribute("topics", taxonomy.visibleTopics(id, MASTER));
+        model.addAttribute("topics", taxonomy.topicsOwnedBy(id, MASTER));
         return "soal/daftar :: topics";
     }
 
@@ -137,7 +137,7 @@ public class MasterContentController {
             return "soal/daftar :: hasil";
         }
         model.addAttribute("subjects", taxonomy.visibleSubjects(MASTER));
-        model.addAttribute("topics", subjectId != null ? taxonomy.visibleTopics(subjectId, MASTER) : List.of());
+        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, MASTER) : List.of());
         model.addAttribute("menuAktif", "soal");
         return "soal/daftar";
     }
@@ -368,6 +368,6 @@ public class MasterContentController {
         // sendiri sudah tidak membawanya (ADR-0018).
         UUID subjectId = taxonomy.subjectIdOf(topic);
         model.addAttribute("subjectId", subjectId);
-        model.addAttribute("topics", taxonomy.visibleTopics(subjectId, MASTER));
+        model.addAttribute("topics", taxonomy.topicsOwnedBy(subjectId, MASTER));
     }
 }

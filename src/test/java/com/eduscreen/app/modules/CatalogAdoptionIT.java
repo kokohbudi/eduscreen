@@ -173,10 +173,9 @@ class CatalogAdoptionIT extends PostgresTestBase {
                         .isEqualTo(data.paketOf(pecahan).getId()));
     }
 
+    /** Penyaring pemilik tidak perlu lagi: {@code topicsOwnedBy} sudah menyaringnya di query. */
     private List<TopicEntity> milikClient(TopicEntity master, ClientEntity client) {
-        return taxonomy.visibleTopics(data.subjectIdOf(master), client.getId()).stream()
-                .filter(t -> client.getId().equals(data.paketOf(t).getClientId()))
-                .toList();
+        return taxonomy.topicsOwnedBy(data.subjectIdOf(master), client.getId());
     }
 
     @Test

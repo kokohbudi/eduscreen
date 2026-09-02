@@ -67,9 +67,14 @@ public class QuestionBankController {
                 + taxonomy.createClientSubject(user.requireClientId(), name).getId();
     }
 
+    /**
+     * Isi ulang daftar Topic saat Subject berganti, untuk formulir tulis maupun penyaring bank
+     * soal. Keduanya hanya berurusan dengan konten milik Client ini; katalog konten master
+     * punya jalurnya sendiri di {@code CatalogController} (ADR-0018).
+     */
     @GetMapping("/subject/{id}/topic")
     public String topics(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user, Model model) {
-        model.addAttribute("topics", taxonomy.visibleTopics(id, user.requireClientId()));
+        model.addAttribute("topics", taxonomy.topicsOwnedBy(id, user.requireClientId()));
         return "soal/daftar :: topics";
     }
 
@@ -118,7 +123,7 @@ public class QuestionBankController {
             return "soal/daftar :: hasil";
         }
         model.addAttribute("subjects", taxonomy.visibleSubjects(clientId));
-        model.addAttribute("topics", subjectId != null ? taxonomy.visibleTopics(subjectId, clientId) : List.of());
+        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, clientId) : List.of());
         return "soal/daftar";
     }
 
@@ -224,11 +229,11 @@ public class QuestionBankController {
             model.addAttribute("topics", List.<TopicEntity>of());
             return;
         }
-        TopicEntity topic = taxonomy.requireVisibleTopic(topicId, clientId);
+        TopicEntity topic = taxonomy.requireWritableTopic(topicId, clientId);
         // sementara sampai Task 6: Subject diturunkan dari Paket induk Topic, karena Topic
         // sendiri sudah tidak membawanya (ADR-0018).
         UUID subjectId = taxonomy.subjectIdOf(topic);
         model.addAttribute("subjectId", subjectId);
-        model.addAttribute("topics", taxonomy.visibleTopics(subjectId, clientId));
+        model.addAttribute("topics", taxonomy.topicsOwnedBy(subjectId, clientId));
     }
 }
