@@ -45,20 +45,31 @@
         </div>
       </div>
 
+      <!--
+        Fragmen "soal" membawa DUA elemen: peta soal dan batang soal. Peta ikut dalam setiap
+        balasan auto-save/navigasi sebagai swap out-of-band (hx-swap-oob) supaya penanda
+        "terjawab" dan posisi aktif selalu berasal dari server yang sama dengan jawabannya
+        (TC-13/TC-14) — bukan ditebak di klien. Pada muat awal atribut hx-swap-oob tidak
+        berarti apa-apa (HTMX hanya membacanya dari balasan), jadi satu markup melayani
+        keduanya.
+      -->
+      <th:block th:fragment="soal">
       <!-- Peta soal: navigasi Quiz bebas ke soal mana pun (berbeda dari Practice). -->
-      <div class="mb-6 grid grid-cols-8 gap-1.5 sm:grid-cols-10" role="navigation" aria-label="Peta soal">
+      <div id="peta-soal" hx-swap-oob="true"
+           class="mb-6 grid grid-cols-8 gap-1.5 sm:grid-cols-10" role="navigation" aria-label="Peta soal">
         <button th:each="i : ${#numbers.sequence(0, soal.total() - 1)}"
                 type="button"
                 th:text="${i + 1}"
-                th:attr="hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesi.id},position=${i})}"
-                hx-target="#soal" hx-swap="innerHTML"
+                th:attr="hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesi.id},position=${i})},
+                         aria-current=${i == soal.sessionQuestion().position} ? 'true' : null"
+                hx-target="#soal" hx-swap="outerHTML"
                 th:classappend="${terjawab.contains(i)} ? 'border-success/40 bg-success-soft text-success' : 'border-line bg-surface text-ink-2'"
-                class="h-10 rounded-md border text-sm font-medium tabular-nums transition-colors duration-150 hover:border-line-2 hover:text-ink">
+                class="h-10 rounded-md border text-sm font-medium tabular-nums transition-colors duration-150 hover:border-line-2 hover:text-ink aria-[current]:ring-2 aria-[current]:ring-accent aria-[current]:ring-offset-2 aria-[current]:ring-offset-bg">
           1
         </button>
       </div>
 
-      <div th:fragment="soal" id="soal">
+      <div id="soal">
         <!-- th:utext dipakai karena question.bodyHtml sudah tersanitasi saat ditulis (TC-22). -->
         <div class="card prose mb-4 max-w-none" th:utext="${soal.question().bodyHtml}">Batang soal</div>
 
@@ -92,6 +103,7 @@
           <p class="hint">Tersimpan otomatis saat Anda berhenti mengetik.</p>
         </div>
       </div>
+      </th:block>
     </div>
 
     <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
