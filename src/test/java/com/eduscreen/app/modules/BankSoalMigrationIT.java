@@ -38,7 +38,7 @@ class BankSoalMigrationIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B05: paket punya subject_id, published_at, dan source_paket_id")
+    @DisplayName("TC-36 (BR-O02): paket membawa client_id sebagai dasar pemisahan tenant, subject_id yang dipakai bersama, dan source_paket_id sebagai jejak adopsi")
     void paketTableShape() {
         List<String> paketColumns = jdbc.queryForList(
                 "select column_name from information_schema.columns where table_name = 'paket'",

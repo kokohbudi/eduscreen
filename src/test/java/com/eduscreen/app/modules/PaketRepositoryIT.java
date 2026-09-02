@@ -42,7 +42,7 @@ class PaketRepositoryIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B05: hanya Paket master terbit yang muncul untuk katalog")
+    @DisplayName("TC-09: Paket master yang belum terbit menghasilkan nol baris di katalog, tidak dibedakan dari yang tidak ada")
     void onlyPublishedMasterIsVisibleToCatalog() {
         SubjectEntity subject = subjects.save(SubjectEntity.global("Fisika Kelas 8 Katalog"));
         PaketEntity draf = pakets.save(PaketEntity.master(subject.getId(), "Draf", null));
@@ -57,7 +57,7 @@ class PaketRepositoryIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B01: Topic hidup di dalam satu Paket dan terurut menurut position")
+    @DisplayName("AC-B02: Topic hanya terbaca lewat Paket induknya, terurut menurut position")
     void topicBelongsToOnePaket() {
         SubjectEntity subject = subjects.save(SubjectEntity.global("Biologi Kelas 7 Urut"));
         PaketEntity paket = pakets.save(PaketEntity.master(subject.getId(), "Latihan Bab 1", null));

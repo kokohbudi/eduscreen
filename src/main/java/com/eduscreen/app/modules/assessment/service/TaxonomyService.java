@@ -120,7 +120,7 @@ public class TaxonomyService {
         // tersendiri ditulis di ruang kerja Bank Soal.
         String bersih = name.trim();
         PaketEntity paket = pakets.save(PaketEntity.forClient(clientId, subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
+        return topics.save(TopicEntity.of(paket.getId(), bersih, topics.nextPosition(paket.getId())));
     }
 
     /**
@@ -139,7 +139,7 @@ public class TaxonomyService {
         // sementara sampai Task 6: lihat catatan yang sama di createClientTopic.
         String bersih = name.trim();
         PaketEntity paket = pakets.save(PaketEntity.master(subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
+        return topics.save(TopicEntity.of(paket.getId(), bersih, topics.nextPosition(paket.getId())));
     }
 
     /** Subject milik sebuah Client tidak boleh menampung Topic master; ia diperlakukan seolah tidak ada. */
@@ -159,13 +159,18 @@ public class TaxonomyService {
     /**
      * Topic yang boleh ditulisi pemilik konten yang sedang bekerja.
      *
-     * <p>{@code clientId} null berarti Eduscreen Admin sedang menulis konten master, dan Topic-nya
-     * wajib GLOBAL. Topic milik sebuah Client tidak boleh menampung Question master: Question itu
-     * akan terbaca seluruh Client lewat katalog sementara Topic induknya tidak, dan adopsi akan
-     * menyalin Topic milik satu sekolah ke sekolah lain (FR-061, FR-082).
+     * <p>{@code clientId} null berarti Eduscreen Admin sedang menulis konten master, dan Paket
+     * induk Topic-nya wajib master. Paket milik sebuah Client tidak boleh menampung Question
+     * master: Question itu akan terbaca seluruh Client lewat katalog sementara Paket induknya
+     * tidak, dan adopsi akan menyalin konten milik satu sekolah ke sekolah lain (FR-061, FR-082).
      *
-     * <p>Untuk {@code clientId} yang terisi perilakunya sama persis dengan
-     * {@link #requireVisibleTopic}.
+     * <p>Sebaliknya juga, dan ini yang membedakannya dari {@link #requireVisibleTopic}: Client
+     * hanya boleh menulis ke Paket miliknya sendiri. Paket master boleh ia BACA lewat katalog,
+     * tidak boleh ia tulisi (ADR-0018). Aturan lama FR-014 — Topic milik Client di bawah Subject
+     * GLOBAL — kini terwujud sebagai Paket milik Client yang menunjuk Subject global yang sama:
+     * Subject tetap dipakai bersama, Paket tidak pernah. Database menegakkan hal yang sama lewat
+     * {@code question_paket_same_owner} (V9), sehingga jalur tulis mana pun yang lupa memeriksa
+     * tetap tertahan.
      */
     @Transactional(readOnly = true)
     public TopicEntity requireWritableTopic(UUID id, UUID clientId) {
@@ -173,7 +178,8 @@ public class TaxonomyService {
             throw new IllegalArgumentException("Soal wajib melekat pada satu Topic");
         }
         if (clientId != null) {
-            return requireVisibleTopic(id, clientId);
+            return topics.findWritable(id, clientId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));
         }
         return topics.findWritableMaster(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));

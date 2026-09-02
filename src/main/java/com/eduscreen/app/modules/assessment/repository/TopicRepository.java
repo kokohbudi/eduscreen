@@ -39,12 +39,16 @@ public interface TopicRepository extends JpaRepository<TopicEntity, UUID> {
     /**
      * Pencocokan judul untuk impor massal: berkas impor hanya membawa nama Topic, tanpa Subject
      * maupun Paket. Batas tenant ikut ditegakkan di dalam query, bukan di kode pemanggil (TC-36).
+     *
+     * <p>Sengaja hanya Paket milik Client ini, bukan juga Paket master: impor adalah jalur
+     * TULIS, dan Client tidak boleh menaruh soal ke dalam Paket milik Eduscreen (ADR-0018).
+     * Judul yang kebetulan sama dengan Topic master karena itu tidak cocok.
      */
     @Query("select t from TopicEntity t, PaketEntity p "
             + "where t.paketId = p.id and lower(t.title) = lower(:title) "
-            + "and (p.clientId is null or p.clientId = :clientId) "
+            + "and p.clientId = :clientId "
             + "order by t.createdAt asc")
-    List<TopicEntity> findVisibleByTitle(@Param("title") String title, @Param("clientId") UUID clientId);
+    List<TopicEntity> findWritableByTitle(@Param("title") String title, @Param("clientId") UUID clientId);
 
     @Query("select coalesce(max(t.position), -1) + 1 from TopicEntity t where t.paketId = :paketId")
     int nextPosition(@Param("paketId") UUID paketId);

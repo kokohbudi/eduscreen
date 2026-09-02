@@ -143,6 +143,9 @@ public class QuestionService {
         QuestionEntity question = new QuestionEntity(
                 clientId, topic.getPaketId(), draft.topicId(), draft.type(),
                 bodyHtml, sanitizer.toPlainText(bodyHtml));
+        // Soal baru mendarat di ekor Topic-nya. Tanpa ini setiap soal lahir di posisi 0 dan
+        // urutan yang dilihat penulis ditentukan kebetulan.
+        question.moveTo(questions.nextPosition(draft.topicId()));
         applyExplanation(question, draft.explanationHtml());
         question = questions.save(question);
 

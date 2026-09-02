@@ -148,6 +148,17 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     @Query(value = "select * from question where id in (:ids)", nativeQuery = true)
     List<QuestionEntity> findAllForSnapshot(@Param("ids") Collection<UUID> ids);
 
+    /**
+     * Posisi berikutnya untuk soal baru di dalam satu Topic.
+     *
+     * <p>Dihitung di database, bukan dari ukuran daftar di memori: dua penulis yang menyimpan
+     * bersamaan akan membaca angka yang sama kalau dihitung di aplikasi. Soal yang sudah
+     * dihapus lunak tidak ikut dihitung — {@code @SQLRestriction} pada {@code QuestionEntity}
+     * sudah menyaringnya (TC-35) — sehingga posisi bisa dipakai ulang setelah penghapusan.
+     */
+    @Query("select coalesce(max(q.position), -1) + 1 from QuestionEntity q where q.topicId = :topicId")
+    int nextPosition(@Param("topicId") UUID topicId);
+
     /** Kartu dashboard: seluruh Question master, draf maupun terbit (FR-060). */
     @Query("select count(q) from QuestionEntity q where q.clientId is null")
     long countMaster();

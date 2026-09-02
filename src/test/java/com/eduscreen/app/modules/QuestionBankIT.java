@@ -310,4 +310,43 @@ class QuestionBankIT extends PostgresTestBase {
         assertThat(exerciseService.itemsOf(exerciseGuruB.getId()))
                 .extracting(ExerciseItemEntity::getQuestionId).contains(soalGuruA.getId());
     }
+
+    @Test
+    @DisplayName("TC-36 (AC-B02): Client tidak bisa menulis soal ke dalam Topic milik Paket master")
+    void clientTidakBisaMenulisKeDalamPaketMaster() {
+        ClientEntity client = data.client("SD Batas1");
+        TopicEntity topicMaster = data.globalTopic("Matematika Kelas 4", "Pecahan");
+
+        QuestionService.QuestionDraft titipan = new QuestionService.QuestionDraft(
+                topicMaster.getId(), QuestionType.ESSAY, "<p>Titipan ke paket master</p>",
+                null, List.of());
+
+        // Paket master boleh DIBACA Client lewat katalog, tidak boleh ditulisi (ADR-0018).
+        // Kalau lolos, adopsi per Paket akan menyalin soal sekolah ini ke sekolah ketiga.
+        // Ketiadaan dan "bukan milikmu" sengaja sama-sama 404 (TC-09).
+        assertThatThrownBy(() -> questionService.create(titipan, client.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("AC-B02: soal baru menempel pada Paket milik Topic-nya dan mendarat di ekor Topic itu")
+    void soalBaruSewadahDenganTopicnyaDanBerurutan() {
+        ClientEntity client = data.client("SD Urut1");
+        TopicEntity topic = data.topic(client, "Matematika Kelas 4", "Pecahan");
+
+        QuestionEntity pertama = questionService.create(new QuestionService.QuestionDraft(
+                topic.getId(), QuestionType.ESSAY, "<p>Soal pertama</p>", null, List.of()),
+                client.getId());
+        QuestionEntity kedua = questionService.create(new QuestionService.QuestionDraft(
+                topic.getId(), QuestionType.ESSAY, "<p>Soal kedua</p>", null, List.of()),
+                client.getId());
+
+        assertThat(pertama.getPaketId()).isEqualTo(topic.getPaketId());
+        assertThat(kedua.getPaketId()).isEqualTo(topic.getPaketId());
+
+        // Tanpa nextPosition keduanya mendarat di 0 dan urutan yang dilihat penulis
+        // ditentukan kebetulan.
+        assertThat(pertama.getPosition()).isZero();
+        assertThat(kedua.getPosition()).isEqualTo(1);
+    }
 }

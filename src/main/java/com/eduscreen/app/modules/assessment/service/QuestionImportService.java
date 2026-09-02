@@ -103,7 +103,7 @@ public class QuestionImportService {
 
         int saved = 0;
         for (QuestionImportParser.RawRow row : pending.rows()) {
-            TopicEntity topic = findVisibleTopicByName(row.topic(), clientId);
+            TopicEntity topic = findWritableTopicByName(row.topic(), clientId);
             if (topic == null) {
                 continue;
             }
@@ -148,16 +148,18 @@ public class QuestionImportService {
     }
 
     /**
-     * Topic yang "terlihat" satu Client = Topic di Paket master atau di Paket miliknya sendiri,
-     * dicocokkan berdasarkan judul tanpa peduli huruf besar/kecil (§Impor massal).
+     * Topic yang boleh DITULISI satu Client = Topic di dalam Paket miliknya sendiri, dicocokkan
+     * berdasarkan judul tanpa peduli huruf besar/kecil (§Impor massal).
      *
      * <p>Kolom {@code topic} pada berkas impor tidak membawa Subject maupun Paket, jadi
-     * pencocokannya lintas Paket. Batas tenant (TC-36) ditegakkan di dalam query, bukan di
-     * kode ini. Judul yang muncul di lebih dari satu Paket diambil yang tertua supaya hasil
-     * impor tidak berubah-ubah antar unggahan.
+     * pencocokannya lintas Paket milik Client itu. Batas tenant (TC-36) ditegakkan di dalam
+     * query, bukan di kode ini. Paket master sengaja tidak ikut dicocokkan: berkas impor yang
+     * kolom topic-nya kebetulan sama dengan judul Topic master jangan sampai menitipkan soal
+     * sekolah ke dalam Paket milik Eduscreen (ADR-0018). Judul yang muncul di lebih dari satu
+     * Paket diambil yang tertua supaya hasil impor tidak berubah-ubah antar unggahan.
      */
-    private TopicEntity findVisibleTopicByName(String name, UUID clientId) {
-        return topics.findVisibleByTitle(name, clientId).stream()
+    private TopicEntity findWritableTopicByName(String name, UUID clientId) {
+        return topics.findWritableByTitle(name, clientId).stream()
                 .findFirst()
                 .orElse(null);
     }
