@@ -23,7 +23,13 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
 
     List<QuestionEntity> findByClientIdAndIdIn(UUID clientId, Collection<UUID> ids);
 
-    /** Seluruh Question sebuah Paket, terurut posisi — halaman isi Paket (bukan pencarian). */
+    /**
+     * Seluruh Question sebuah Paket, terurut posisi — halaman isi Paket (bukan pencarian).
+     *
+     * <p>Tidak menyaring Paket yang sudah ter-soft-delete — baris di bawah Paket yang sudah
+     * dihapus ikut terbawa. Pemanggil wajib memastikan Paket-nya masih hidup lebih dulu (mis.
+     * lewat {@code PaketService.require}) sebelum memakai hasil query ini.
+     */
     List<QuestionEntity> findByPaketIdOrderByPositionAsc(UUID paketId);
 
     List<QuestionEntity> findByClientIdAndTopicIdOrderByCreatedAtDesc(UUID clientId, UUID topicId);

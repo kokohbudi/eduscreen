@@ -358,6 +358,32 @@ class QuestionBankIT extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("AC-B02: update menolak Topic yang bukan milik Paket-nya")
+    void updateRejectsTopicFromAnotherPaket() {
+        ClientEntity client = data.client("SD Silang Topic Update");
+        PaketEntity paketA = data.paket(client, "Matematika Kelas 4 Silang Update", "Paket A");
+        PaketEntity paketB = data.paket(client, "Matematika Kelas 4 Silang Update", "Paket B");
+        TopicEntity topicA = paketService.topicsOf(paketA.getId()).get(0);
+        TopicEntity topicB = paketService.topicsOf(paketB.getId()).get(0);
+
+        QuestionEntity soal = questionService.create(
+                new QuestionService.QuestionDraft(
+                        topicA.getId(), QuestionType.ESSAY, "<p>Soal awal</p>", null, List.of()),
+                client.getId(), paketA.getId());
+
+        // Soal sudah sah tersimpan di Paket A. Mengubahnya sambil menunjuk Topic milik Paket B —
+        // paketId tujuan tetap Paket A — harus ditolak sama seperti create() (AC-B02): kalau
+        // requireTopicOf dicabut khusus dari update sambil dibiarkan di create, ini satu-satunya
+        // tes yang menangkapnya.
+        assertThatThrownBy(() -> questionService.update(soal.getId(),
+                new QuestionService.QuestionDraft(
+                        topicB.getId(), QuestionType.ESSAY, "<p>Soal diubah</p>", null, List.of()),
+                client.getId(), paketA.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Topic");
+    }
+
+    @Test
     @DisplayName("AC-B02: soal baru menempel pada Paket milik Topic-nya dan mendarat di ekor Topic itu")
     void soalBaruSewadahDenganTopicnyaDanBerurutan() {
         ClientEntity client = data.client("SD Urut1");
