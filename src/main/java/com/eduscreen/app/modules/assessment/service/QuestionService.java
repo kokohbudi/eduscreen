@@ -181,7 +181,21 @@ public class QuestionService {
         return question;
     }
 
-    /** Mengubah soal yang sudah ada; validasi Paket/Topic sama seperti {@link #create} (AC-B02). */
+    /**
+     * Mengubah soal yang sudah ada; validasi Paket/Topic sama seperti {@link #create} (AC-B02).
+     *
+     * <p>Memindahkan soal ke Topic lain menghitung ulang {@code position} (AC-B08).
+     * {@code soal/editor.html} menyediakan pemilih Topic pada mode ubah, jadi perpindahan
+     * antar-Topic adalah tindakan pengguna biasa, bukan jalur administratif. Tanpa perhitungan
+     * ulang, soal mendarat membawa posisi lamanya dan bertabrakan dengan soal yang sudah
+     * menempati posisi itu di Topic tujuan — {@code create},
+     * {@code QuestionImportService.saveQuestion}, dan {@code PaketBorrowService.salin} semuanya
+     * memanggil {@code nextPosition}; hanya jalur ini yang tidak.
+     *
+     * <p>Posisinya dibaca SEBELUM {@code reparent}: query {@code nextPosition} memicu flush
+     * otomatis Hibernate, dan soal yang sudah dipindahkan lebih dulu akan ikut terhitung sebagai
+     * penghuni Topic tujuan sehingga posisinya melompat satu.
+     */
     @Transactional
     public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId, UUID paketId) {
         QuestionEntity question = require(id, clientId);
@@ -193,7 +207,10 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
+        boolean pindahTopic = !topic.getId().equals(question.getTopicId());
+        int posisi = pindahTopic ? questions.nextPosition(topic.getId()) : question.getPosition();
         question.reparent(paketId, topic.getId());
+        question.moveTo(posisi);
         // Sanitasi dan turunan teks polos ditulis dalam operasi yang sama dengan bodyHtml,
         // supaya keduanya tidak pernah sempat tidak sinkron (TC-25).
         question.setBodyHtml(bodyHtml);

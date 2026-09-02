@@ -414,6 +414,68 @@ class QuestionBankIT extends PostgresTestBase {
                 .hasMessageContaining("Topic");
     }
 
+    /**
+     * AC-B08 punya tiga tes — soal baru, soal impor, dan salinan pinjam — dan ketiganya menjaga
+     * jalur yang memang memanggil {@code nextPosition}. Jalur yang TIDAK memanggilnya, yaitu
+     * memindahkan soal ke Topic lain lewat pemilih Topic di editor, nol tes sampai sekarang.
+     */
+    @Test
+    @DisplayName("AC-B08: memindahkan soal ke Topic lain lewat update menaruhnya di urutan berikutnya, bukan menumpuk di posisi lamanya")
+    void updateKeTopicLainMenghitungUlangPosisi() {
+        ClientEntity client = data.client("SD Pindah Topic");
+        PaketEntity paket = data.paket(client, "Matematika Kelas 4 Pindah", "Paket Pindah");
+        TopicEntity asal = paketService.topicsOf(paket.getId()).get(0);
+        TopicEntity tujuan = paketService.addTopic(paket.getId(), "Topic Tujuan", client.getId());
+
+        // Topic tujuan sudah berpenghuni di posisi 0 dan 1; soal yang dipindahkan datang dari
+        // posisi 0 Topic asal, jadi tanpa perhitungan ulang ia mendarat menumpuk di posisi 0.
+        questionService.create(new QuestionService.QuestionDraft(
+                tujuan.getId(), QuestionType.ESSAY, "<p>Penghuni tujuan 0</p>", null, List.of()),
+                client.getId(), paket.getId());
+        questionService.create(new QuestionService.QuestionDraft(
+                tujuan.getId(), QuestionType.ESSAY, "<p>Penghuni tujuan 1</p>", null, List.of()),
+                client.getId(), paket.getId());
+        QuestionEntity pindah = questionService.create(
+                new QuestionService.QuestionDraft(
+                        asal.getId(), QuestionType.ESSAY, "<p>Soal yang dipindah</p>", null, List.of()),
+                client.getId(), paket.getId());
+        assertThat(pindah.getPosition()).isZero();
+
+        QuestionEntity sesudah = questionService.update(pindah.getId(),
+                new QuestionService.QuestionDraft(
+                        tujuan.getId(), QuestionType.ESSAY, "<p>Soal yang dipindah</p>", null, List.of()),
+                client.getId(), paket.getId());
+
+        assertThat(sesudah.getTopicId()).isEqualTo(tujuan.getId());
+        assertThat(sesudah.getPosition())
+                .as("mendarat di ekor Topic tujuan, tidak bertabrakan dengan penghuninya")
+                .isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("AC-B08: update yang tidak berpindah Topic mempertahankan posisi soal apa adanya")
+    void updateDiTopicYangSamaMempertahankanPosisi() {
+        ClientEntity client = data.client("SD Tetap Topic");
+        PaketEntity paket = data.paket(client, "Matematika Kelas 4 Tetap", "Paket Tetap");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        questionService.create(new QuestionService.QuestionDraft(
+                topic.getId(), QuestionType.ESSAY, "<p>Soal pertama</p>", null, List.of()),
+                client.getId(), paket.getId());
+        QuestionEntity kedua = questionService.create(new QuestionService.QuestionDraft(
+                topic.getId(), QuestionType.ESSAY, "<p>Soal kedua</p>", null, List.of()),
+                client.getId(), paket.getId());
+        assertThat(kedua.getPosition()).isEqualTo(1);
+
+        QuestionEntity sesudah = questionService.update(kedua.getId(),
+                new QuestionService.QuestionDraft(
+                        topic.getId(), QuestionType.ESSAY, "<p>Soal kedua disunting</p>", null, List.of()),
+                client.getId(), paket.getId());
+
+        // Menyunting isi soal tidak boleh memindahkannya ke ekor daftar: urutan yang dilihat
+        // penulis harus tetap sama sesudah ia membetulkan satu kata.
+        assertThat(sesudah.getPosition()).isEqualTo(1);
+    }
+
     @Test
     @DisplayName("AC-B02: update menolak Topic yang bukan milik Paket-nya")
     void updateRejectsTopicFromAnotherPaket() {
