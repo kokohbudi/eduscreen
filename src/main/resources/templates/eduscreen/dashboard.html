@@ -7,68 +7,67 @@
 
     <!-- Antrean memimpin halaman (BR-O05). Saat kosong bloknya TIDAK dirender sama sekali dan
          kartu naik jadi isi utama — satu th:if di pembungkus, bukan cabang tata letak terpisah. -->
-    <section th:unless="${antrean.kosong()}"
-             class="mb-8 rounded-lg border border-slate-200 bg-white p-6">
-      <h2 class="text-lg font-semibold">Butuh perhatian</h2>
-      <ul class="mt-4 divide-y divide-slate-100 text-sm">
+    <section th:unless="${antrean.kosong()}" class="card mb-8 p-0">
+      <h2 class="card-title border-b border-line px-5 py-4">Butuh perhatian</h2>
+      <ul class="divide-y divide-line text-sm">
 
         <!-- Tidak ada lagi layar pencarian Question master lintas-Paket berpenyaring status
              (dicabut bersama Exercise master, Task 10) — tautannya mendarat di tingkat pertama
              Bank Soal, bukan pada daftar draf yang sudah tersaring. -->
-        <li th:if="${antrean.questionDraf() > 0}" class="flex items-center justify-between py-2">
-          <a th:href="@{/eduscreen/bank-soal}" class="text-slate-700 underline"
+        <li th:if="${antrean.questionDraf() > 0}" class="flex items-center justify-between gap-3 px-5 py-3">
+          <a th:href="@{/eduscreen/bank-soal}" class="hover:text-accent"
              th:text="|${antrean.questionDraf()} Question master masih draf|">Question draf</a>
-          <span class="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-bold text-amber-800">draf</span>
+          <span class="badge badge-warn">draf</span>
         </li>
 
-        <li th:each="p : ${antrean.paketMacet().tampil()}" class="flex items-center justify-between py-2">
-          <a th:href="@{/eduscreen/bank-soal/paket/{id}(id=${p.id})}" class="text-slate-700 underline"
+        <li th:each="p : ${antrean.paketMacet().tampil()}" class="flex items-center justify-between gap-3 px-5 py-3">
+          <a th:href="@{/eduscreen/bank-soal/paket/{id}(id=${p.id})}" class="hover:text-accent"
              th:text="|${p.title} memuat soal belum terbit|">Paket macet</a>
-          <span class="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">macet</span>
+          <span class="badge badge-danger">macet</span>
         </li>
-        <li th:if="${antrean.paketMacet().sisa() > 0}" class="py-2 text-xs text-slate-500">
-          <a th:href="@{/eduscreen/bank-soal}" class="underline"
+        <li th:if="${antrean.paketMacet().sisa() > 0}" class="px-5 py-2 text-xs text-ink-2">
+          <a th:href="@{/eduscreen/bank-soal}" class="hover:text-accent"
              th:text="|…dan ${antrean.paketMacet().sisa()} paket macet lainnya|">lainnya</a>
         </li>
 
-        <li th:each="p : ${antrean.paketSiapTerbit().tampil()}" class="flex items-center justify-between py-2">
-          <a th:href="@{/eduscreen/bank-soal/paket/{id}(id=${p.id})}" class="text-slate-700 underline"
+        <li th:each="p : ${antrean.paketSiapTerbit().tampil()}" class="flex items-center justify-between gap-3 px-5 py-3">
+          <a th:href="@{/eduscreen/bank-soal/paket/{id}(id=${p.id})}" class="hover:text-accent"
              th:text="|${p.title} siap diterbitkan|">Paket siap</a>
-          <span class="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-bold text-emerald-800">siap</span>
+          <span class="badge badge-success">siap</span>
         </li>
-        <li th:if="${antrean.paketSiapTerbit().sisa() > 0}" class="py-2 text-xs text-slate-500">
-          <a th:href="@{/eduscreen/bank-soal}" class="underline"
+        <li th:if="${antrean.paketSiapTerbit().sisa() > 0}" class="px-5 py-2 text-xs text-ink-2">
+          <a th:href="@{/eduscreen/bank-soal}" class="hover:text-accent"
              th:text="|…dan ${antrean.paketSiapTerbit().sisa()} paket siap terbit lainnya|">lainnya</a>
         </li>
 
-        <li th:each="s : ${antrean.subjectBuntu().tampil()}" class="flex items-center justify-between py-2">
-          <a th:href="@{/eduscreen/bank-soal(subjectId=${s.id})}" class="text-slate-700 underline"
+        <li th:each="s : ${antrean.subjectBuntu().tampil()}" class="flex items-center justify-between gap-3 px-5 py-3">
+          <a th:href="@{/eduscreen/bank-soal(subjectId=${s.id})}" class="hover:text-accent"
              th:text="|Subject &quot;${s.name}&quot; belum punya Topic|">Subject buntu</a>
-          <span class="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600">buntu</span>
+          <span class="badge">buntu</span>
         </li>
-        <li th:if="${antrean.subjectBuntu().sisa() > 0}" class="py-2 text-xs text-slate-500">
-          <a th:href="@{/eduscreen/bank-soal}" class="underline"
+        <li th:if="${antrean.subjectBuntu().sisa() > 0}" class="px-5 py-2 text-xs text-ink-2">
+          <a th:href="@{/eduscreen/bank-soal}" class="hover:text-accent"
              th:text="|…dan ${antrean.subjectBuntu().sisa()} Subject buntu lainnya|">lainnya</a>
         </li>
 
       </ul>
     </section>
 
-    <div class="grid gap-4 sm:grid-cols-3">
-      <a th:href="@{/eduscreen/client}"
-         class="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400">
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Client</div>
-        <div class="mt-2 text-sm text-slate-700" th:text="|${kartu.client()} sekolah &rarr;|">Client</div>
+    <div class="grid gap-3 sm:grid-cols-3">
+      <a th:href="@{/eduscreen/client}" class="card card-hover">
+        <div class="text-sm text-ink-2">Client</div>
+        <div class="stat mt-1" th:text="${kartu.client()}">0</div>
+        <div class="mt-1 text-xs text-ink-2">sekolah terdaftar →</div>
       </a>
-      <a th:href="@{/eduscreen/bank-soal}"
-         class="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400">
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Konten master</div>
-        <div class="mt-2 text-sm text-slate-700" th:text="|${kartu.questionMaster()} Question &rarr;|">Question</div>
+      <a th:href="@{/eduscreen/bank-soal}" class="card card-hover">
+        <div class="text-sm text-ink-2">Konten master</div>
+        <div class="stat mt-1" th:text="${kartu.questionMaster()}">0</div>
+        <div class="mt-1 text-xs text-ink-2">Question →</div>
       </a>
-      <a th:href="@{/eduscreen/bank-soal}"
-         class="rounded-lg border border-slate-200 bg-white p-5 hover:border-slate-400">
-        <div class="text-xs font-bold uppercase tracking-wide text-slate-500">Paket</div>
-        <div class="mt-2 text-sm text-slate-700" th:text="|${kartu.paketTerbit()} terbit &rarr;|">Paket</div>
+      <a th:href="@{/eduscreen/bank-soal}" class="card card-hover">
+        <div class="text-sm text-ink-2">Paket</div>
+        <div class="stat mt-1" th:text="${kartu.paketTerbit()}">0</div>
+        <div class="mt-1 text-xs text-ink-2">terbit di katalog →</div>
       </a>
     </div>
 
