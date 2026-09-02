@@ -411,6 +411,5 @@ public class MasterContentController {
     private void isiJalur(Model model) {
         model.addAttribute("basePath", BASE_PATH);
         model.addAttribute("master", true);
-        model.addAttribute("menuAktif", "bank-soal");
     }
 }

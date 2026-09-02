@@ -28,7 +28,6 @@ public class EduscreenDashboardController {
     public String dashboard(Model model) {
         model.addAttribute("kartu", dashboard.kartu());
         model.addAttribute("antrean", dashboard.antrean());
-        model.addAttribute("menuAktif", "dashboard");
         return "eduscreen/dashboard";
     }
 }

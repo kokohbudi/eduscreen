@@ -2,11 +2,424 @@
  * Tailwind v4 memakai konfigurasi CSS-first: sumber kelas dideklarasikan di sini,
  * bukan di tailwind.config.js. Keluarannya (output.css) dihasilkan saat build dan
  * tidak diversi.
+ *
+ * Berkas ini adalah SATU-SATUNYA sumber sistem desain: token warna (terang + gelap
+ * otomatis), skala radius/bayangan/durasi, kelas komponen, dan tata letak shell.
+ * Templat hanya memakai kelas komponen dan utility bertoken; tidak ada `dark:` di
+ * templat karena token sudah berganti sendiri mengikuti prefers-color-scheme.
  */
 @import "tailwindcss";
 
 @source "../../templates";
 @source "../js";
+
+/* ---------- Token mentah: terang (default) ---------- */
+:root {
+  color-scheme: light dark;
+
+  --bg: oklch(1 0 0);
+  --surface: oklch(1 0 0);
+  --surface-2: oklch(0.975 0.004 60);
+  --line: oklch(0.91 0.005 60);
+  --line-2: oklch(0.85 0.006 60);
+  --ink: oklch(0.2 0.01 60);
+  --ink-2: oklch(0.45 0.01 60);
+  --ink-3: oklch(0.55 0.01 60);
+
+  --accent: oklch(0.62 0.17 36);
+  --accent-fill: oklch(0.55 0.17 36);
+  --accent-ink: oklch(1 0 0);
+  --accent-soft: oklch(0.96 0.03 36);
+
+  --success: oklch(0.5 0.14 150);
+  --success-soft: oklch(0.96 0.04 150);
+  --warn: oklch(0.52 0.13 70);
+  --warn-soft: oklch(0.97 0.05 85);
+  --danger: oklch(0.53 0.19 25);
+  --danger-soft: oklch(0.96 0.04 25);
+
+  --sh-1: 0 1px 2px oklch(0 0 0 / 0.05), 0 1px 1px oklch(0 0 0 / 0.03);
+  --sh-2: 0 1px 2px oklch(0 0 0 / 0.04), 0 8px 24px oklch(0 0 0 / 0.07);
+  --sh-3: 0 2px 4px oklch(0 0 0 / 0.06), 0 16px 48px oklch(0 0 0 / 0.12);
+
+  --dur-1: 150ms;
+  --dur-2: 200ms;
+  --dur-3: 250ms;
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+
+  --z-sticky: 10;
+  --z-topbar: 20;
+  --z-scrim: 25;
+  --z-sidebar: 30;
+
+  --sidebar-w: 16rem;
+}
+
+/* ---------- Token mentah: gelap ---------- */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: oklch(0.13 0 0);
+    --surface: oklch(0.18 0.004 60);
+    --surface-2: oklch(0.155 0.004 60);
+    --line: oklch(0.27 0.005 60);
+    --line-2: oklch(0.34 0.006 60);
+    --ink: oklch(0.95 0.005 60);
+    --ink-2: oklch(0.74 0.008 60);
+    --ink-3: oklch(0.62 0.008 60);
+
+    --accent: oklch(0.74 0.15 40);
+    --accent-fill: oklch(0.72 0.16 40);
+    --accent-ink: oklch(0.15 0.03 40);
+    --accent-soft: oklch(0.25 0.05 40);
+
+    --success: oklch(0.78 0.13 150);
+    --success-soft: oklch(0.22 0.04 150);
+    --warn: oklch(0.82 0.13 80);
+    --warn-soft: oklch(0.24 0.05 80);
+    --danger: oklch(0.75 0.16 25);
+    --danger-soft: oklch(0.24 0.05 25);
+
+    --sh-1: 0 0 0 1px oklch(1 0 0 / 0.05);
+    --sh-2: 0 0 0 1px oklch(1 0 0 / 0.06), 0 8px 24px oklch(0 0 0 / 0.4);
+    --sh-3: 0 0 0 1px oklch(1 0 0 / 0.07), 0 16px 48px oklch(0 0 0 / 0.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}
+
+/* ---------- Pemetaan ke namespace Tailwind (bg-bg, text-ink, border-line, shadow-1, …) ---------- */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-line: var(--line);
+  --color-line-2: var(--line-2);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-accent: var(--accent);
+  --color-accent-fill: var(--accent-fill);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --shadow-1: var(--sh-1);
+  --shadow-2: var(--sh-2);
+  --shadow-3: var(--sh-3);
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-2xl: 28px;
+
+  --ease-apple: var(--ease);
+}
+
+/* ---------- Dasar ---------- */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+  }
+  h1, h2, h3 {
+    text-wrap: balance;
+    letter-spacing: -0.02em;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  ::placeholder {
+    color: var(--ink-3);
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+}
+
+/* ---------- Komponen ---------- */
+@layer components {
+  /* Tombol */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-transparent px-4 text-sm font-medium select-none whitespace-nowrap;
+    min-height: 2.75rem;
+    transition:
+      background-color var(--dur-1) var(--ease),
+      border-color var(--dur-1) var(--ease),
+      color var(--dur-1) var(--ease),
+      transform var(--dur-1) var(--ease),
+      opacity var(--dur-1) var(--ease),
+      filter var(--dur-1) var(--ease);
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn:disabled, .btn.htmx-request { opacity: 0.55; pointer-events: none; }
+  .btn-primary { background: var(--accent-fill); color: var(--accent-ink); }
+  .btn-primary:hover { filter: brightness(1.07); }
+  .btn-secondary { background: var(--surface); color: var(--ink); border-color: var(--line-2); box-shadow: var(--sh-1); }
+  .btn-secondary:hover { background: var(--surface-2); }
+  .btn-ghost { color: var(--ink-2); }
+  .btn-ghost:hover { background: var(--surface-2); color: var(--ink); }
+  .btn-danger { color: var(--danger); border-color: color-mix(in oklab, var(--danger) 35%, transparent); background: var(--surface); }
+  .btn-danger:hover { background: var(--danger-soft); }
+  .btn-sm { @apply rounded-md px-3 text-xs; min-height: 2.25rem; }
+  .btn-lg { @apply rounded-xl px-6 text-base; min-height: 2.75rem; }
+  .btn-icon { @apply px-0; width: 2.75rem; }
+
+  /* Permukaan */
+  .card {
+    @apply rounded-xl border p-5;
+    background: var(--surface);
+    border-color: var(--line);
+    box-shadow: var(--sh-1);
+  }
+  .card-title { @apply text-base font-semibold; letter-spacing: -0.01em; }
+  .card-hover { transition: box-shadow var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease), transform var(--dur-2) var(--ease); }
+  .card-hover:hover { box-shadow: var(--sh-2); border-color: var(--line-2); transform: translateY(-1px); }
+
+  /* Daftar bergaris (grouped list) — pemisah di dalam, bukan kartu bersarang */
+  .list-inset > * { padding-block: 0.75rem; border-top: 1px solid var(--line); }
+  .list-inset > :first-child { border-top: 0; padding-top: 0; }
+  .list-inset > :last-child { padding-bottom: 0; }
+
+  /* Form */
+  .input, .select, .textarea {
+    @apply mt-1 w-full rounded-lg border px-3 text-sm;
+    min-height: 2.75rem;
+    background: var(--surface);
+    border-color: var(--line-2);
+    color: var(--ink);
+    transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+  }
+  .textarea { @apply py-2; min-height: auto; line-height: 1.55; }
+  .select { @apply pr-9; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23888' stroke-width='1.6'%3E%3Cpath d='M6 8l4 4 4-4'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 0.6rem center; background-size: 1rem; }
+  .input:focus, .select:focus, .textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent);
+  }
+  .input:disabled, .select:disabled, .textarea:disabled { background: var(--surface-2); color: var(--ink-3); }
+  .input-sm { min-height: 2.25rem; @apply text-xs px-2.5; }
+  .label { @apply block text-sm font-medium; color: var(--ink-2); }
+  .hint { @apply mt-1 text-xs; color: var(--ink-3); }
+  .check { accent-color: var(--accent-fill); width: 1rem; height: 1rem; }
+
+  /* Kartu opsi jawaban (label membungkus radio/checkbox) */
+  .opt {
+    @apply flex items-start gap-3 rounded-xl border p-4 cursor-pointer;
+    background: var(--surface);
+    border-color: var(--line);
+    transition: border-color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
+  }
+  .opt:hover { border-color: var(--line-2); }
+  .opt:has(:checked) { border-color: var(--accent); background: var(--accent-soft); }
+  .opt:has(:focus-visible) { box-shadow: 0 0 0 4px color-mix(in oklab, var(--accent) 18%, transparent); }
+  .opt input { margin-top: 0.2rem; accent-color: var(--accent-fill); flex: none; }
+
+  /* Tabel */
+  .table { @apply w-full border-collapse text-sm; }
+  .table th {
+    @apply py-2.5 pr-4 text-left text-xs font-medium;
+    color: var(--ink-3);
+    border-bottom: 1px solid var(--line);
+  }
+  .table td { @apply py-2.5 pr-4 align-top; border-bottom: 1px solid var(--line); }
+  .table tbody tr:last-child td { border-bottom: 0; }
+  .table tbody tr { transition: background-color var(--dur-1) var(--ease); }
+  .table-hover tbody tr:hover td { background: var(--surface-2); }
+  .card > .table th:first-child, .card > .table td:first-child { padding-left: 1.25rem; }
+  .card > .table th:last-child, .card > .table td:last-child { padding-right: 1.25rem; }
+
+  /* Badge & status */
+  .badge {
+    @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap;
+    background: var(--surface-2);
+    color: var(--ink-2);
+  }
+  .badge-success { background: var(--success-soft); color: var(--success); }
+  .badge-warn { background: var(--warn-soft); color: var(--warn); }
+  .badge-danger { background: var(--danger-soft); color: var(--danger); }
+  .badge-accent { background: var(--accent-soft); color: var(--accent); }
+  .dot { @apply inline-block rounded-full; width: 0.5rem; height: 0.5rem; background: currentColor; }
+
+  /* Pesan */
+  .alert, .eduscreen-error {
+    @apply rounded-lg border px-4 py-3 text-sm;
+    background: var(--surface-2);
+    border-color: var(--line);
+    color: var(--ink-2);
+  }
+  .alert-success { background: var(--success-soft); border-color: color-mix(in oklab, var(--success) 30%, transparent); color: var(--success); }
+  .alert-warn { background: var(--warn-soft); border-color: color-mix(in oklab, var(--warn) 30%, transparent); color: var(--warn); }
+  .alert-danger, .eduscreen-error { background: var(--danger-soft); border-color: color-mix(in oklab, var(--danger) 30%, transparent); color: var(--danger); }
+
+  /* Keadaan kosong */
+  .empty {
+    @apply rounded-xl border border-dashed px-6 py-10 text-center text-sm;
+    border-color: var(--line-2);
+    color: var(--ink-2);
+  }
+  .empty strong { @apply block text-base font-semibold; color: var(--ink); }
+
+  /* Kepala halaman */
+  .page-header { @apply mb-6 flex flex-wrap items-end justify-between gap-3; }
+  .page-header h1 { @apply text-2xl font-bold; }
+  .page-sub { @apply mt-1 text-sm; color: var(--ink-2); }
+  .section-title { @apply mb-3 text-base font-semibold; }
+  .meta { @apply text-xs; color: var(--ink-3); }
+  .crumb { @apply mb-4 inline-flex items-center gap-1 text-sm; color: var(--ink-2); }
+  .crumb:hover { color: var(--ink); }
+
+  /* Segmented control (tab / mode) */
+  .seg { @apply inline-flex rounded-lg p-1 text-sm; background: var(--surface-2); }
+  .seg > * {
+    @apply rounded-md px-3 py-1 cursor-pointer;
+    color: var(--ink-2);
+    transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease);
+  }
+  .seg > [aria-current], .seg > .aktif, .seg > :has(:checked) {
+    background: var(--surface);
+    color: var(--ink);
+    box-shadow: var(--sh-1);
+  }
+  .seg input { position: absolute; opacity: 0; width: 0; height: 0; }
+
+  /* Statistik */
+  .stat { @apply text-3xl font-semibold tabular-nums; letter-spacing: -0.02em; }
+
+  /* Prosa (batang soal, pembahasan) — plugin typography tidak dipakai */
+  .prose { font-size: 0.9375rem; line-height: 1.6; }
+  .prose p + p { margin-top: 0.75rem; }
+  .prose img { margin-block: 0.75rem; max-width: 100%; border-radius: var(--radius-md); }
+  .prose ul { list-style: disc; padding-left: 1.25rem; }
+  .prose ol { list-style: decimal; padding-left: 1.25rem; }
+  .prose pre { @apply rounded-md p-3 text-xs; background: var(--surface-2); overflow-x: auto; }
+
+  /* Navigasi sidebar */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium;
+    color: var(--ink-2);
+    transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  }
+  .nav-item:hover { background: var(--surface); color: var(--ink); }
+  .nav-item[aria-current="page"] { background: var(--accent-soft); color: var(--accent); }
+  .nav-item svg { width: 1.25rem; height: 1.25rem; flex: none; }
+  .nav-group { @apply mb-2 px-3 text-xs font-medium; color: var(--ink-3); }
+}
+
+/*
+ * Mobile first: ukuran dasar di atas adalah ukuran sentuh (44px, HIG). Di layar lebar
+ * kontrol mengecil ke kepadatan meja kerja. Hanya min-width yang dipakai di berkas ini.
+ */
+@media (min-width: 768px) {
+  .btn, .input, .select { min-height: 2.25rem; }
+  .btn-sm, .input-sm { min-height: 2rem; }
+  .btn-icon { width: 2.25rem; }
+}
+
+[x-cloak] { display: none !important; }
+
+/* ---------- Shell ---------- */
+.shell {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  grid-template-columns: minmax(0, 1fr);
+}
+.banner-demo { grid-column: 1 / -1; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-topbar);
+  background: color-mix(in oklab, var(--bg) 82%, transparent);
+  backdrop-filter: saturate(1.6) blur(14px);
+  -webkit-backdrop-filter: saturate(1.6) blur(14px);
+  border-bottom: 1px solid var(--line);
+}
+
+.konten {
+  width: 100%;
+  max-width: 48rem;
+  margin-inline: auto;
+  padding: 1.5rem 1rem 3rem;
+}
+@media (min-width: 640px) {
+  .konten { padding: 2.25rem 1.5rem 4rem; }
+}
+
+.sidebar {
+  position: fixed;
+  inset-block: 0;
+  left: 0;
+  width: var(--sidebar-w);
+  z-index: var(--z-sidebar);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
+  border-right: 1px solid var(--line);
+  transform: translateX(-100%);
+  transition: transform var(--dur-3) var(--ease);
+  overflow-y: auto;
+}
+.sidebar-buka .sidebar { transform: none; box-shadow: var(--sh-3); }
+.scrim {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-scrim);
+  background: oklch(0 0 0 / 0.4);
+}
+
+@media (min-width: 768px) {
+  .shell:has(> .sidebar) { grid-template-columns: var(--sidebar-w) minmax(0, 1fr); }
+  .shell:has(> .sidebar) > .sidebar {
+    position: sticky;
+    top: 0;
+    height: 100dvh;
+    grid-row: 2 / -1;
+    grid-column: 1;
+    transform: none;
+    box-shadow: none;
+  }
+  .shell:has(> .sidebar) > .topbar { display: none; }
+  .shell:has(> .sidebar) > .konten {
+    grid-row: 2 / -1;
+    grid-column: 2;
+    max-width: 76rem;
+    padding: 2.5rem 2.5rem 4rem;
+  }
+  .shell.sidebar-rail { --sidebar-w: 4.25rem; }
+  .sidebar-rail .nav-label, .sidebar-rail .brand-teks, .sidebar-rail .sidebar-nama, .sidebar-rail .nav-group { display: none; }
+  .sidebar-rail .nav-item { justify-content: center; padding-inline: 0; }
+  .sidebar-rail .sidebar-kaki { align-items: center; }
+}
+
+/* Mode fokus (pengerjaan): satu kolom sempit, tanpa navigasi */
+.shell-fokus .konten { max-width: 44rem; }
+
+/* ---------- Motion ---------- */
+.htmx-added { opacity: 0; }
+.htmx-settling { transition: opacity var(--dur-2) var(--ease); }
+@keyframes muncul {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: none; }
+}
+.alert, [role="alert"], [role="status"] { animation: muncul var(--dur-2) var(--ease) both; }
 
 /*
  * Tabel tidak boleh menggeser seluruh halaman ke samping di layar sempit.

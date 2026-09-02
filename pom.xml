@@ -262,6 +262,7 @@
                   <includes>
                     <include>katex.min.js</include>
                     <include>katex.min.css</include>
+                    <include>contrib/auto-render.min.js</include>
                     <include>fonts/**</include>
                   </includes>
                 </resource>

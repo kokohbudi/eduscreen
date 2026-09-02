@@ -42,7 +42,6 @@ public class EduscreenAdminController {
         // sudah TERBIT. Paket yang masih digarap tidak boleh ikut mendarat di sekolah baru lewat
         // pintu belakang onboarding (FR-067).
         model.addAttribute("paket", pakets.findAllMasterPublished());
-        model.addAttribute("menuAktif", "client");
         return "eduscreen/client";
     }
 

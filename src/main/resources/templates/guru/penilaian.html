@@ -5,10 +5,8 @@
 <div th:replace="~{layout/base :: page('Penilaian Essay', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
+    <a th:href="@{/guru/assignment/{id}(id=${assignment.id})}" class="crumb">← Detail Assignment</a>
     <h2 class="mb-1 text-lg font-semibold" th:text="${assignment.title}">Judul Assignment</h2>
-    <p class="mb-6 text-sm text-slate-500">
-      <a th:href="@{/guru/assignment/{id}(id=${assignment.id})}" class="underline">Kembali ke detail Assignment</a>
-    </p>
 
     <!--
       essayScore adalah bilangan bulat 0-100; poin soal itu menjadi essayScore ÷ 100 sehingga
@@ -17,45 +15,45 @@
       satu baris score_audit permanen; nilai di sekolah adalah bahan sengketa dan sistem harus
       bisa menjawab siapa yang mengubahnya (BR-G03).
     -->
-    <p role="status" class="mb-4 text-xs text-slate-400">
+    <p role="status" class="meta mb-5">
       Nilai 0–100 dikonversi menjadi pecahan dari 1 poin. Setiap perubahan nilai tercatat permanen.
     </p>
 
-    <div th:if="${#lists.isEmpty(antrean)}"
-         class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+    <div th:if="${#lists.isEmpty(antrean)}" class="empty">
+      <strong>Antrean kosong</strong>
       Tidak ada jawaban essay yang menunggu penilaian.
     </div>
 
-    <div th:unless="${#lists.isEmpty(antrean)}" class="overflow-x-auto">
-      <table class="w-full border-collapse text-sm">
+    <div th:unless="${#lists.isEmpty(antrean)}" class="card p-0">
+      <table class="table">
         <thead>
-          <tr class="border-b border-slate-200 text-left text-slate-500">
-            <th scope="col" class="py-2">Dijawab</th>
-            <th scope="col" class="py-2">Jawaban Siswa</th>
-            <th scope="col" class="py-2">Nilai (0–100)</th>
-            <th scope="col" class="py-2">Aksi</th>
+          <tr>
+            <th scope="col">Dijawab</th>
+            <th scope="col">Jawaban Siswa</th>
+            <th scope="col">Nilai (0–100)</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr th:each="jawaban : ${antrean}" class="border-b border-slate-100 align-top">
-            <td class="py-2 text-xs text-slate-500"
+          <tr th:each="jawaban : ${antrean}">
+            <td class="whitespace-nowrap text-xs text-ink-2"
                 th:text="${#temporals.format(jawaban.answeredAt, 'dd MMM yyyy HH:mm')}">Dijawab</td>
             <!--
               th:text, BUKAN th:utext: ini teks mentah kiriman Siswa, belum pernah disanitasi
               sebagai konten tersimpan. Merender sebagai HTML membuka XSS lewat jawaban essay.
             -->
-            <td class="py-2 whitespace-pre-wrap" th:text="${jawaban.essayText}">Jawaban Siswa</td>
-            <td class="py-2">
+            <td class="min-w-64 whitespace-pre-wrap" th:text="${jawaban.essayText}">Jawaban Siswa</td>
+            <td>
               <label class="sr-only" th:for="|skor-${jawaban.id}|">Nilai essay 0 sampai 100</label>
               <input type="number" min="0" max="100" required
                      th:id="|skor-${jawaban.id}|" name="essayScore"
-                     class="w-20 rounded border border-slate-300 px-2 py-1 focus:border-slate-500 focus:outline-none">
+                     class="input input-sm mt-0 w-24">
             </td>
-            <td class="py-2">
+            <td class="text-right">
               <button type="button"
                       th:attr="hx-put=@{/guru/jawaban/{id}/nilai(id=${jawaban.id})},hx-include=|#skor-${jawaban.id}|"
                       hx-target="closest tr" hx-swap="outerHTML"
-                      class="rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">
+                      class="btn btn-primary btn-sm">
                 Simpan nilai
               </button>
             </td>
@@ -72,20 +70,19 @@
     -->
     <table th:if="${hasil != null}" class="hidden">
       <tbody>
-        <tr th:fragment="baris" class="border-b border-slate-100 bg-emerald-50 align-top">
-          <td class="py-2 text-xs text-slate-500" colspan="2">
+        <tr th:fragment="baris" class="bg-success-soft">
+          <td class="text-xs text-ink-2" colspan="2">
             Jawaban <span class="font-mono" th:text="${#strings.substring(sessionAnswerId.toString(), 0, 8)}">id</span>
             telah dinilai.
           </td>
-          <td class="py-2 font-medium"
+          <td class="font-medium tabular-nums"
               th:text="|${#numbers.formatDecimal(hasil.score * 100, 1, 2)}%|">0.00%</td>
-          <td class="py-2">
+          <td class="text-right">
             <span th:if="${hasil.status.name() == 'PENDING_REVIEW'}" role="status"
-                  class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                  class="badge badge-warn whitespace-normal">
               Masih ada essay lain menunggu (PENDING_REVIEW)
             </span>
-            <span th:unless="${hasil.status.name() == 'PENDING_REVIEW'}"
-                  class="rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+            <span th:unless="${hasil.status.name() == 'PENDING_REVIEW'}" class="badge badge-success">
               FINAL
             </span>
           </td>

@@ -15,12 +15,9 @@
 
       <!-- Editor selalu dibuka dari dalam satu Paket (Bank Soal Client maupun ruang kerja
            master), jadi jalan pulangnya ke isi Paket itu (ADR-0018). -->
-      <p class="mb-4 text-sm">
-        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}"
-           class="text-slate-600 underline">← <span th:text="${paket.title}">Paket</span></a>
-      </p>
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}" class="crumb">← <span th:text="${paket.title}">Paket</span></a>
 
-      <div th:if="${soal != null}" class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+      <div th:if="${soal != null}" class="alert alert-success mb-4"
            id="pesan-simpan" role="status">
         Tersimpan.
       </div>
@@ -33,23 +30,23 @@
                      hx-swap=${soal != null} ? 'outerHTML' : null"
             x-data="soalEditor()">
 
-        <section class="grid grid-cols-1 gap-3 rounded border border-slate-200 bg-white p-4 sm:grid-cols-3">
+        <section class="card grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div>
-            <label for="topicId" class="block text-sm font-medium text-slate-700">Topic</label>
+            <label for="topicId" class="label">Topic</label>
             <!-- Daftar Topic sudah milik satu Paket (${paket}), dirender langsung dari server —
                  tidak ada cascading Subject->Topic lagi di sini sejak Subject tidak dipilih di
                  editor (ia sudah melekat pada Paket, ADR-0018). -->
             <select id="topicId" name="topicId" required
-                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+                    class="select">
               <option value="" th:selected="${topicId == null}">-- Topic --</option>
               <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}"
                       th:selected="${topicId != null and topicId == t.id}">Topic</option>
             </select>
           </div>
           <div>
-            <label for="type" class="block text-sm font-medium text-slate-700">Tipe soal</label>
+            <label for="type" class="label">Tipe soal</label>
             <select id="type" name="type" x-model="tipe"
-                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+                    class="select">
               <option value="MULTIPLE_CHOICE"
                       th:selected="${soal == null or soal.type.name() == 'MULTIPLE_CHOICE'}">Pilihan Ganda</option>
               <option value="ESSAY" th:selected="${soal != null and soal.type.name() == 'ESSAY'}">Esai</option>
@@ -57,63 +54,61 @@
           </div>
         </section>
 
-        <section class="rounded border border-slate-200 bg-white p-4">
-          <label for="bodyHtml" class="block text-sm font-medium text-slate-700">Isi soal</label>
+        <section class="card">
+          <label for="bodyHtml" class="label">Isi soal</label>
           <!-- Rumus dirender di sisi peramban, tidak pernah disimpan sebagai HTML hasil
                render (TC-24); itu keputusan internal, tidak perlu dibaca Guru. -->
-          <p class="mb-1 text-xs text-slate-500">
-            Rumus ditulis LaTeX di antara <code>$...$</code> (sebaris) atau <code>$$...$$</code> (blok).
+          <p class="hint mb-2">
+            Rumus ditulis LaTeX di antara <code class="rounded bg-surface-2 px-1">$...$</code> (sebaris) atau <code class="rounded bg-surface-2 px-1">$$...$$</code> (blok).
           </p>
           <textarea id="bodyHtml" name="bodyHtml" required rows="5"
                     th:text="${soal != null ? soal.bodyHtml : ''}"
-                    class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"></textarea>
+                    class="textarea font-mono"></textarea>
         </section>
 
-        <section x-show="tipe === 'MULTIPLE_CHOICE'" class="rounded border border-slate-200 bg-white p-4">
+        <section x-show="tipe === 'MULTIPLE_CHOICE'" x-transition.opacity.duration.200ms class="card">
           <div class="mb-2 flex items-center justify-between">
-            <label class="block text-sm font-medium text-slate-700">Pilihan jawaban</label>
+            <label class="label">Pilihan jawaban</label>
             <button type="button" @click="tambahOpsi()"
-                    class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+                    class="btn btn-secondary btn-sm">
               + Tambah pilihan
             </button>
           </div>
           <template x-for="(o, idx) in opsi" :key="idx">
-            <div class="mb-2 flex items-start gap-2">
+            <div class="mb-2 flex items-start gap-2 rounded-lg border border-line p-2"
+                 :class="correctIndex === idx && 'border-success/50 bg-success-soft'">
               <input type="radio" name="correctIndex" :value="idx" x-model.number="correctIndex"
-                     class="mt-2" required>
+                     class="mt-3 accent-success" required aria-label="Tandai sebagai jawaban benar">
               <textarea name="optionBody" x-model="o.body" rows="2" required
-                        class="flex-1 rounded border border-slate-300 px-2 py-1 font-mono text-sm"></textarea>
+                        class="textarea mt-0 flex-1 font-mono"></textarea>
               <button type="button" @click="hapusOpsi(idx)"
-                      class="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50">
+                      class="btn btn-ghost btn-sm text-danger">
                 Hapus
               </button>
             </div>
           </template>
           <!-- Tepat satu Option benar (FR-016). -->
-          <p class="text-xs text-slate-500">Tandai bulatan di sisi kiri pilihan yang benar. Tepat satu pilihan boleh ditandai.</p>
+          <p class="hint">Tandai bulatan di sisi kiri pilihan yang benar. Tepat satu pilihan boleh ditandai.</p>
         </section>
 
-        <section class="rounded border border-slate-200 bg-white p-4">
-          <label for="explanationHtml" class="block text-sm font-medium text-slate-700">Pembahasan (opsional)</label>
+        <section class="card">
+          <label for="explanationHtml" class="label">Pembahasan (opsional)</label>
           <textarea id="explanationHtml" name="explanationHtml" rows="3"
                     th:text="${soal != null ? soal.explanationHtml : ''}"
-                    class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"></textarea>
+                    class="textarea font-mono"></textarea>
         </section>
 
         <!-- Menulis soal baru di dalam Paket biasanya berderet: "buat lagi" kembali ke
              formulir Topic yang sama tanpa mampir ke halaman isi tiap satu soal. -->
-        <div th:if="${soal == null}" class="flex gap-2">
-          <button type="submit" name="lanjut" value="1"
-                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        <div th:if="${soal == null}" class="flex flex-col gap-2 sm:flex-row">
+          <button type="submit" name="lanjut" value="1" class="btn btn-primary">
             Simpan &amp; buat lagi
           </button>
-          <button type="submit"
-                  class="rounded border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100">
+          <button type="submit" class="btn btn-secondary">
             Simpan &amp; selesai
           </button>
         </div>
-        <button th:unless="${soal == null}" type="submit"
-                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        <button th:unless="${soal == null}" type="submit" class="btn btn-primary">
           Simpan
         </button>
       </form>
@@ -121,12 +116,13 @@
       <!-- Panel unggah gambar, terpisah dari form utama: hasil unggahnya berupa tautan yang
            disalin manual ke textarea Isi soal / Pembahasan (editor sederhana, tanpa pustaka
            rich-text apa pun). -->
-      <section class="mt-6 rounded border border-slate-200 bg-white p-4">
-        <h2 class="mb-2 text-sm font-medium text-slate-700">Sisipkan gambar</h2>
+      <section class="card mt-6">
+        <h2 class="card-title mb-2">Sisipkan gambar</h2>
         <form th:attr="hx-post=@{/gambar}" hx-encoding="multipart/form-data" hx-target="#gambar-hasil" hx-swap="innerHTML"
-              class="flex items-end gap-3 text-sm">
-          <input type="file" name="berkas" accept="image/png,image/jpeg" required>
-          <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Unggah</button>
+              class="flex flex-wrap items-center gap-3 text-sm">
+          <input type="file" name="berkas" accept="image/png,image/jpeg" required
+                 class="text-ink-2 file:btn file:btn-secondary file:btn-sm file:mr-3">
+          <button type="submit" class="btn btn-primary btn-sm">Unggah</button>
         </form>
         <div id="gambar-hasil" class="mt-3"></div>
       </section>
@@ -134,10 +130,10 @@
       <!-- Pratinjau: bodyHtml/explanationHtml yang tersimpan SUDAH disanitasi allowlist saat
            ditulis (QuestionService, TC-22/TC-23), jadi th:utext di sini aman — bukan input
            mentah pengguna. -->
-      <section th:if="${soal != null}" class="mt-6 rounded border border-slate-200 bg-white p-4">
-        <h2 class="mb-2 text-sm font-medium text-slate-700">Pratinjau</h2>
-        <div class="pratinjau-konten prose prose-sm max-w-none" th:utext="${soal.bodyHtml}">Pratinjau isi soal</div>
-        <div th:if="${soal.explanationHtml != null}" class="pratinjau-konten prose prose-sm mt-3 max-w-none border-t border-slate-100 pt-3"
+      <section th:if="${soal != null}" class="card mt-6">
+        <h2 class="card-title mb-2">Pratinjau</h2>
+        <div class="pratinjau-konten prose max-w-none" th:utext="${soal.bodyHtml}">Pratinjau isi soal</div>
+        <div th:if="${soal.explanationHtml != null}" class="pratinjau-konten prose mt-3 max-w-none border-t border-line pt-3"
              th:utext="${soal.explanationHtml}">Pratinjau pembahasan</div>
       </section>
 
@@ -149,10 +145,10 @@
      disalin ke textarea, karena editor di sini sengaja textarea polos, bukan rich-text (TC-27,
      TC-28 -- penyimpanan lewat ImageService/FileStoragePort, bukan direktori statis). -->
 <div th:fragment="gambarTerunggah" th:remove="tag" class="space-y-2">
-  <img th:src="@{/gambar/{id}(id=${imageId})}" alt="Gambar terunggah" class="max-h-40 rounded border border-slate-200">
+  <img th:src="@{/gambar/{id}(id=${imageId})}" alt="Gambar terunggah" class="max-h-40 rounded-lg border border-line">
   <input type="text" readonly onclick="this.select()"
          th:value="|&lt;img src=&quot;/gambar/${imageId}&quot;&gt;|"
-         class="w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs">
+         class="input input-sm font-mono">
 </div>
 
 <script th:src="@{/vendor/katex/katex.min.js}" defer></script>

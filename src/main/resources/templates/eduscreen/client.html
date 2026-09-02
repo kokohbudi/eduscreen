@@ -5,34 +5,31 @@
 <div th:replace="~{layout/base :: page('Client', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <div th:if="${param.dibuat}" role="status"
-         class="mb-6 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+    <div th:if="${param.dibuat}" role="status" class="alert alert-success mb-6">
       Client dibuat. Undangan sudah dikirim ke Client Admin pertamanya.
     </div>
 
-    <section class="mb-8 rounded-lg border border-slate-200 bg-white p-6">
-      <h2 class="text-lg font-semibold">Client terdaftar</h2>
-      <div class="mt-4 overflow-x-auto">
-        <table class="w-full text-left text-sm">
-          <thead class="border-b border-slate-200 text-slate-500">
-            <tr>
-              <th scope="col" class="py-2">Nama</th>
-              <th scope="col" class="py-2">Zona waktu</th>
-              <th scope="col" class="py-2">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr th:each="c : ${clients}" class="border-b border-slate-100">
-              <td class="py-2" th:text="${c.name}">Nama</td>
-              <td class="py-2" th:text="${c.timezone}">Asia/Jakarta</td>
-              <td class="py-2" th:text="${c.status}">ACTIVE</td>
-            </tr>
-            <tr th:if="${#lists.isEmpty(clients)}">
-              <td colspan="3" class="py-4 text-slate-500">Belum ada Client.</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+    <section class="card mb-8 p-0">
+      <h2 class="card-title border-b border-line px-5 py-4">Client terdaftar</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Nama</th>
+            <th scope="col">Zona waktu</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="c : ${clients}">
+            <td class="font-medium" th:text="${c.name}">Nama</td>
+            <td class="text-ink-2" th:text="${c.timezone}">Asia/Jakarta</td>
+            <td><span th:class="${c.status.name() == 'ACTIVE'} ? 'badge badge-success' : 'badge'" th:text="${c.status}">ACTIVE</span></td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(clients)}">
+            <td colspan="3" class="py-8 text-center text-ink-2">Belum ada Client.</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <!--
@@ -40,53 +37,48 @@
       pengetahuan Client Admin, bukan Eduscreen; menebaknya di sini akan menghasilkan Ruangan
       kosong yang harus dihapus satu per satu.
     -->
-    <section class="rounded-lg border border-slate-200 bg-white p-6">
-      <h2 class="text-lg font-semibold">Client baru</h2>
+    <section class="card p-6">
+      <h2 class="card-title">Client baru</h2>
       <form method="post" th:action="@{/eduscreen/client}" class="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <label for="name" class="block text-sm font-medium text-slate-700">Nama sekolah</label>
-          <input id="name" name="name" required
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="name" class="label">Nama sekolah</label>
+          <input id="name" name="name" required class="input">
         </div>
         <div>
-          <label for="timezone" class="block text-sm font-medium text-slate-700">Zona waktu</label>
+          <label for="timezone" class="label">Zona waktu</label>
           <!-- Tiga zona Indonesia; seluruh batas akhir ditafsirkan di zona ini (BR-T02). -->
-          <select id="timezone" name="timezone"
-                  class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <select id="timezone" name="timezone" class="select">
             <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
             <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
             <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
           </select>
         </div>
         <div>
-          <label for="adminFullName" class="block text-sm font-medium text-slate-700">Nama Client Admin</label>
-          <input id="adminFullName" name="adminFullName" required
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="adminFullName" class="label">Nama Client Admin</label>
+          <input id="adminFullName" name="adminFullName" required class="input">
         </div>
         <div>
-          <label for="adminEmail" class="block text-sm font-medium text-slate-700">Email Client Admin</label>
-          <input type="email" id="adminEmail" name="adminEmail" required
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="adminEmail" class="label">Email Client Admin</label>
+          <input type="email" id="adminEmail" name="adminEmail" required class="input">
         </div>
         <fieldset class="sm:col-span-2">
-          <legend class="text-sm font-medium text-slate-700">Paket konten master yang disalin</legend>
+          <legend class="label">Paket konten master yang disalin</legend>
           <!--
             Yang disalin adalah SALINAN penuh (ADR-0001). Subject GLOBAL tidak ikut disalin — ia
             dibaca langsung oleh semua Client (BR-O02, AC-O02).
           -->
-          <div class="mt-2 space-y-1">
-            <label th:each="p : ${paket}" class="flex items-center gap-2 text-sm">
-              <input type="checkbox" name="paketIds" th:value="${p.id}" class="rounded border-slate-300">
-              <span th:text="${p.title}">Judul paket</span>
+          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <label th:each="p : ${paket}" class="opt items-center py-3">
+              <input type="checkbox" name="paketIds" th:value="${p.id}">
+              <span class="text-sm font-medium" th:text="${p.title}">Judul paket</span>
             </label>
-            <p th:if="${#lists.isEmpty(paket)}" class="text-sm text-slate-500">
+            <p th:if="${#lists.isEmpty(paket)}" class="text-sm text-ink-2 sm:col-span-2">
               Belum ada paket master.
             </p>
           </div>
         </fieldset>
-        <div class="sm:col-span-2">
-          <button type="submit"
-                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        <div class="sm:col-span-2 border-t border-line pt-4">
+          <button type="submit" class="btn btn-primary w-full sm:w-auto">
             Buat Client dan kirim undangan
           </button>
         </div>

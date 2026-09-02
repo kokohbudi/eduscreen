@@ -1,52 +1,51 @@
 <!DOCTYPE html>
 <html lang="id" xmlns:th="http://www.thymeleaf.org">
 <head th:replace="~{layout/base :: head('Masuk')}"></head>
-<body class="min-h-screen bg-slate-50 text-slate-900">
+<body>
 
 <div th:if="${@environment.getProperty('eduscreen.demo-banner', T(java.lang.Boolean), false)}"
-     class="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950" role="status">
+     class="bg-warn px-4 py-2 text-center text-sm font-semibold text-bg" role="status">
   LINGKUNGAN PERAGAAN — data di sini karangan dan autentikasinya tidak nyata.
 </div>
 
-<main class="mx-auto flex min-h-screen max-w-md flex-col justify-center px-4">
-  <div class="rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-    <h1 class="text-2xl font-bold tracking-tight">Eduscreen</h1>
-    <p class="mt-1 text-sm text-slate-500">Masuk ke portal Anda</p>
+<main class="mx-auto flex min-h-dvh w-full max-w-sm flex-col justify-center px-4 py-10">
+  <div class="mb-8 flex items-center gap-3">
+    <span class="grid h-10 w-10 place-items-center rounded-xl bg-accent-fill text-lg font-bold text-accent-ink">E</span>
+    <div>
+      <div class="text-lg font-semibold tracking-tight">Eduscreen</div>
+      <div class="text-sm text-ink-2">Masuk ke portal Anda</div>
+    </div>
+  </div>
 
+  <div class="card rounded-2xl p-6 shadow-2 sm:p-8">
     <!--
       Pesan kegagalan sengaja seragam. Membedakan "akun tidak ditemukan" dari "password salah"
       mengubah formulir ini menjadi alat memeriksa alamat email mana yang terdaftar.
     -->
-    <div th:if="${param.error}" role="alert"
-         class="mt-6 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+    <div th:if="${param.error}" role="alert" class="alert alert-danger mb-5">
       Email atau password salah.
     </div>
-    <div th:if="${param.logout}" role="status"
-         class="mt-6 rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+    <div th:if="${param.logout}" role="status" class="alert mb-5">
       Anda telah keluar.
     </div>
 
-    <form th:action="@{/login}" method="post" class="mt-6 space-y-4">
+    <form th:action="@{/login}" method="post" class="space-y-4">
       <div>
-        <label for="username" class="block text-sm font-medium text-slate-700">Email</label>
+        <label for="username" class="label">Email</label>
         <input type="email" id="username" name="username" required autofocus autocomplete="username"
-               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+               class="input" placeholder="nama@sekolah.sch.id">
       </div>
       <div>
-        <label for="password" class="block text-sm font-medium text-slate-700">Password</label>
+        <div class="flex items-baseline justify-between">
+          <label for="password" class="label">Password</label>
+          <a th:href="@{/lupa-password}" class="text-xs text-ink-2 hover:text-ink">Lupa password?</a>
+        </div>
         <input type="password" id="password" name="password" required autocomplete="current-password"
-               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+               class="input">
       </div>
-      <button type="submit"
-              class="w-full rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
-        Masuk
-      </button>
+      <button type="submit" class="btn btn-primary btn-lg mt-2 w-full">Masuk</button>
     </form>
   </div>
-
-  <p class="mt-4 text-center text-xs text-slate-400">
-    Alur undangan dan reset password menyusul.
-  </p>
 </main>
 
 </body>

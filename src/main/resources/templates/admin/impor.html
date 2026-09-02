@@ -10,21 +10,20 @@
       per berkas adalah yang membuat itu mungkin, dan ia ada supaya tidak ada yang
       "memperbaikinya" dengan memasukkan kembali infrastruktur yang sengaja dihindari di v1.
     -->
-    <section class="rounded-lg border border-slate-200 bg-white p-6">
-      <h2 class="text-lg font-semibold">Unggah berkas</h2>
-      <p class="mt-1 text-sm text-slate-600">
-        Format Excel (<code>.xlsx</code>) atau CSV, maksimum <strong>500 baris</strong> per berkas.
+    <section class="card p-6">
+      <h2 class="card-title">Unggah berkas</h2>
+      <p class="mt-1 max-w-prose text-sm text-ink-2">
+        Format Excel (<code class="rounded bg-surface-2 px-1">.xlsx</code>) atau CSV, maksimum
+        <strong class="text-ink">500 baris</strong> per berkas.
         Berkas yang lebih besar ditolak sebelum diproses — pecah menjadi beberapa berkas.
         Seluruh baris valid disimpan ke Paket dan Topic tujuan yang dipilih di bawah; kolom
-        <code>topic</code> pada berkas boleh dikosongkan.
+        <code class="rounded bg-surface-2 px-1">topic</code> pada berkas boleh dikosongkan.
       </p>
-      <p class="mt-2 text-sm">
-        <a th:href="@{/templat-impor.csv}" class="text-slate-700 underline" download>
-          Unduh templat kolom
-        </a>
+      <p class="mt-3">
+        <a th:href="@{/templat-impor.csv}" class="btn btn-secondary btn-sm" download>Unduh templat kolom</a>
       </p>
 
-      <form class="mt-4 flex flex-wrap items-end gap-3"
+      <form class="mt-5 grid grid-cols-1 gap-3 border-t border-line pt-5 sm:grid-cols-2 lg:grid-cols-4"
             hx-post="/admin/impor/pratinjau" hx-encoding="multipart/form-data"
             hx-target="#pratinjau" hx-swap="innerHTML">
         <!--
@@ -35,30 +34,28 @@
           supaya daftar dan urutannya tidak bisa diam-diam melenceng dari halaman isi Paket.
         -->
         <div>
-          <label for="paketIdImpor" class="block text-sm font-medium text-slate-700">Paket tujuan</label>
+          <label for="paketIdImpor" class="label">Paket tujuan</label>
           <select id="paketIdImpor" name="paketId" required
                   onchange="htmx.ajax('GET', '/bank-soal/paket/' + this.value + '/topic-options', {target: '#topicIdImpor', swap: 'innerHTML'})"
-                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+                  class="select">
             <option value="">-- Paket --</option>
             <option th:each="p : ${pakets}" th:value="${p.id}" th:text="${p.title}">Paket</option>
           </select>
         </div>
         <div>
-          <label for="topicIdImpor" class="block text-sm font-medium text-slate-700">Topic tujuan</label>
-          <select id="topicIdImpor" name="topicId" required
-                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <label for="topicIdImpor" class="label">Topic tujuan</label>
+          <select id="topicIdImpor" name="topicId" required class="select">
             <option value="">-- Topic --</option>
           </select>
         </div>
         <div>
-          <label for="berkas" class="block text-sm font-medium text-slate-700">Berkas</label>
+          <label for="berkas" class="label">Berkas</label>
           <input type="file" id="berkas" name="berkas" accept=".csv,.xlsx" required
-                 class="mt-1 block text-sm">
+                 class="mt-1 block w-full text-sm text-ink-2 file:btn file:btn-secondary file:btn-sm file:mr-3">
         </div>
-        <button type="submit"
-                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
-          Pratinjau
-        </button>
+        <div class="flex items-end">
+          <button type="submit" class="btn btn-primary w-full">Pratinjau</button>
+        </div>
       </form>
     </section>
 
@@ -68,26 +65,25 @@
         supaya pengguna bisa memperbaiki berkas aslinya, bukan menebak-nebak baris mana yang
         salah (AC-Q03).
       -->
-      <section th:fragment="pratinjau" th:if="${pratinjau}"
-               class="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 class="text-lg font-semibold">Hasil pembacaan</h2>
-        <p class="mt-1 text-sm text-slate-700">
-          <span th:text="${pratinjau.validCount()}">0</span> baris valid,
-          <span th:text="${#lists.size(pratinjau.failures())}">0</span> baris gagal.
+      <section th:fragment="pratinjau" th:if="${pratinjau}" class="card p-6">
+        <h2 class="card-title">Hasil pembacaan</h2>
+        <p class="mt-1 text-sm text-ink-2">
+          <span class="font-medium text-success" th:text="${pratinjau.validCount()}">0</span> baris valid,
+          <span class="font-medium text-danger" th:text="${#lists.size(pratinjau.failures())}">0</span> baris gagal.
         </p>
 
-        <div th:if="${!#lists.isEmpty(pratinjau.failures())}" class="mt-4 overflow-x-auto">
-          <table class="w-full text-left text-sm">
-            <thead class="border-b border-slate-200 text-slate-500">
+        <div th:if="${!#lists.isEmpty(pratinjau.failures())}" class="mt-4">
+          <table class="table">
+            <thead>
               <tr>
-                <th scope="col" class="py-2">Baris</th>
-                <th scope="col" class="py-2">Alasan</th>
+                <th scope="col">Baris</th>
+                <th scope="col">Alasan</th>
               </tr>
             </thead>
             <tbody>
-              <tr th:each="g : ${pratinjau.failures()}" class="border-b border-slate-100">
-                <td class="py-2" th:text="${g.lineNumber()}">0</td>
-                <td class="py-2 text-red-700" th:text="${g.reason()}">Alasan</td>
+              <tr th:each="g : ${pratinjau.failures()}">
+                <td class="tabular-nums" th:text="${g.lineNumber()}">0</td>
+                <td class="text-danger" th:text="${g.reason()}">Alasan</td>
               </tr>
             </tbody>
           </table>
@@ -95,19 +91,15 @@
 
         <!-- Tujuan dibawa ulang dari formulir unggah; layanan memeriksanya lagi saat menyimpan
              (TC-36, AC-B02) — field tersembunyi bukan gerbang keamanan. -->
-        <form class="mt-4" hx-post="/admin/impor/simpan" hx-target="#pratinjau" hx-swap="innerHTML">
+        <form class="mt-5" hx-post="/admin/impor/simpan" hx-target="#pratinjau" hx-swap="innerHTML">
           <input type="hidden" name="token" th:value="${pratinjau.token()}">
           <input type="hidden" name="paketId" th:value="${paketId}">
           <input type="hidden" name="topicId" th:value="${topicId}">
-          <button type="submit"
-                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
-            Simpan baris yang valid
-          </button>
+          <button type="submit" class="btn btn-primary">Simpan baris yang valid</button>
         </form>
       </section>
 
-      <div th:fragment="ringkasan" th:if="${ringkasan}" role="status"
-           class="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+      <div th:fragment="ringkasan" th:if="${ringkasan}" role="status" class="alert alert-success">
         <span th:text="${ringkasan.saved()}">0</span> soal tersimpan ke bank soal.
       </div>
     </div>
