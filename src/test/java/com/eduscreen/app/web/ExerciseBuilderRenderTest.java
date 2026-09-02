@@ -74,7 +74,7 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
      * penambahan lintas-Paket (lihat {@link #brE01TambahSoalDariPaketLainSaatPanelMenyaringPaketLain()}).
      * {@code business-rules.md} belum punya kriteria untuk "panel penelusuran menyaring per
      * Paket" sebelum Task 12 — AC-E05 ditambahkan langsung ke sana (bukan hanya diusulkan di
-     * laporan), mengikuti pola AC-B16/AC-B17 di Task 10.
+     * laporan), mengikuti pola AC-B16 di Task 10.
      */
     @Test
     @DisplayName("AC-E05: panel /exercise/{id}/cari menyaring hasil pencarian ke Paket yang dipilih, dan dirender tanpa galat templat")

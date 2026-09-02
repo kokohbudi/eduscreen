@@ -94,7 +94,7 @@ class QuestionBankIT extends PostgresTestBase {
      * {@code ExerciseBuilderRenderTest#brE01TambahSoalDariPaketLainSaatPanelMenyaringPaketLain}
      * (temuan review Task 12). Business-rules.md belum punya kriteria untuk "panel penelusuran
      * menyaring per Paket", jadi AC-E05 ditambahkan langsung ke sana (bukan hanya diusulkan di
-     * laporan), mengikuti pola yang sama seperti AC-B16/AC-B17 di Task 10.
+     * laporan), mengikuti pola yang sama seperti AC-B16 di Task 10.
      */
     @Test
     @DisplayName("AC-E05: panel perakit menyaring hasil pencarian ke Paket yang dipilih, dan Paket lain tidak ikut tampil")

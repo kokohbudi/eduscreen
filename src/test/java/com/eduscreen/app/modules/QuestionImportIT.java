@@ -111,6 +111,36 @@ class QuestionImportIT extends PostgresTestBase {
         assertThat(tersimpan).allSatisfy(q -> assertThat(q.getPaketId()).isEqualTo(paket.getId()));
     }
 
+    /**
+     * {@code admin/impor.html} sudah memberi tahu pengguna bahwa kolom {@code topic} tidak
+     * menentukan tujuan, sementara parser masih menolak setiap baris yang mengosongkannya —
+     * dokumen dan kode saling menyangkal di layar yang sama.
+     */
+    @Test
+    @DisplayName("AC-Q07: kolom topic boleh dikosongkan; barisnya tetap masuk ke Paket dan Topic yang dipilih")
+    void ac_q07_kolomTopicBolehKosong() {
+        ClientEntity client = testData.client("SD Impor Topic Kosong");
+        AppUserEntity author = testData.user(client, UserRole.CLIENT_ADMIN, "Admin Impor Kosong");
+        TopicEntity topic = testData.topic(client, "Matematika Kelas 4", "Aljabar");
+        PaketEntity paket = testData.paketOf(topic);
+        String csv = HEADER + "\n"
+                + ",PG,Soal tanpa kolom topic,Pilihan A,Pilihan B,Pilihan C,Pilihan D,A,Pembahasan\n"
+                + ",ESSAY,Esai tanpa kolom topic,,,,,,Jawaban terbuka\n";
+        byte[] bytes = csv.getBytes(StandardCharsets.UTF_8);
+
+        QuestionImportService.Preview preview =
+                importService.preview("tanpa-topic.csv", bytes, paket.getId(), client.getId());
+
+        assertThat(preview.failures()).isEmpty();
+        assertThat(preview.validCount()).isEqualTo(2);
+
+        importService.commit(preview.token(), paket.getId(), topic.getId(), client.getId(), author.getId());
+
+        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topic.getId()))
+                .extracting(QuestionEntity::getBodyText)
+                .containsExactly("Soal tanpa kolom topic", "Esai tanpa kolom topic");
+    }
+
     @Test
     @DisplayName("AC-Q03: token pratinjau yang tidak dikenal ditolak dengan IllegalArgumentException")
     void ac_q03_tokenPratinjauTidakDikenalDitolak() {

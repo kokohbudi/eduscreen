@@ -363,7 +363,7 @@ Then berkas ditolak sebelum diproses dengan pesan yang menyebut batas 500 baris 
 **AC-Q07** (BR-Q05, ADR-0018)
 Given Client Admin memilih Paket dan Topic tujuan di layar impor, dan kolom `topic` pada berkas menyebut nama Topic lain miliknya
 When ia menyimpan hasil pratinjau
-Then seluruh baris valid tersimpan ke Paket dan Topic yang dipilih; kolom `topic` berkas tidak menentukan tujuan.
+Then seluruh baris valid tersimpan ke Paket dan Topic yang dipilih; kolom `topic` berkas tidak menentukan tujuan, dan mengosongkannya tidak membuat barisnya gagal.
 
 **AC-O02** (BR-O02)
 Given paket master yang diadopsi berada di bawah Subject `GLOBAL` `Matematika Kelas 4`

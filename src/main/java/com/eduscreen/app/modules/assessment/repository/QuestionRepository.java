@@ -21,6 +21,16 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
 
     Optional<QuestionEntity> findByIdAndClientId(UUID id, UUID clientId);
 
+    /**
+     * Padanan {@link #findByIdAndClientId} untuk konten master: pemiliknya harus Eduscreen.
+     *
+     * <p>Satu idiom untuk satu pertanyaan. Sebelumnya "master atau Client" ditanyakan tiga cara
+     * berbeda di tiga tempat — termasuk {@code findById(...)} lalu disaring di Java, yang membaca
+     * lintas-tenant lebih dulu dan baru menolak sesudahnya. Bentuk itu justru yang TC-36 hindari,
+     * dan penamaannya di sini sejajar {@code PaketRepository.findByIdAndClientIdIsNull}.
+     */
+    Optional<QuestionEntity> findByIdAndClientIdIsNull(UUID id);
+
     List<QuestionEntity> findByClientIdAndIdIn(UUID clientId, Collection<UUID> ids);
 
     /**

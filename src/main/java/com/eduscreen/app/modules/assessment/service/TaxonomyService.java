@@ -161,8 +161,8 @@ public class TaxonomyService {
      * master: Question itu akan terbaca seluruh Client lewat katalog sementara Paket induknya
      * tidak, dan adopsi akan menyalin konten milik satu sekolah ke sekolah lain (FR-061, FR-082).
      *
-     * <p>Sebaliknya juga, dan ini yang membedakannya dari {@link #requireVisibleTopic}: Client
-     * hanya boleh menulis ke Paket miliknya sendiri. Paket master boleh ia BACA lewat katalog,
+     * <p>Sebaliknya juga, dan inilah yang membuat "boleh ditulisi" lebih sempit daripada "boleh
+     * dibaca": Client hanya boleh menulis ke Paket miliknya sendiri. Paket master boleh ia BACA lewat katalog,
      * tidak boleh ia tulisi (ADR-0018). Aturan lama FR-014 — Topic milik Client di bawah Subject
      * GLOBAL — kini terwujud sebagai Paket milik Client yang menunjuk Subject global yang sama:
      * Subject tetap dipakai bersama, Paket tidak pernah. Database menegakkan hal yang sama lewat

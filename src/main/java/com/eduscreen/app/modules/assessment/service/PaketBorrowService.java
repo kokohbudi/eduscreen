@@ -99,11 +99,19 @@ public class PaketBorrowService {
         return topic;
     }
 
-    /** Null bila soal itu milik Client lain: nol hasil, bukan galat yang membocorkan (TC-36). */
+    /**
+     * Null bila soal itu milik Client lain: nol hasil, bukan galat yang membocorkan (TC-36).
+     *
+     * <p>Kedua cabang menyaring pemilik DI DALAM query. Cabang master sempat memakai
+     * {@code findById(...)} lalu menyaring {@code clientId} di Java — hasil akhirnya sama, tapi
+     * barisnya sudah terbaca lintas-tenant sebelum ditolak, bentuk yang TC-36 hindari di dua
+     * pemanggil sejenis lainnya.
+     */
     private QuestionEntity bacaMilikClient(UUID id, UUID clientId) {
-        return clientId == null
-                ? questions.findById(id).filter(q -> q.getClientId() == null).orElse(null)
-                : questions.findByIdAndClientId(id, clientId).orElse(null);
+        return (clientId == null
+                ? questions.findByIdAndClientIdIsNull(id)
+                : questions.findByIdAndClientId(id, clientId))
+                .orElse(null);
     }
 
     /** Menyalin satu Question beserta seluruh Option-nya: jumlah, jawaban benar, dan urutan (FR-016). */

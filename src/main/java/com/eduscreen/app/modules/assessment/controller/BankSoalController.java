@@ -251,7 +251,11 @@ public class BankSoalController {
         model.addAttribute("paket", target);
         model.addAttribute("topics", pakets.topicsOf(id));
         model.addAttribute("sudahDipinjam", borrow.borrowedSourceIds(id));
-        // Sumber dibatasi Paket se-Subject: meminjam lintas mapel hampir selalu salah pilih.
+        // Daftar sumber di panel dipersempit ke Paket se-Subject, sebagai kenyamanan tampilan
+        // saja: meminjam lintas mapel hampir selalu salah pilih, jadi tidak perlu ditawarkan
+        // lebih dulu. Ini BUKAN aturan — POST .../pinjam menerima sumber mana pun milik Client
+        // (PaketBorrowService menyaring pemilik, bukan Subject), dan memang begitu yang
+        // dikehendaki: Client Admin yang sengaja meminjam lintas mapel tidak dihalangi.
         model.addAttribute("paketLain", paketRepository
                 .findByClientIdAndSubjectIdOrderByTitleAsc(clientId, target.getSubjectId())
                 .stream().filter(p -> !p.getId().equals(id)).toList());

@@ -18,7 +18,8 @@ import java.util.Locale;
  * Mengurai berkas impor soal (.xlsx lewat Apache POI, atau .csv) menjadi baris mentah, tanpa
  * menyentuh database. Kolomnya tetap:
  * {@code topic | tipe | soal | opsi_a | opsi_b | opsi_c | opsi_d | kunci | pembahasan}, baris
- * pertama adalah header dan dilewati.
+ * pertama adalah header dan dilewati. Kolom {@code topic} opsional dan tidak dibaca — lihat
+ * {@link #toRawRow}.
  *
  * <p>Parser ini murni sintaksis: ia tidak tahu apa itu Topic yang "terlihat Client" atau apa itu
  * sanitasi HTML — itu tanggung jawab {@link QuestionImportService}. Pemisahan ini membuat aturan
@@ -30,7 +31,7 @@ public class QuestionImportParser {
     /** Jumlah kolom minimum yang selalu disediakan, walau baris sumber lebih pendek. */
     private static final int MIN_COLUMNS = 9;
 
-    public record RawRow(int lineNumber, String topic, String type, String body,
+    public record RawRow(int lineNumber, String type, String body,
                           List<String> options, String answerKey, String explanation) {}
 
     public record RowFailure(int lineNumber, String reason) {}
@@ -194,21 +195,23 @@ public class QuestionImportParser {
     }
 
     /**
-     * Validasi per baris (AC-Q03): topic wajib, tipe harus PG/ESSAY, soal tidak boleh kosong;
-     * PG butuh minimal 2 opsi terisi dan kunci yang menunjuk opsi terisi; ESSAY wajib tanpa
-     * opsi maupun kunci.
+     * Validasi per baris (AC-Q03): tipe harus PG/ESSAY, soal tidak boleh kosong; PG butuh minimal
+     * 2 opsi terisi dan kunci yang menunjuk opsi terisi; ESSAY wajib tanpa opsi maupun kunci.
+     *
+     * <p>Kolom {@code topic} (kolom pertama) <b>opsional</b> dan tidak dibaca sama sekali. Sejak
+     * ADR-0018 tujuan impor dipilih eksplisit di layar — satu Paket dan satu Topic untuk seluruh
+     * berkas — sehingga isi kolom itu tidak menentukan apa pun. Mewajibkannya berarti menolak
+     * baris karena kolom yang layar impor sendiri nyatakan tidak dipakai, dua pernyataan yang
+     * saling menyangkal di satu tampilan. Kolomnya tetap ada di templat dan tetap dilewati
+     * secara posisi, supaya berkas lama yang sudah beredar tetap terbaca apa adanya.
      */
     private RawRow toRawRow(int lineNumber, String[] cols) {
-        String topic = col(cols, 0);
         String type = col(cols, 1).toUpperCase(Locale.ROOT);
         String body = col(cols, 2);
         List<String> optionValues = List.of(col(cols, 3), col(cols, 4), col(cols, 5), col(cols, 6));
         String answerKey = col(cols, 7).toUpperCase(Locale.ROOT);
         String explanation = col(cols, 8);
 
-        if (topic.isBlank()) {
-            throw new RowValidationException("Kolom topic wajib diisi");
-        }
         if (!type.equals("PG") && !type.equals("ESSAY")) {
             throw new RowValidationException("Kolom tipe harus PG atau ESSAY, ditemukan \"" + col(cols, 1) + "\"");
         }
@@ -232,7 +235,7 @@ public class QuestionImportParser {
             }
         }
 
-        return new RawRow(lineNumber, topic, type, body, optionValues,
+        return new RawRow(lineNumber, type, body, optionValues,
                 type.equals("PG") ? answerKey : null, explanation);
     }
 

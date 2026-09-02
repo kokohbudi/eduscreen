@@ -15,7 +15,8 @@
       <p class="mt-1 text-sm text-slate-600">
         Format Excel (<code>.xlsx</code>) atau CSV, maksimum <strong>500 baris</strong> per berkas.
         Berkas yang lebih besar ditolak sebelum diproses — pecah menjadi beberapa berkas.
-        Seluruh baris valid disimpan ke Paket dan Topic tujuan yang dipilih di bawah.
+        Seluruh baris valid disimpan ke Paket dan Topic tujuan yang dipilih di bawah; kolom
+        <code>topic</code> pada berkas boleh dikosongkan.
       </p>
       <p class="mt-2 text-sm">
         <a th:href="@{/templat-impor.csv}" class="text-slate-700 underline" download>
@@ -28,7 +29,8 @@
             hx-target="#pratinjau" hx-swap="innerHTML">
         <!--
           Tujuan impor dipilih eksplisit (ADR-0018): seluruh baris valid mendarat di satu Paket
-          dan satu Topic — kolom topic pada berkas tidak menentukan tujuan. Daftar Topic dimuat
+          dan satu Topic — kolom topic pada berkas tidak menentukan tujuan, dan karena itu boleh
+          dikosongkan (parser tidak membacanya sama sekali). Daftar Topic dimuat
           ulang saat Paket berganti, lewat fragmen opsiTopic yang sama dengan perakit Exercise,
           supaya daftar dan urutannya tidak bisa diam-diam melenceng dari halaman isi Paket.
         -->

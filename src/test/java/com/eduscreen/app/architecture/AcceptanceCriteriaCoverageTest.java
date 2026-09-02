@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *       tercakup padahal ia menunjuk kriteria yang tidak pernah ada.</li>
  * </ul>
  *
- * <p>Yang sengaja <b>tidak</b> diperiksa: kelengkapan cakupan seluruh 54 kriteria. Memaksanya
+ * <p>Yang sengaja <b>tidak</b> diperiksa: kelengkapan cakupan seluruh kriteria yang ada. Memaksanya
  * hijau akan mendorong orang menempelkan pengenal ke tes yang tidak membuktikan apa-apa. Daftar
  * kriteria yang belum tersentuh dicetak sebagai laporan, bukan sebagai kegagalan.
  */

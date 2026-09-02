@@ -149,7 +149,7 @@ public class MasterPublishingService {
 
     /** Konten milik sebuah Client dan konten yang tidak ada sama-sama 404 (TC-09). */
     private QuestionEntity requireMasterQuestion(UUID id) {
-        return questions.findByIdAndClientId(id, null)
+        return questions.findByIdAndClientIdIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Soal master tidak ditemukan"));
     }
 
