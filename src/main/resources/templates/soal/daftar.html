@@ -25,7 +25,7 @@
           <select id="topicId" name="topicId" onchange="this.form.submit()" th:disabled="${subjectId == null}"
                   class="mt-1 rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100">
             <option value="">Semua Topic</option>
-            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}"
                     th:selected="${topicId != null and topicId == t.id}">Topic</option>
           </select>
         </div>
@@ -111,10 +111,10 @@
        th:remove="tag" seperti fragmen subjects di atas. -->
   <select th:fragment="topics" th:remove="tag">
     <option value="">-- Topic --</option>
-    <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}">Topic</option>
+    <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
   </select>
 
-  <option th:fragment="opsiTopicBaru" th:value="${topic.id}" th:text="${topic.name}">Topic</option>
+  <option th:fragment="opsiTopicBaru" th:value="${topic.id}" th:text="${topic.title}">Topic</option>
 
   <!--
     Hasil pencarian berhalaman. Dipakai dua kali: langsung sebagai bagian halaman ini, dan

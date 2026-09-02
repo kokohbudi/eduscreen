@@ -6,6 +6,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
+import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.shared.domain.ClientClock;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -130,7 +131,7 @@ public class QuestionService {
         // Topic wajib boleh ditulisi pemilik ini: GLOBAL untuk konten master, GLOBAL atau milik
         // sendiri untuk konten Client (FR-015, FR-061, AC-Q04). Selain itu diperlakukan seolah
         // tidak ada.
-        taxonomy.requireWritableTopic(draft.topicId(), clientId);
+        TopicEntity topic = taxonomy.requireWritableTopic(draft.topicId(), clientId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -138,8 +139,10 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
+        // Paket induk diturunkan dari Topic tujuan: keduanya wajib sewadah (AC-B02).
         QuestionEntity question = new QuestionEntity(
-                clientId, draft.topicId(), draft.type(), bodyHtml, sanitizer.toPlainText(bodyHtml));
+                clientId, topic.getPaketId(), draft.topicId(), draft.type(),
+                bodyHtml, sanitizer.toPlainText(bodyHtml));
         applyExplanation(question, draft.explanationHtml());
         question = questions.save(question);
 
@@ -150,7 +153,7 @@ public class QuestionService {
     @Transactional
     public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId) {
         QuestionEntity question = require(id, clientId);
-        taxonomy.requireWritableTopic(draft.topicId(), clientId);
+        TopicEntity topic = taxonomy.requireWritableTopic(draft.topicId(), clientId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -158,7 +161,7 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        question.setTopicId(draft.topicId());
+        question.reparent(topic.getPaketId(), draft.topicId());
         // Sanitasi dan turunan teks polos ditulis dalam operasi yang sama dengan bodyHtml,
         // supaya keduanya tidak pernah sempat tidak sinkron (TC-25).
         question.setBodyHtml(bodyHtml);

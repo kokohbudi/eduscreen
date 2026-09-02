@@ -16,6 +16,8 @@ import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.RuanganRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.modules.assessment.service.ClientOnboardingService;
@@ -49,6 +51,8 @@ class ClientOnboardingIT extends PostgresTestBase {
     @Autowired
     private TopicRepository topicRepository;
     @Autowired
+    private PaketRepository paketRepository;
+    @Autowired
     private QuestionRepository questionRepository;
     @Autowired
     private QuestionOptionRepository optionRepository;
@@ -69,11 +73,14 @@ class ClientOnboardingIT extends PostgresTestBase {
      */
     private ExerciseEntity buatPaketMaster(String namaSubject) {
         SubjectEntity subject = subjectRepository.save(SubjectEntity.global(namaSubject));
-        TopicEntity topic = topicRepository.save(TopicEntity.global(subject.getId(), "Aljabar Master"));
+        PaketEntity paket = paketRepository.save(
+                PaketEntity.master(subject.getId(), "Aljabar Master", null));
+        TopicEntity topic = topicRepository.save(TopicEntity.of(paket.getId(), "Aljabar Master", 0));
 
         List<QuestionEntity> masterQuestions = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
-            QuestionEntity question = new QuestionEntity(null, topic.getId(), QuestionType.MULTIPLE_CHOICE,
+            QuestionEntity question = new QuestionEntity(null, paket.getId(), topic.getId(),
+                    QuestionType.MULTIPLE_CHOICE,
                     "<p>Soal master " + i + "</p>", "Soal master " + i);
             // Terbit: onboarding hanya boleh menyalin konten master yang sudah terbit, dan
             // paket yang masih digarap tidak boleh mendarat di sekolah baru lewat pintu
@@ -158,7 +165,8 @@ class ClientOnboardingIT extends PostgresTestBase {
                 .findByExerciseIdOrderByPositionAsc(masterExercise.getId()).get(0)
                 .getQuestionId();
         QuestionEntity masterQuestion = questionRepository.findByIdAndClientId(masterQuestionId, null).orElseThrow();
-        UUID subjectGlobalId = topicRepository.findById(masterQuestion.getTopicId()).orElseThrow().getSubjectId();
+        UUID subjectGlobalId = paketRepository.findById(masterQuestion.getPaketId())
+                .orElseThrow().getSubjectId();
 
         ClientOnboardingService.OnboardingRequest request = new ClientOnboardingService.OnboardingRequest(
                 "SD Onboarding O02", "Asia/Jakarta", testData.uniqueEmail("admin.o02"),
@@ -179,10 +187,10 @@ class ClientOnboardingIT extends PostgresTestBase {
         QuestionEntity questionSalinan = questionRepository
                 .findByIdAndClientId(questionIdSalinan, clientBaru.getId()).orElseThrow();
 
-        // Topic yang disalin (origin CLIENT) tetap menunjuk subjectId GLOBAL yang persis sama —
-        // hanya Topic yang disalin, Subject induknya tidak.
-        TopicEntity topicSalinan = topicRepository.findById(questionSalinan.getTopicId()).orElseThrow();
-        assertThat(topicSalinan.getSubjectId()).isEqualTo(subjectGlobalId);
-        assertThat(topicSalinan.getClientId()).isEqualTo(clientBaru.getId());
+        // Paket salinan milik sekolah baru tetap menunjuk subjectId GLOBAL yang persis sama —
+        // hanya Paket beserta Topic-nya yang disalin, Subject induknya tidak (ADR-0018).
+        PaketEntity paketSalinan = paketRepository.findById(questionSalinan.getPaketId()).orElseThrow();
+        assertThat(paketSalinan.getSubjectId()).isEqualTo(subjectGlobalId);
+        assertThat(paketSalinan.getClientId()).isEqualTo(clientBaru.getId());
     }
 }

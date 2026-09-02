@@ -43,7 +43,7 @@
             <select id="topicId" name="topicId" required
                     class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
               <option value="" th:selected="${topicId == null}">-- Topic --</option>
-              <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+              <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}"
                       th:selected="${topicId != null and topicId == t.id}">Topic</option>
             </select>
           </div>

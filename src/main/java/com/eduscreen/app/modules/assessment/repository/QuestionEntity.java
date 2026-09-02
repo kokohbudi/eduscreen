@@ -35,6 +35,13 @@ public class QuestionEntity {
     @Column(name = "topic_id", nullable = false)
     private UUID topicId;
 
+    @Column(name = "paket_id", nullable = false)
+    private UUID paketId;
+
+    /** Urutan soal di dalam Topic-nya. Menggantikan peran ExerciseItem.position untuk bank soal. */
+    @Column(nullable = false)
+    private int position;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private QuestionType type;
@@ -84,9 +91,11 @@ public class QuestionEntity {
     protected QuestionEntity() {
     }
 
-    public QuestionEntity(UUID clientId, UUID topicId, QuestionType type, String bodyHtml, String bodyText) {
+    public QuestionEntity(UUID clientId, UUID paketId, UUID topicId, QuestionType type,
+                          String bodyHtml, String bodyText) {
         this.id = UuidV7.randomUuid();
         this.clientId = clientId;
+        this.paketId = paketId;
         this.topicId = topicId;
         this.type = type;
         this.bodyHtml = bodyHtml;
@@ -134,6 +143,24 @@ public class QuestionEntity {
     }
 
     public void setTopicId(UUID topicId) {
+        this.topicId = topicId;
+    }
+
+    public UUID getPaketId() {
+        return paketId;
+    }
+
+    public int getPosition() {
+        return position;
+    }
+
+    public void moveTo(int position) {
+        this.position = position;
+    }
+
+    /** Memindahkan soal ke Topic lain; Paket induknya ikut supaya keduanya tidak pernah berbeda. */
+    public void reparent(UUID paketId, UUID topicId) {
+        this.paketId = paketId;
         this.topicId = topicId;
     }
 

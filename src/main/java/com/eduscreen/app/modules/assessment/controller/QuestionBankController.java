@@ -225,7 +225,10 @@ public class QuestionBankController {
             return;
         }
         TopicEntity topic = taxonomy.requireVisibleTopic(topicId, clientId);
-        model.addAttribute("subjectId", topic.getSubjectId());
-        model.addAttribute("topics", taxonomy.visibleTopics(topic.getSubjectId(), clientId));
+        // sementara sampai Task 6: Subject diturunkan dari Paket induk Topic, karena Topic
+        // sendiri sudah tidak membawanya (ADR-0018).
+        UUID subjectId = taxonomy.subjectIdOf(topic);
+        model.addAttribute("subjectId", subjectId);
+        model.addAttribute("topics", taxonomy.visibleTopics(subjectId, clientId));
     }
 }

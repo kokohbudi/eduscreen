@@ -192,7 +192,7 @@ class ContentIdorTest extends PostgresTestBase {
     @DisplayName("TC-41 (FR-081): peran Client tidak bisa membuat maupun mengubah nama Subject global")
     void peranClientTidakBisaMenyentuhSubjectGlobal() throws Exception {
         Tenants tenants = data.twoTenants();
-        UUID subjectGlobal = data.globalTopic("Kimia Kelas 11 idor", "Asam Basa").getSubjectId();
+        UUID subjectGlobal = data.subjectIdOf(data.globalTopic("Kimia Kelas 11 idor", "Asam Basa"));
 
         for (var pengguna : java.util.List.of(
                 tenants.a().guru(), tenants.a().siswa(), tenants.a().admin())) {
@@ -211,7 +211,7 @@ class ContentIdorTest extends PostgresTestBase {
     void eduscreenAdminTidakBisaMerenameSubjectClient() throws Exception {
         Tenants tenants = data.twoTenants();
         var admin = data.principal(data.eduscreenAdmin());
-        UUID subjectClient = tenants.a().topic().getSubjectId();
+        UUID subjectClient = data.subjectIdOf(tenants.a().topic());
 
         mockMvc.perform(post("/eduscreen/subject/{id}/nama", subjectClient)
                         .param("name", "Dirampas Eduscreen").with(user(admin)).with(csrf()))

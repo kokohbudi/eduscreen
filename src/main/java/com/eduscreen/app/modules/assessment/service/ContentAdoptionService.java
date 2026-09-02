@@ -4,6 +4,8 @@ import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
 import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
@@ -39,17 +41,20 @@ import java.util.UUID;
 public class ContentAdoptionService {
 
     private final TopicRepository topics;
+    private final PaketRepository pakets;
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository exerciseItems;
 
     public ContentAdoptionService(TopicRepository topics,
+                                  PaketRepository pakets,
                                   QuestionRepository questions,
                                   QuestionOptionRepository options,
                                   ExerciseRepository exercises,
                                   ExerciseItemRepository exerciseItems) {
         this.topics = topics;
+        this.pakets = pakets;
         this.questions = questions;
         this.options = options;
         this.exercises = exercises;
@@ -83,13 +88,21 @@ public class ContentAdoptionService {
      */
     @Transactional(readOnly = true)
     public boolean hasAdoptedTopic(UUID clientId, UUID masterTopicId) {
-        return masterTopicId != null && topics.existsByClientIdAndSourceTopicId(clientId, masterTopicId);
+        if (masterTopicId == null) {
+            return false;
+        }
+        // sementara sampai Task 8: jejak adopsi pindah dari Topic ke Paket (ADR-0018), jadi
+        // pertanyaan lama "sudah pernah ambil Topic ini?" dijawab lewat Paket induknya. Adopsi
+        // per Paket menggantikan seluruh jalur ini di Task 8.
+        return topics.findById(masterTopicId)
+                .map(topic -> pakets.existsByClientIdAndSourcePaketId(clientId, topic.getPaketId()))
+                .orElse(false);
     }
 
     /** Adopsi soal lepas dari katalog master, di luar konteks Exercise (FR-021). */
     @Transactional
     public AdoptionSummary adoptQuestions(UUID clientId, List<UUID> questionIds, UUID actor) {
-        Map<UUID, UUID> topicMap = new HashMap<>();
+        Map<UUID, TopicEntity> topicMap = new HashMap<>();
         int copiedQuestions = 0;
         for (UUID masterId : questionIds) {
             QuestionEntity master = requireMasterQuestion(masterId);
@@ -102,7 +115,7 @@ public class ContentAdoptionService {
     /** Adopsi paket Exercise: menyalin Exercise, seluruh ExerciseItem, dan tiap Question yang dirujuknya (FR-021). */
     @Transactional
     public AdoptionSummary adoptExercises(UUID clientId, List<UUID> exerciseIds, UUID actor) {
-        Map<UUID, UUID> topicMap = new HashMap<>();
+        Map<UUID, TopicEntity> topicMap = new HashMap<>();
         // Dedup soal per pemanggilan: dua Exercise yang diadopsi bersamaan bisa merujuk soal
         // yang sama, dan soal itu hanya perlu satu salinan (sejalan dengan aturan dedup Topic).
         Map<UUID, UUID> questionMap = new HashMap<>();
@@ -147,11 +160,15 @@ public class ContentAdoptionService {
     }
 
     /** Menyalin satu Question beserta Option-nya, menyelesaikan Topic induknya sekali per pemanggilan. */
-    private QuestionEntity copyQuestion(QuestionEntity master, UUID clientId, UUID actor, Map<UUID, UUID> topicMap) {
-        UUID copiedTopicId = topicMap.computeIfAbsent(
-                master.getTopicId(), masterTopicId -> copyTopic(masterTopicId, clientId));
+    private QuestionEntity copyQuestion(QuestionEntity master, UUID clientId, UUID actor,
+                                        Map<UUID, TopicEntity> topicMap) {
+        TopicEntity copiedTopic = topicMap.computeIfAbsent(
+                master.getTopicId(), masterTopicId -> copyTopic(masterTopicId, clientId, actor));
 
-        QuestionEntity copy = new QuestionEntity(clientId, copiedTopicId, master.getType(),
+        // sementara sampai Task 8: Paket induk salinan diturunkan dari Topic salinan yang baru
+        // ditulis. Task 8 mengadopsi per Paket, sehingga Paket tujuan datang dari pemanggil.
+        QuestionEntity copy = new QuestionEntity(clientId, copiedTopic.getPaketId(),
+                copiedTopic.getId(), master.getType(),
                 master.getBodyHtml(), master.getBodyText());
         copy.setExplanationHtml(master.getExplanationHtml());
         copy.setExplanationText(master.getExplanationText());
@@ -168,24 +185,26 @@ public class ContentAdoptionService {
     }
 
     /**
-     * Topic master disalin menjadi Topic {@code origin = CLIENT} yang tetap menunjuk Subject
-     * global yang sama — {@code subjectId} tidak berubah, karena Subject GLOBAL itu sendiri
-     * tidak pernah disalin (BR-O02).
+     * Topic master disalin bersama Paket yang menaunginya, tetap menunjuk Subject global yang
+     * sama — {@code subjectId} tidak berubah, karena Subject GLOBAL itu sendiri tidak pernah
+     * disalin (BR-O02).
      *
-     * <p>Adopsi kedua sengaja melahirkan Topic baru, bukan memakai ulang yang sudah ada
-     * (FR-077). Yang mencegah penggandaan tak sengaja adalah peringatan di katalog, bukan
+     * <p>Adopsi kedua sengaja melahirkan Paket dan Topic baru, bukan memakai ulang yang sudah
+     * ada (FR-077). Yang mencegah penggandaan tak sengaja adalah peringatan di katalog, bukan
      * penolakan diam-diam di sini: Client Admin yang memang ingin salinan kedua tetap boleh
      * mendapatkannya, sama seperti aturan yang sudah berlaku untuk Question.
      *
-     * <p>{@code sourceTopicId} yang membuat peringatan itu mungkin. Bukan pencocokan nama:
+     * <p>{@code sourcePaketId} yang membuat peringatan itu mungkin. Bukan pencocokan nama:
      * master yang di-rename Eduscreen dan salinan yang dirapikan Guru sama-sama membuat
      * tebakan berdasarkan nama meleset, dan ke dua arah sekaligus.
      */
-    private UUID copyTopic(UUID masterTopicId, UUID clientId) {
+    private TopicEntity copyTopic(UUID masterTopicId, UUID clientId, UUID actor) {
         TopicEntity master = topics.findById(masterTopicId)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic master tidak ditemukan"));
-        TopicEntity copy = topics.save(TopicEntity.adoptedFrom(
-                master.getSubjectId(), clientId, master.getName(), master.getId()));
-        return copy.getId();
+        PaketEntity masterPaket = pakets.findById(master.getPaketId())
+                .orElseThrow(() -> new ResourceNotFoundException("Paket master tidak ditemukan"));
+        PaketEntity paketCopy = pakets.save(PaketEntity.adoptedFrom(clientId,
+                masterPaket.getSubjectId(), masterPaket.getTitle(), actor, masterPaket.getId()));
+        return topics.save(TopicEntity.of(paketCopy.getId(), master.getTitle(), master.getPosition()));
     }
 }

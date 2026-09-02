@@ -68,7 +68,7 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(status().isOk());
         mockMvc.perform(get("/eduscreen/soal/baru").param("topicId", topic.getId().toString()).with(admin))
                 .andExpect(status().isOk());
-        mockMvc.perform(get("/eduscreen/subject/{id}/topic", topic.getSubjectId()).with(admin))
+        mockMvc.perform(get("/eduscreen/subject/{id}/topic", data.subjectIdOf(topic)).with(admin))
                 .andExpect(status().isOk());
     }
 
@@ -87,10 +87,10 @@ class MasterContentRenderTest extends PostgresTestBase {
                         org.hamcrest.Matchers.containsString("/nama"))));
 
         mockMvc.perform(get("/eduscreen/soal")
-                        .param("subjectId", topic.getSubjectId().toString()).with(admin))
+                        .param("subjectId", data.subjectIdOf(topic).toString()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/eduscreen/subject/" + topic.getSubjectId() + "/nama")));
+                        "/eduscreen/subject/" + data.subjectIdOf(topic) + "/nama")));
     }
 
     @Test

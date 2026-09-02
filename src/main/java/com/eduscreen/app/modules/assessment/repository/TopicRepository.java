@@ -8,25 +8,44 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Seluruh pembacaan milik Client menyaring {@code clientId} secara eksplisit (TC-36). */
+/**
+ * Kepemilikan Topic diwarisi dari Paket, jadi penyaringan Client dilakukan lewat join ke Paket
+ * di dalam query, bukan di kode pemanggil (TC-36).
+ */
 public interface TopicRepository extends JpaRepository<TopicEntity, UUID> {
 
-    List<TopicEntity> findBySubjectIdOrderByNameAsc(UUID subjectId);
+    List<TopicEntity> findByPaketIdOrderByPositionAsc(UUID paketId);
 
-    /** Topic yang boleh dilihat satu Client: GLOBAL milik Eduscreen plus miliknya (FR-014). */
-    @Query("select t from TopicEntity t where t.subjectId = :subjectId "
-            + "and (t.origin = com.eduscreen.app.modules.assessment.domain.ContentOrigin.GLOBAL or t.clientId = :clientId) "
-            + "order by t.name asc")
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and t.id = :id and p.clientId = :clientId")
+    Optional<TopicEntity> findWritable(@Param("id") UUID id, @Param("clientId") UUID clientId);
+
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and t.id = :id and p.clientId is null")
+    Optional<TopicEntity> findWritableMaster(@Param("id") UUID id);
+
+    /** Yang terlihat satu Client: Topic di Paket master maupun di Paket miliknya sendiri (FR-014). */
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and t.id = :id "
+            + "and (p.clientId is null or p.clientId = :clientId)")
+    Optional<TopicEntity> findVisible(@Param("id") UUID id, @Param("clientId") UUID clientId);
+
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and p.subjectId = :subjectId "
+            + "and (p.clientId is null or p.clientId = :clientId) "
+            + "order by t.title asc")
     List<TopicEntity> findVisibleTo(@Param("subjectId") UUID subjectId, @Param("clientId") UUID clientId);
 
-    Optional<TopicEntity> findByIdAndClientId(UUID id, UUID clientId);
-
     /**
-     * Apakah Client ini sudah pernah mengadopsi Topic master itu (FR-076, FR-077).
-     *
-     * <p>Dibaca dari {@code sourceTopicId} yang ditulis sejak adopsi pertama, bukan dari
-     * pencocokan nama: master yang di-rename Eduscreen dan salinan yang dirapikan Guru
-     * sama-sama membuat tebakan berdasarkan nama meleset.
+     * Pencocokan judul untuk impor massal: berkas impor hanya membawa nama Topic, tanpa Subject
+     * maupun Paket. Batas tenant ikut ditegakkan di dalam query, bukan di kode pemanggil (TC-36).
      */
-    boolean existsByClientIdAndSourceTopicId(UUID clientId, UUID sourceTopicId);
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and lower(t.title) = lower(:title) "
+            + "and (p.clientId is null or p.clientId = :clientId) "
+            + "order by t.createdAt asc")
+    List<TopicEntity> findVisibleByTitle(@Param("title") String title, @Param("clientId") UUID clientId);
+
+    @Query("select coalesce(max(t.position), -1) + 1 from TopicEntity t where t.paketId = :paketId")
+    int nextPosition(@Param("paketId") UUID paketId);
 }

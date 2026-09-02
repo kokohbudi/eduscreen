@@ -26,6 +26,8 @@ import com.eduscreen.app.modules.assessment.repository.RuanganMemberRepository;
 import com.eduscreen.app.modules.assessment.repository.RuanganRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.shared.security.UserPrincipal;
@@ -68,6 +70,7 @@ public class TestData {
     private final RuanganRepository ruangan;
     private final RuanganMemberRepository members;
     private final SubjectRepository subjects;
+    private final PaketRepository pakets;
     private final TopicRepository topics;
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
@@ -80,6 +83,7 @@ public class TestData {
                     RuanganRepository ruangan,
                     RuanganMemberRepository members,
                     SubjectRepository subjects,
+                    PaketRepository pakets,
                     TopicRepository topics,
                     QuestionRepository questions,
                     QuestionOptionRepository options,
@@ -91,6 +95,7 @@ public class TestData {
         this.ruangan = ruangan;
         this.members = members;
         this.subjects = subjects;
+        this.pakets = pakets;
         this.topics = topics;
         this.questions = questions;
         this.options = options;
@@ -129,10 +134,29 @@ public class TestData {
         members.save(new RuanganMemberEntity(room.getClientId(), room.getId(), user.getId(), role));
     }
 
+    /**
+     * Satu Topic milik Client, lengkap dengan Subject dan Paket yang menaunginya.
+     *
+     * <p>Sejak ADR-0018 Topic tidak berdiri sendiri: ia butuh induk Paket. Helper ini karena itu
+     * membuat Paket sewadah bernama sama, sehingga tes lama yang hanya peduli pada satu Topic
+     * tetap terbaca apa adanya.
+     */
     @Transactional
     public TopicEntity topic(ClientEntity client, String subjectName, String topicName) {
         SubjectEntity subject = subjects.save(SubjectEntity.forClient(client.getId(), subjectName));
-        return topics.save(TopicEntity.forClient(subject.getId(), client.getId(), topicName));
+        PaketEntity paket = pakets.save(
+                PaketEntity.forClient(client.getId(), subject.getId(), topicName, null));
+        return topics.save(TopicEntity.of(paket.getId(), topicName, 0));
+    }
+
+    /** Subject yang menaungi sebuah Topic, diturunkan dari Paket induknya (ADR-0018). */
+    public UUID subjectIdOf(TopicEntity topic) {
+        return pakets.findById(topic.getPaketId()).orElseThrow().getSubjectId();
+    }
+
+    /** Paket yang menaungi sebuah Topic. */
+    public PaketEntity paketOf(TopicEntity topic) {
+        return pakets.findById(topic.getPaketId()).orElseThrow();
     }
 
     /**
@@ -144,7 +168,7 @@ public class TestData {
     @Transactional
     public QuestionEntity mcq(ClientEntity client, TopicEntity topic, String body, int optionCount) {
         QuestionEntity question = questions.save(new QuestionEntity(
-                client.getId(), topic.getId(), QuestionType.MULTIPLE_CHOICE,
+                client.getId(), topic.getPaketId(), topic.getId(), QuestionType.MULTIPLE_CHOICE,
                 "<p>" + body + "</p>", body));
         for (int i = 0; i < optionCount; i++) {
             QuestionOptionEntity option = new QuestionOptionEntity(
@@ -166,7 +190,8 @@ public class TestData {
     @Transactional
     public QuestionEntity essay(ClientEntity client, TopicEntity topic, String body) {
         return questions.save(new QuestionEntity(
-                client.getId(), topic.getId(), QuestionType.ESSAY, "<p>" + body + "</p>", body));
+                client.getId(), topic.getPaketId(), topic.getId(), QuestionType.ESSAY,
+                "<p>" + body + "</p>", body));
     }
 
     public UUID correctOptionOf(QuestionEntity question) {
@@ -244,19 +269,21 @@ public class TestData {
         return users.save(user);
     }
 
-    /** Subject dan Topic GLOBAL milik Eduscreen (BR-O02). */
+    /** Subject GLOBAL, Paket master, dan satu Topic di dalamnya (BR-O02, ADR-0018). */
     @Transactional
     public TopicEntity globalTopic(String subjectName, String topicName) {
         SubjectEntity subject = subjects.save(SubjectEntity.global(
                 subjectName + " " + COUNTER.incrementAndGet()));
-        return topics.save(TopicEntity.global(subject.getId(), topicName));
+        PaketEntity paket = pakets.save(PaketEntity.master(subject.getId(), topicName, null));
+        return topics.save(TopicEntity.of(paket.getId(), topicName, 0));
     }
 
     /** Question master yang masih digarap: {@code publishedAt} kosong (FR-066). */
     @Transactional
     public QuestionEntity masterMcq(TopicEntity topic, String body) {
         QuestionEntity question = questions.save(new QuestionEntity(
-                null, topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>" + body + "</p>", body));
+                null, topic.getPaketId(), topic.getId(), QuestionType.MULTIPLE_CHOICE,
+                "<p>" + body + "</p>", body));
         for (int i = 0; i < 4; i++) {
             options.save(new QuestionOptionEntity(question.getId(),
                     "<p>Pilihan " + i + "</p>", "Pilihan " + i, i == 0, i));

@@ -1,6 +1,8 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
@@ -23,16 +25,23 @@ import java.util.UUID;
  * <p>Topic boleh dibuat Client di bawah Subject GLOBAL (FR-014): sebuah sekolah sering perlu
  * menambah satu bab lokal tanpa harus menduplikasi seluruh mata pelajaran milik Eduscreen demi
  * satu Topic tambahan.
+ *
+ * <p>Sejak ADR-0018 Topic tidak lagi menggantung langsung di Subject: ia hidup di dalam satu
+ * Paket, dan kepemilikannya diwarisi dari Paket itu. Method Topic di kelas ini masih memakai
+ * bentuk lama dan karena itu membuat Paket sewadah sendiri; ruang kerja Bank Soal yang memisah
+ * keduanya ditulis menyusul.
  */
 @Service
 public class TaxonomyService {
 
     private final SubjectRepository subjects;
     private final TopicRepository topics;
+    private final PaketRepository pakets;
 
-    public TaxonomyService(SubjectRepository subjects, TopicRepository topics) {
+    public TaxonomyService(SubjectRepository subjects, TopicRepository topics, PaketRepository pakets) {
         this.subjects = subjects;
         this.topics = topics;
+        this.pakets = pakets;
     }
 
     @Transactional(readOnly = true)
@@ -106,15 +115,20 @@ public class TaxonomyService {
             throw new IllegalArgumentException("Nama Topic wajib diisi");
         }
         requireVisibleSubject(subjectId, clientId);
-        return topics.save(TopicEntity.forClient(subjectId, clientId, name.trim()));
+        // sementara sampai Task 6: satu Topic lahir bersama satu Paket sewadah, supaya alur lama
+        // yang masih menyebut "Topic" punya induk yang sah. Pembuatan Paket sebagai langkah
+        // tersendiri ditulis di ruang kerja Bank Soal.
+        String bersih = name.trim();
+        PaketEntity paket = pakets.save(PaketEntity.forClient(clientId, subjectId, bersih, null));
+        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
     }
 
     /**
      * Topic master Eduscreen, di bawah Subject yang juga GLOBAL (FR-061).
      *
-     * <p>Berbeda dengan Subject GLOBAL yang dibaca langsung dan tidak pernah disalin, Topic
-     * GLOBAL <b>disalin</b> ke Client saat adopsi (BR-O02, AC-O02). Asimetri itu disengaja dan
-     * ditegakkan {@code ContentAdoptionService}, bukan di sini.
+     * <p>Berbeda dengan Subject GLOBAL yang dibaca langsung dan tidak pernah disalin, Paket
+     * master beserta Topic-nya <b>disalin</b> ke Client saat adopsi (BR-O02, AC-O02). Asimetri
+     * itu disengaja dan ditegakkan {@code ContentAdoptionService}, bukan di sini.
      */
     @Transactional
     public TopicEntity createGlobalTopic(UUID subjectId, String name) {
@@ -122,7 +136,10 @@ public class TaxonomyService {
             throw new IllegalArgumentException("Nama Topic wajib diisi");
         }
         requireGlobalSubject(subjectId);
-        return topics.save(TopicEntity.global(subjectId, name.trim()));
+        // sementara sampai Task 6: lihat catatan yang sama di createClientTopic.
+        String bersih = name.trim();
+        PaketEntity paket = pakets.save(PaketEntity.master(subjectId, bersih, null));
+        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
     }
 
     /** Subject milik sebuah Client tidak boleh menampung Topic master; ia diperlakukan seolah tidak ada. */
@@ -158,12 +175,8 @@ public class TaxonomyService {
         if (clientId != null) {
             return requireVisibleTopic(id, clientId);
         }
-        TopicEntity topic = topics.findById(id)
+        return topics.findWritableMaster(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));
-        if (topic.getOrigin() != ContentOrigin.GLOBAL) {
-            throw new ResourceNotFoundException("Topic tidak ditemukan");
-        }
-        return topic;
     }
 
     /** Batas tenant menyamakan "tidak ada" dan "milik Client lain" menjadi 404 (TC-09). */
@@ -190,11 +203,18 @@ public class TaxonomyService {
             // sistem (FR-015, AC-Q04).
             throw new IllegalArgumentException("Soal wajib melekat pada satu Topic");
         }
-        TopicEntity topic = topics.findById(id)
+        return topics.findVisible(id, clientId)
                 .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));
-        if (topic.getOrigin() != ContentOrigin.GLOBAL && !clientId.equals(topic.getClientId())) {
-            throw new ResourceNotFoundException("Topic tidak ditemukan");
-        }
-        return topic;
+    }
+
+    /**
+     * Subject yang menaungi sebuah Topic. Sejak ADR-0018 Topic tidak lagi membawa Subject
+     * sendiri: ia mewarisinya dari Paket, jadi pertanyaannya dijawab satu tempat saja.
+     */
+    @Transactional(readOnly = true)
+    public UUID subjectIdOf(TopicEntity topic) {
+        return pakets.findById(topic.getPaketId())
+                .orElseThrow(() -> new ResourceNotFoundException("Paket tidak ditemukan"))
+                .getSubjectId();
     }
 }

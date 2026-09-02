@@ -1,6 +1,5 @@
 package com.eduscreen.app.modules.assessment.service;
 
-import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
@@ -120,7 +119,9 @@ public class QuestionImportService {
         // Konten impor melewati sanitasi yang SAMA dengan editor manual (TC-22) — tidak ada
         // jalur pintas untuk berkas. Rumus matematika masuk sebagai LaTeX berdelimiter dan
         // tidak dirender di server (TC-24); sanitasi HTML tidak menyentuhnya.
-        QuestionEntity question = new QuestionEntity(clientId, topic.getId(), type,
+        // sementara sampai Task 13: Paket induk diturunkan dari Topic tujuan yang sedang
+        // dicocokkan. Impor yang menyasar satu Paket secara eksplisit ditulis di Task 13.
+        QuestionEntity question = new QuestionEntity(clientId, topic.getPaketId(), topic.getId(), type,
                 sanitizer.sanitize(row.body()), sanitizer.toPlainText(row.body()));
         question.setCreatedBy(author);
         if (row.explanation() != null && !row.explanation().isBlank()) {
@@ -147,20 +148,16 @@ public class QuestionImportService {
     }
 
     /**
-     * Topic yang "terlihat" satu Client = GLOBAL milik Eduscreen atau miliknya sendiri,
-     * dicocokkan berdasarkan nama tanpa peduli huruf besar/kecil (§Impor massal).
+     * Topic yang "terlihat" satu Client = Topic di Paket master atau di Paket miliknya sendiri,
+     * dicocokkan berdasarkan judul tanpa peduli huruf besar/kecil (§Impor massal).
      *
-     * <p>Tidak ada method repository siap pakai untuk mencari Topic lintas Subject hanya
-     * berdasarkan nama tanpa {@code subjectId} — kolom {@code topic} pada berkas impor tidak
-     * membawa Subject. {@code TopicRepository} sengaja tidak diubah di sini (di luar cakupan
-     * tugas ini), sehingga penyaringan dilakukan di lapisan service memakai {@code findAll()}
-     * bawaan; batas tenant (TC-36) tetap ditegakkan secara eksplisit lewat filter di bawah,
-     * bukan diserahkan ke query.
+     * <p>Kolom {@code topic} pada berkas impor tidak membawa Subject maupun Paket, jadi
+     * pencocokannya lintas Paket. Batas tenant (TC-36) ditegakkan di dalam query, bukan di
+     * kode ini. Judul yang muncul di lebih dari satu Paket diambil yang tertua supaya hasil
+     * impor tidak berubah-ubah antar unggahan.
      */
     private TopicEntity findVisibleTopicByName(String name, UUID clientId) {
-        return topics.findAll().stream()
-                .filter(t -> t.getOrigin() == ContentOrigin.GLOBAL || clientId.equals(t.getClientId()))
-                .filter(t -> t.getName().equalsIgnoreCase(name))
+        return topics.findVisibleByTitle(name, clientId).stream()
                 .findFirst()
                 .orElse(null);
     }

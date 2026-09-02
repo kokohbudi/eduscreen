@@ -45,7 +45,7 @@
           <label for="topicIdKatalog" class="block font-medium text-slate-700">Topic</label>
           <select id="topicIdKatalog" name="topicId" class="mt-1 rounded border border-slate-300 px-2 py-1.5">
             <option value="">Semua Topic</option>
-            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}"
                     th:selected="${t.id == topicId}">Topic</option>
           </select>
         </div>

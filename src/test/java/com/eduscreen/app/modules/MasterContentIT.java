@@ -1,6 +1,5 @@
 package com.eduscreen.app.modules;
 
-import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
@@ -8,6 +7,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
@@ -59,9 +59,11 @@ class MasterContentIT extends PostgresTestBase {
 
         TopicEntity topic = taxonomy.createGlobalTopic(subject.getId(), "Pecahan");
 
-        assertThat(topic.getOrigin()).isEqualTo(ContentOrigin.GLOBAL);
-        assertThat(topic.getClientId()).isNull();
-        assertThat(topic.getSubjectId()).isEqualTo(subject.getId());
+        // Kepemilikan Topic diwarisi dari Paket induknya (ADR-0018): master berarti Paket
+        // tanpa Client, di bawah Subject yang sama.
+        PaketEntity paket = data.paketOf(topic);
+        assertThat(paket.getClientId()).isNull();
+        assertThat(paket.getSubjectId()).isEqualTo(subject.getId());
     }
 
     @Test
@@ -70,7 +72,7 @@ class MasterContentIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Master1");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
 
-        assertThatThrownBy(() -> taxonomy.createGlobalTopic(topicClient.getSubjectId(), "Pecahan"))
+        assertThatThrownBy(() -> taxonomy.createGlobalTopic(data.subjectIdOf(topicClient), "Pecahan"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -122,7 +124,7 @@ class MasterContentIT extends PostgresTestBase {
 
         Page<QuestionEntity> semua = questionService.searchMaster(null, null, "zebrakata", null, PageRequest.of(0, 20));
         Page<QuestionEntity> hanyaMatematika = questionService.searchMaster(
-                pecahan.getSubjectId(), null, "zebrakata", null, PageRequest.of(0, 20));
+                data.subjectIdOf(pecahan), null, "zebrakata", null, PageRequest.of(0, 20));
 
         assertThat(semua.getTotalElements()).isEqualTo(2);
         assertThat(hanyaMatematika.getContent()).hasSize(1);
@@ -344,7 +346,7 @@ class MasterContentIT extends PostgresTestBase {
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
 
         assertThatThrownBy(() ->
-                taxonomy.renameGlobalSubject(topicClient.getSubjectId(), "Dirampas Eduscreen"))
+                taxonomy.renameGlobalSubject(data.subjectIdOf(topicClient), "Dirampas Eduscreen"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

@@ -111,7 +111,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         Page<QuestionEntity> perTopic = questionService.searchPublishedMaster(
                 null, pecahan.getId(), "katalogunik", PageRequest.of(0, 20));
         Page<QuestionEntity> perSubject = questionService.searchPublishedMaster(
-                gerak.getSubjectId(), null, "katalogunik", PageRequest.of(0, 20));
+                data.subjectIdOf(gerak), null, "katalogunik", PageRequest.of(0, 20));
 
         assertThat(semua.getTotalElements()).isEqualTo(4);
         assertThat(perTopic.getTotalElements()).isEqualTo(3);
@@ -157,7 +157,8 @@ class CatalogAdoptionIT extends PostgresTestBase {
         List<TopicEntity> setelahPertama = milikClient(pecahan, client);
         assertThat(setelahPertama).hasSize(1);
         assertThat(setelahPertama.getFirst().getId()).isNotEqualTo(pecahan.getId());
-        assertThat(setelahPertama.getFirst().getSourceTopicId()).isEqualTo(pecahan.getId());
+        assertThat(data.paketOf(setelahPertama.getFirst()).getSourcePaketId())
+                .isEqualTo(data.paketOf(pecahan).getId());
 
         // Peringatan menyala untuk sekolah yang sudah mengambil, dan hanya untuk sekolah itu.
         assertThat(adoption.hasAdoptedTopic(client.getId(), pecahan.getId())).isTrue();
@@ -168,12 +169,13 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(adopsiKedua.topics()).isEqualTo(1);
         assertThat(milikClient(pecahan, client))
                 .hasSize(2)
-                .allSatisfy(t -> assertThat(t.getSourceTopicId()).isEqualTo(pecahan.getId()));
+                .allSatisfy(t -> assertThat(data.paketOf(t).getSourcePaketId())
+                        .isEqualTo(data.paketOf(pecahan).getId()));
     }
 
     private List<TopicEntity> milikClient(TopicEntity master, ClientEntity client) {
-        return taxonomy.visibleTopics(master.getSubjectId(), client.getId()).stream()
-                .filter(t -> client.getId().equals(t.getClientId()))
+        return taxonomy.visibleTopics(data.subjectIdOf(master), client.getId()).stream()
+                .filter(t -> client.getId().equals(data.paketOf(t).getClientId()))
                 .toList();
     }
 

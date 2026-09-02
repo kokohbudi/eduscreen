@@ -364,7 +364,10 @@ public class MasterContentController {
             return;
         }
         TopicEntity topic = taxonomy.requireWritableTopic(topicId, MASTER);
-        model.addAttribute("subjectId", topic.getSubjectId());
-        model.addAttribute("topics", taxonomy.visibleTopics(topic.getSubjectId(), MASTER));
+        // sementara sampai Task 6: Subject diturunkan dari Paket induk Topic, karena Topic
+        // sendiri sudah tidak membawanya (ADR-0018).
+        UUID subjectId = taxonomy.subjectIdOf(topic);
+        model.addAttribute("subjectId", subjectId);
+        model.addAttribute("topics", taxonomy.visibleTopics(subjectId, MASTER));
     }
 }

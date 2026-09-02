@@ -77,10 +77,10 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * terbit. Katalog Client TIDAK memakai ini — lihat {@link #searchPublishedMaster}.
      *
      * <p>{@code question} tidak membawa {@code subject_id} sendiri, jadi penyaringan Subject
-     * lewat subquery ke Topic induknya (ADR-0004).
+     * lewat subquery ke Paket induknya (ADR-0018).
      */
     @Query("select q from QuestionEntity q where q.clientId is null "
-            + "and (:subjectId is null or q.topicId in (select t.id from TopicEntity t where t.subjectId = :subjectId)) "
+            + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "
             + "and (:topicId is null or q.topicId = :topicId) "
             + "and lower(q.bodyText) like :pattern "
             + "order by q.createdAt desc")
@@ -98,7 +98,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * sepenting itu tidak pantas disembunyikan di balik argumen yang mudah salah kirim.
      */
     @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is not null "
-            + "and (:subjectId is null or q.topicId in (select t.id from TopicEntity t where t.subjectId = :subjectId)) "
+            + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "
             + "and (:topicId is null or q.topicId = :topicId) "
             + "and lower(q.bodyText) like :pattern "
             + "order by q.createdAt desc")
@@ -164,7 +164,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * melihat draf, dan perbedaan sepenting itu tidak pantas disembunyikan di balik argumen.
      */
     @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is null "
-            + "and (:subjectId is null or q.topicId in (select t.id from TopicEntity t where t.subjectId = :subjectId)) "
+            + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "
             + "and (:topicId is null or q.topicId = :topicId) "
             + "and lower(q.bodyText) like :pattern "
             + "order by q.createdAt desc")

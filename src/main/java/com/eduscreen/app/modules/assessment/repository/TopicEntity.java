@@ -1,11 +1,8 @@
 package com.eduscreen.app.modules.assessment.repository;
 
-import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
 import com.eduscreen.app.shared.domain.UuidV7;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.CreationTimestamp;
@@ -15,8 +12,10 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Topic di bawah satu Subject. Boleh milik Client meski Subject induknya GLOBAL (FR-014),
- * sehingga origin ditegakkan di lapis Topic sendiri, bukan diwarisi dari induknya.
+ * Sub-bahasan di dalam satu Paket (ADR-0018).
+ *
+ * <p>Topic tidak lagi punya origin maupun clientId: kepemilikannya diwarisi dari Paket. Itu
+ * membuat satu-satunya sumber kebenaran soal kepemilikan ada di satu tempat.
  */
 @Entity
 @Table(name = "topic")
@@ -26,19 +25,14 @@ public class TopicEntity {
     @Id
     private UUID id;
 
-    @Column(name = "subject_id", nullable = false)
-    private UUID subjectId;
+    @Column(name = "paket_id", nullable = false)
+    private UUID paketId;
 
     @Column(nullable = false)
-    private String name;
+    private String title;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private ContentOrigin origin;
-
-    /** Null hanya untuk origin GLOBAL. */
-    @Column(name = "client_id")
-    private UUID clientId;
+    private int position;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -47,45 +41,26 @@ public class TopicEntity {
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
-    /**
-     * Topic master yang menurunkan Topic ini, atau null bila Guru menulisnya sendiri.
-     *
-     * <p>Jejak asal saja (ADR-0001), sejajar {@code sourceQuestionId}: tidak dipakai untuk
-     * sinkronisasi apa pun, dan tidak menghalangi adopsi kedua melahirkan Topic baru (FR-077).
-     */
-    @Column(name = "source_topic_id")
-    private UUID sourceTopicId;
-
     protected TopicEntity() {
     }
 
-    private TopicEntity(UUID subjectId, UUID clientId, String name, ContentOrigin origin) {
-        if (origin == ContentOrigin.GLOBAL ? clientId != null : clientId == null) {
-            throw new IllegalArgumentException(
-                    "Origin GLOBAL wajib clientId null; origin CLIENT wajib clientId terisi");
-        }
+    private TopicEntity(UUID paketId, String title, int position) {
         this.id = UuidV7.randomUuid();
-        this.subjectId = subjectId;
-        this.clientId = clientId;
-        this.name = name;
-        this.origin = origin;
+        this.paketId = paketId;
+        this.title = title;
+        this.position = position;
     }
 
-    /** Topic master milik Eduscreen, dibaca semua Client. */
-    public static TopicEntity global(UUID subjectId, String name) {
-        return new TopicEntity(subjectId, null, name, ContentOrigin.GLOBAL);
+    public static TopicEntity of(UUID paketId, String title, int position) {
+        return new TopicEntity(paketId, title, position);
     }
 
-    /** Topic buatan satu Client, hanya dibaca Client itu sendiri. */
-    public static TopicEntity forClient(UUID subjectId, UUID clientId, String name) {
-        return new TopicEntity(subjectId, clientId, name, ContentOrigin.CLIENT);
+    public void rename(String title) {
+        this.title = title;
     }
 
-    /** Topic Client hasil adopsi, membawa pengenal Topic master yang menurunkannya. */
-    public static TopicEntity adoptedFrom(UUID subjectId, UUID clientId, String name, UUID sourceTopicId) {
-        TopicEntity topic = forClient(subjectId, clientId, name);
-        topic.sourceTopicId = sourceTopicId;
-        return topic;
+    public void moveTo(int position) {
+        this.position = position;
     }
 
     /** Penghapusan bersifat soft delete (TC-35). */
@@ -97,24 +72,16 @@ public class TopicEntity {
         return id;
     }
 
-    public UUID getSubjectId() {
-        return subjectId;
+    public UUID getPaketId() {
+        return paketId;
     }
 
-    public String getName() {
-        return name;
+    public String getTitle() {
+        return title;
     }
 
-    public ContentOrigin getOrigin() {
-        return origin;
-    }
-
-    public UUID getClientId() {
-        return clientId;
-    }
-
-    public UUID getSourceTopicId() {
-        return sourceTopicId;
+    public int getPosition() {
+        return position;
     }
 
     public OffsetDateTime getCreatedAt() {
