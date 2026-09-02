@@ -177,7 +177,7 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B17 (FR-067): Paket master yang belum terbit tidak muncul di katalog Client")
+    @DisplayName("TC-09 (FR-067): findMasterPublished menyaring Paket master pada keadaan terbitnya")
     void unpublishedPaketStaysHidden() {
         PaketEntity draf = data.masterPaket("Kimia Kelas 10 Master", "Draf Kimia");
         TopicEntity topic = pakets.topicsOf(draf.getId()).get(0);

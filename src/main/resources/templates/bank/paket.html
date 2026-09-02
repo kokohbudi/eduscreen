@@ -9,6 +9,22 @@
       <a th:href="@{__${basePath ?: '/bank-soal'}__}" class="text-slate-600 underline">← Semua Subject</a>
     </p>
 
+    <!-- Ubah nama Subject GLOBAL, hanya ruang kerja master (BR-O04: "boleh diperbaiki kapan
+         saja"). Bank Soal Client tidak punya pasangan ini — Client Admin memang tidak berwenang
+         atas Subject GLOBAL. Muat ulang penuh, bukan HTMX: rename langka, dan memuat ulang
+         membuat judul halaman serta datalist ikut benar tanpa menukar satu <option> di tengah. -->
+    <form th:if="${master ?: false}" method="post" class="mb-4 flex items-end gap-2 text-sm"
+          th:action="@{__${basePath}__/subject/{id}/nama(id=${subject.id})}">
+      <div>
+        <label for="namaSubjectUbah" class="block font-medium text-slate-700">Ubah nama Subject ini</label>
+        <input type="text" id="namaSubjectUbah" name="name" required th:value="${subject.name}"
+               class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+      </div>
+      <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-100">
+        Simpan
+      </button>
+    </form>
+
     <!-- Subject yang sudah ada dipakai ulang, yang belum ada dibuat saat simpan (AC-B06).
          Satu kolom ber-datalist, bukan dua jalur terpisah "pilih dari daftar" dan "tambah
          baru": autocomplete native, tanpa JS dan tanpa pustaka. -->

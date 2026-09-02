@@ -23,9 +23,13 @@
       <ol class="space-y-1">
         <!-- th:each di blok pembungkus, th:replace di elemen lain: keduanya di satu elemen
              membuat fragmen dipanggil sebelum variabel iterasinya terikat (lihat
-             MasterContentRenderTest, dan komentar sama di bank/paket.html). -->
-        <th:block th:each="q : ${soalTopic ?: {}}">
-          <li th:replace="~{::barisSoal}"></li>
+             MasterContentRenderTest, dan komentar sama di bank/paket.html). Nomor tampilan
+             dikirim sebagai parameter fragmen dari ${it.index}, bukan dibaca dari q.position:
+             position tersimpan berlubang setelah penghapusan (nextPosition cuma menambah dari
+             maksimum, tidak pernah merapatkan), jadi memakainya langsung membuat nomor melompat
+             1, 3 begitu soal di tengah dihapus (temuan review Task 10). -->
+        <th:block th:each="q, it : ${soalTopic ?: {}}">
+          <li th:replace="~{::barisSoal(q=${q}, nomor=${it.index + 1})}"></li>
         </th:block>
       </ol>
       <p th:if="${soalTopic == null or soalTopic.isEmpty()}"
@@ -58,15 +62,16 @@
   </div>
 
   <!--
-    Satu baris Question, dipisah jadi fragmen ber-id: penerbitan dan penarikan Question master
-    (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang seluruh halaman
-    (TC-14). Nomor urutnya dari q.position, bukan indeks perulangan Thymeleaf (${it.index}):
-    posisi itu tetap ada saat baris ini dirender sendirian lewat swap HTMX, sementara ${it}
-    hanya ada di dalam perulangan (lihat komentar sama di bank/paket.html soal th:each/th:replace).
+    Satu baris Question, dipisah jadi fragmen ber-id: penerbitan, penarikan, dan penghapusan
+    Question master (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang
+    seluruh halaman (TC-14). ${nomor} datang sebagai parameter, opsional: perulangan
+    mengirimnya dari ${it.index}, sementara swap baris tunggal (terbit/tarik/hapus) mengirim
+    indeks yang dihitung ulang controller lewat findByTopicIdOrderByPositionAsc, sehingga tetap
+    padat walau posisi tersimpan berlubang.
   -->
-  <li th:fragment="barisSoal" th:id="|soal-${q.id}|"
+  <li th:fragment="barisSoal(q, nomor)" th:id="|soal-${q.id}|"
       class="flex flex-wrap items-center gap-2 rounded border border-slate-100 p-2 text-sm">
-    <span class="mt-0.5 w-6 shrink-0 text-right text-slate-400" th:text="${q.position + 1}">1</span>
+    <span class="mt-0.5 w-6 shrink-0 text-right text-slate-400" th:text="${nomor}">1</span>
     <!-- Cuplikan dari body_text yang teks polos, bukan body_html: markup dan gambar tidak boleh
          ikut terpotong ke dalam daftar (TC-25). -->
     <span class="flex-1" th:text="${#strings.abbreviate(q.bodyText, 110)}">Cuplikan soal</span>
@@ -95,7 +100,19 @@
             class="shrink-0 rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">
       Tarik
     </button>
+    <!-- Hapus hanya ada di ruang kerja master: Bank Soal Client tidak punya tombol ini sama
+         sekali (BR-Q04 tetap dijaga soft delete-nya, cuma tidak dipaparkan lewat layar ini). -->
+    <button th:if="${master ?: false}"
+            th:attr="hx-delete=@{__${basePath}__/soal/{id}(id=${q.id})},hx-target=|#soal-${q.id}|"
+            hx-swap="outerHTML"
+            hx-confirm="Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh."
+            class="shrink-0 rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50">
+      Hapus
+    </button>
   </li>
+
+  <li th:fragment="konfirmasiHapus" class="rounded border border-emerald-100 bg-emerald-50 p-2 text-sm text-emerald-700"
+      th:text="${pesan}">Soal dihapus.</li>
 
   <!--
     Panel pinjam. Soal yang salinannya sudah ada di Paket ini tidak dirender sama sekali

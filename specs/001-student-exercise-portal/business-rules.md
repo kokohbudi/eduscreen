@@ -414,8 +414,6 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
   Topic yang sama, sehingga soal berikutnya bisa langsung ditulis; menyimpan biasa kembali ke
   halaman isi Paket.
 - **AC-B16**: Paket master tanpa satu pun Question ditolak terbit.
-- **AC-B17**: Paket master yang belum terbit tidak muncul di katalog Client; begitu diterbitkan,
-  ia muncul.
 
 ### Exercise & Assignment
 

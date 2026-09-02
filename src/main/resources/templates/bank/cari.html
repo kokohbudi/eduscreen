@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Cari Soal Master')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Cari Soal Master', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Hanya ruang kerja master: Bank Soal Client tidak punya pencarian lintas-Paket, ia
+         bekerja di dalam satu Paket lewat tier 3 (bank/isi.html). Question master menyebar
+         lintas Subject dan Paket, jadi butuh jalur pencariannya sendiri (FR-064). -->
+    <p class="mb-4 text-sm">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__}" class="text-slate-600 underline">← Semua Subject</a>
+    </p>
+
+    <form method="get" th:action="@{__${basePath ?: '/bank-soal'}__/cari}"
+          class="mb-6 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-4 text-sm">
+      <div>
+        <label for="subjectId" class="block font-medium text-slate-700">Subject</label>
+        <select id="subjectId" name="subjectId" onchange="this.form.submit()"
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+          <option value="">Semua Subject</option>
+          <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"
+                  th:selected="${subjectId != null and subjectId == s.id}">Subject</option>
+        </select>
+      </div>
+      <div>
+        <label for="topicId" class="block font-medium text-slate-700">Topic</label>
+        <select id="topicId" name="topicId" onchange="this.form.submit()" th:disabled="${subjectId == null}"
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100">
+          <option value="">Semua Topic</option>
+          <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}"
+                  th:selected="${topicId != null and topicId == t.id}">Topic</option>
+        </select>
+      </div>
+      <div>
+        <label for="status" class="block font-medium text-slate-700">Status</label>
+        <select id="status" name="status" onchange="this.form.submit()"
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+          <option value="">Semua</option>
+          <option value="DRAF" th:selected="${status != null and status.name() == 'DRAF'}">Draf</option>
+          <option value="TERBIT" th:selected="${status != null and status.name() == 'TERBIT'}">Terbit</option>
+        </select>
+      </div>
+      <div class="flex-1">
+        <label for="q" class="block font-medium text-slate-700">Cari</label>
+        <input type="text" id="q" name="q" th:value="${q}" placeholder="Kata kunci isi soal..."
+               class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+      </div>
+      <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        Cari
+      </button>
+    </form>
+
+    <ol class="space-y-1">
+      <!-- th:each di blok pembungkus, th:replace di elemen lain, nomor lewat parameter fragmen:
+           sama alasan dengan bank/isi.html :: barisSoal, yang dipakai ulang persis di sini
+           supaya status/terbit/tarik/hapus tidak ditulis dua kali. -->
+      <th:block th:each="q, it : ${hasil}">
+        <li th:replace="~{bank/isi :: barisSoal(q=${q}, nomor=${it.index + 1})}"></li>
+      </th:block>
+    </ol>
+    <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">Belum ada soal yang cocok.</p>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${hasil.totalPages > 0}">
+      <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${hasil.hasPrevious()}"
+           th:href="@{__${basePath ?: '/bank-soal'}__/cari(subjectId=${subjectId}, topicId=${topicId}, q=${q}, status=${status}, page=${hasil.number - 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${hasil.hasNext()}"
+           th:href="@{__${basePath ?: '/bank-soal'}__/cari(subjectId=${subjectId}, topicId=${topicId}, q=${q}, status=${status}, page=${hasil.number + 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

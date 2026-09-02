@@ -189,6 +189,33 @@ class ContentIdorTest extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("TC-41 (FR-081): peran Client tidak bisa mengubah nama Subject global")
+    void peranClientTidakBisaMerenameSubjectGlobal() throws Exception {
+        Tenants tenants = data.twoTenants();
+        UUID subjectGlobal = data.subjectIdOf(data.globalTopic("Kimia Kelas 11 idor rename", "Asam Basa"));
+
+        for (var pengguna : java.util.List.of(
+                tenants.a().guru(), tenants.a().siswa(), tenants.a().admin())) {
+            mockMvc.perform(post("/eduscreen/bank-soal/subject/{id}/nama", subjectGlobal)
+                            .param("name", "Dirampas")
+                            .with(user(data.principal(pengguna))).with(csrf()))
+                    .andExpect(status().isForbidden());
+        }
+    }
+
+    @Test
+    @DisplayName("TC-09 (FR-061): Eduscreen Admin mengubah nama Subject milik sebuah Client menerima 404")
+    void eduscreenAdminTidakBisaMerenameSubjectClient() throws Exception {
+        Tenants tenants = data.twoTenants();
+        var admin = data.principal(data.eduscreenAdmin());
+        UUID subjectClient = data.subjectIdOf(tenants.a().topic());
+
+        mockMvc.perform(post("/eduscreen/bank-soal/subject/{id}/nama", subjectClient)
+                        .param("name", "Dirampas Eduscreen").with(user(admin)).with(csrf()))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     @DisplayName("TC-09 (FR-080): Eduscreen Admin meminta Question milik sebuah Client menerima 404 yang identik dengan pengenal tak dikenal")
     void eduscreenAdminTidakBisaMembacaSoalClient() throws Exception {
         Tenants tenants = data.twoTenants();

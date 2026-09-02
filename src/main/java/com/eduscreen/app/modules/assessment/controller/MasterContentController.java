@@ -1,6 +1,7 @@
 package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
@@ -11,9 +12,11 @@ import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -51,6 +54,8 @@ public class MasterContentController {
     private static final UUID MASTER = null;
 
     private static final String BASE_PATH = "/eduscreen/bank-soal";
+
+    private static final int UKURAN_HALAMAN = 20;
 
     private final QuestionService questions;
     private final QuestionRepository questionRepository;
@@ -92,6 +97,42 @@ public class MasterContentController {
         model.addAttribute("pakets", paketRepository.findMaster(subjectId));
         model.addAttribute("jumlahSoal", jumlahSoalMaster());
         return "bank/paket";
+    }
+
+    /**
+     * Pencarian Question master lintas-Paket (FR-064) — kemampuan yang hilang saat rute
+     * {@code /eduscreen/soal} lama dicabut Task 10, dikembalikan di sini karena
+     * {@code QuestionService.searchMaster} tidak punya jalur lain menuju Eduscreen Admin (temuan
+     * review Task 10).
+     */
+    @GetMapping("/eduscreen/bank-soal/cari")
+    public String cari(@RequestParam(required = false) UUID subjectId,
+                       @RequestParam(required = false) UUID topicId,
+                       @RequestParam(required = false) String q,
+                       @RequestParam(required = false) StatusTerbit status,
+                       @RequestParam(defaultValue = "0") int page,
+                       Model model) {
+        model.addAttribute("hasil",
+                questions.searchMaster(subjectId, topicId, q, status, PageRequest.of(page, UKURAN_HALAMAN)));
+        model.addAttribute("subjectId", subjectId);
+        model.addAttribute("topicId", topicId);
+        model.addAttribute("q", q);
+        model.addAttribute("status", status);
+        model.addAttribute("subjects", taxonomy.visibleSubjects(MASTER));
+        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, MASTER) : List.of());
+        isiJalur(model);
+        return "bank/cari";
+    }
+
+    /**
+     * Memperbaiki nama Subject GLOBAL yang salah ketik (BR-O04: "boleh diperbaiki kapan saja").
+     * Tidak ada peran lain yang boleh melakukan ini — Client Admin memang tidak berwenang atas
+     * Subject GLOBAL — jadi tanpa rute ini aturannya mati (temuan review Task 10).
+     */
+    @PostMapping("/eduscreen/bank-soal/subject/{id}/nama")
+    public String renameSubject(@PathVariable UUID id, @RequestParam String name) {
+        taxonomy.renameGlobalSubject(id, name);
+        return "redirect:" + BASE_PATH + "?subjectId=" + id;
     }
 
     /** Subject GLOBAL sudah ada dipakai ulang, belum ada dibuat — satu kolom nama (AC-B06 setara). */
@@ -194,6 +235,9 @@ public class MasterContentController {
             model.addAttribute("topicSumber", pakets.topicsOf(sumber.getId()));
             model.addAttribute("soalSumber", questions.groupByTopic(sumber.getId()));
         }
+        // Tanpa ini basePath kosong, dan bank/isi.html jatuh ke fallback '/bank-soal' — rute
+        // Client, yang untuk EDUSCREEN_ADMIN dijawab 403 (temuan review Task 10).
+        isiJalur(model);
         return "bank/isi :: panelPinjam";
     }
 
@@ -239,6 +283,20 @@ public class MasterContentController {
         return barisSoal(publishing.unpublishQuestion(id), model);
     }
 
+    /**
+     * Soft delete (FR-060, FR-065): Question hilang dari ruang kerja dan dari katalog seluruh
+     * Client, sementara salinan yang sudah diadopsi tetap utuh — salinan itu baris tersendiri
+     * yang tidak punya tautan hidup ke master (ADR-0001). Dikembalikan setelah sempat tercabut
+     * bersama rute /eduscreen/soal lama (temuan review Task 10): tanpa ini Eduscreen Admin
+     * tidak punya jalan menghapus konten master dari layar mana pun.
+     */
+    @DeleteMapping("/eduscreen/bank-soal/soal/{id}")
+    public String hapusSoal(@PathVariable UUID id, Model model) {
+        questions.softDelete(id, MASTER);
+        model.addAttribute("pesan", "Soal master dihapus. Salinan yang sudah diadopsi Client tidak terpengaruh.");
+        return "bank/isi :: konfirmasiHapus";
+    }
+
     // ------------------------------------------------------------- pembantu
 
     /**
@@ -265,8 +323,26 @@ public class MasterContentController {
     /** Satu baris Question setelah keadaan terbitnya berubah; sama alasan dengan {@link #barisPaket}. */
     private String barisSoal(QuestionEntity soal, Model model) {
         model.addAttribute("q", soal);
+        model.addAttribute("nomor", nomorSoal(soal));
         isiJalur(model);
         return "bank/isi :: barisSoal";
+    }
+
+    /**
+     * Nomor tampilan: indeks Question ini di antara saudara hidupnya dalam Topic yang sama,
+     * padat walaupun {@code position} tersimpan berlubang setelah sebuah soal dihapus
+     * (temuan review Task 10) — {@code nextPosition} hanya menambah dari maksimum, tidak pernah
+     * merapatkan kembali. Dipakai saat merender satu baris sendirian lewat swap HTMX, karena di
+     * situ tidak ada {@code ${it.index}} perulangan untuk disandarkan.
+     */
+    private int nomorSoal(QuestionEntity soal) {
+        List<QuestionEntity> saudara = questionRepository.findByTopicIdOrderByPositionAsc(soal.getTopicId());
+        for (int i = 0; i < saudara.size(); i++) {
+            if (saudara.get(i).getId().equals(soal.getId())) {
+                return i + 1;
+            }
+        }
+        return 1;
     }
 
     private Map<UUID, Long> jumlahSoalMaster() {

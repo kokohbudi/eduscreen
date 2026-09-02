@@ -15,10 +15,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
+
+import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -44,7 +48,7 @@ class MasterContentRenderTest extends PostgresTestBase {
     @Autowired PaketRepository pakets;
 
     @Test
-    @DisplayName("TC-13 (FR-064): ketiga tingkat ruang kerja Bank Soal master dirender utuh, jalurnya sungguhan terpasang")
+    @DisplayName("TC-13: ketiga tingkat ruang kerja Bank Soal master dirender utuh, jalurnya sungguhan terpasang")
     void ruangKerjaBankSoalMasterDirender() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Tier", "Paket tier render unik");
@@ -194,6 +198,133 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master render bocor")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Paket milik Client render bocor"))));
+    }
+
+    @Test
+    @DisplayName("TC-13: membuat Paket master, menambah Topic, dan menyimpan Question lewat layar")
+    void buatPaketTambahTopicSimpanSoalLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+
+        MvcResult dibuat = mockMvc.perform(post("/eduscreen/bank-soal/paket")
+                        .param("title", "Paket dibuat lewat layar unik")
+                        .param("subjectName", "Matematika Kelas 4 Render Buat")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+        String lokasi = dibuat.getResponse().getHeader("Location");
+        assertThat(lokasi).startsWith("/eduscreen/bank-soal/paket/");
+        UUID paketId = UUID.fromString(lokasi.substring(lokasi.lastIndexOf('/') + 1));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/topic", paketId)
+                        .param("title", "Topik render buat")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/eduscreen/bank-soal/paket/" + paketId));
+
+        // Indeks 0 = "Topik 1" bawaan (AC-B01), indeks 1 = yang baru saja ditambahkan.
+        TopicEntity topicBaru = paketService.topicsOf(paketId).get(1);
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal", paketId)
+                        .param("topicId", topicBaru.getId().toString())
+                        .param("type", "ESSAY")
+                        .param("bodyHtml", "<p>Soal dibuat lewat layar unik</p>")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/eduscreen/bank-soal/paket/" + paketId));
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paketId).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Topik render buat")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal dibuat lewat layar unik")));
+    }
+
+    @Test
+    @DisplayName("TC-13: panel pinjam master benar-benar memakai jalur /eduscreen/bank-soal, bukan fallback Client yang dijawab 403 (regresi review Task 10)")
+    void panelPinjamMasterMemakaiJalurSendiri() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity sumber = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket sumber pinjam render");
+        TopicEntity topicSumber = paketService.topicsOf(sumber.getId()).get(0);
+        QuestionEntity soalSumber = data.masterMcq(topicSumber, "Soal sumber pinjam render unik");
+        PaketEntity target = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket tujuan pinjam render");
+        TopicEntity topicTarget = paketService.topicsOf(target.getId()).get(0);
+
+        // Sebelum perbaikan, basePath kosong di sini dan jalurnya jatuh ke fallback '/bank-soal'
+        // Client — yang untuk EDUSCREEN_ADMIN dijawab 403, membuat panel ini gagal senyap.
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("sourcePaketId", sumber.getId().toString())
+                        .with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-get=\"/eduscreen/bank-soal/paket/" + target.getId() + "/pinjam\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "action=\"/eduscreen/bank-soal/paket/" + target.getId() + "/pinjam\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal sumber pinjam render unik")));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("topicId", topicTarget.getId().toString())
+                        .param("questionIds", soalSumber.getId().toString())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/eduscreen/bank-soal/paket/" + target.getId()));
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal sumber pinjam render unik")));
+    }
+
+    @Test
+    @DisplayName("TC-13 (FR-064): pencarian Question master lintas-Paket dirender dan menyaring per kata kunci")
+    void pencarianMasterDirenderDanMenyaring() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        TopicEntity topic = data.globalTopic("Matematika Kelas 4 Render Cari", "Pecahan render cari");
+        data.masterMcq(topic, "Soal cari unik zebrapencarian");
+        data.masterMcq(topic, "Soal lain tidak cocok render");
+
+        mockMvc.perform(get("/eduscreen/bank-soal/cari").param("q", "zebrapencarian").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal cari unik zebrapencarian")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Soal lain tidak cocok render"))))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-delete=\"/eduscreen/bank-soal/soal/")));
+    }
+
+    @Test
+    @DisplayName("BR-Q04 (FR-065): menghapus Question master lewat layar menukar baris jadi konfirmasi, dan soal itu tidak lagi terbaca")
+    void hapusSoalMasterLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Kimia Kelas 10 Render Hapus", "Paket render hapus soal");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.masterMcq(topic, "Soal render dihapus unik");
+
+        mockMvc.perform(delete("/eduscreen/bank-soal/soal/{id}", soal.getId()).with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("dihapus")));
+
+        mockMvc.perform(get("/eduscreen/bank-soal/soal/{id}", soal.getId()).with(admin))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("BR-O04: mengubah nama Subject GLOBAL lewat layar memuat ulang ke Paket Subject itu, nama baru terlihat")
+    void renameSubjectMasterLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Biologi Kelas 8 Render Ubah Nama", "Paket render ubah nama");
+
+        mockMvc.perform(post("/eduscreen/bank-soal/subject/{id}/nama", paket.getSubjectId())
+                        .param("name", "Biologi Kelas 8 Render Sudah Diubah")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        "/eduscreen/bank-soal?subjectId=" + paket.getSubjectId()));
+
+        mockMvc.perform(get("/eduscreen/bank-soal").param("subjectId", paket.getSubjectId().toString())
+                        .with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Biologi Kelas 8 Render Sudah Diubah")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "action=\"/eduscreen/bank-soal/subject/" + paket.getSubjectId() + "/nama\"")));
     }
 
     @Test
