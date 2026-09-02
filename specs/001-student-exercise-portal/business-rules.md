@@ -49,7 +49,7 @@ Catatan izin yang tidak jelas dari tabel:
 1. Isi nama Client dan `timezone`.
 2. Isi email Client Admin pertama; sistem mengirim undangan.
 3. Pilih Subject dan Exercise master yang disalin ke Client.
-4. Sistem melakukan copy-on-adopt (ADR-0001): Question beserta Option, Exercise beserta ExerciseItem, dan Topic yang dibutuhkan disalin ke `clientId` baru.
+4. Sistem melakukan copy-on-adopt (ADR-0001): Paket beserta Topic, Question, dan Option di dalamnya disalin ke `clientId` baru. Exercise dan ExerciseItem tidak ikut disalin — Exercise milik alur Guru dan tidak pernah jadi objek adopsi.
 5. Client berstatus `ACTIVE` dengan bank soal terisi.
 
 - **BR-O01** — Onboarding tidak membuat Ruangan maupun akun Siswa. Itu pekerjaan Client Admin.
@@ -79,7 +79,7 @@ Mengelola Subject `GLOBAL`, Topic `GLOBAL`, Question `owner = EDUSCREEN`, dan Ex
 
 Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisian:
 
-1. **Adopsi katalog Eduscreen** — pilih Question atau Exercise master, sistem menyalinnya (ADR-0001).
+1. **Adopsi katalog Eduscreen** — pilih Paket master, sistem menyalinnya (ADR-0001).
 2. **Editor manual** — rich text, gambar, dan notasi matematika di batang soal maupun tiap Option.
 3. **Impor Excel/CSV** — hanya soal berbasis teks. Alurnya: unggah berkas → pratinjau hasil parsing → laporan baris gagal beserta alasannya → simpan hanya baris yang valid.
 
@@ -363,7 +363,7 @@ Then berkas ditolak sebelum diproses dengan pesan yang menyebut batas 500 baris 
 **AC-O02** (BR-O02)
 Given paket master yang diadopsi berada di bawah Subject `GLOBAL` `Matematika Kelas 4`
 When onboarding selesai
-Then tidak ada Subject baru dibuat untuk Client; Topic, Question, dan Exercise yang disalin menunjuk Subject global yang sama.
+Then tidak ada Subject baru dibuat untuk Client; yang disalin adalah Paket, Topic, Question, dan Option, semuanya menunjuk Subject global yang sama, karena Subject `GLOBAL` tidak pernah disalin.
 
 **AC-Q04** (BR-Q02)
 Given Guru menulis Question tanpa memilih Topic
