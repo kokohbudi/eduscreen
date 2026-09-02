@@ -99,15 +99,26 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      *
      * <p>{@code question} tidak membawa {@code subject_id} sendiri, jadi penyaringan Subject
      * lewat subquery ke Paket induknya (ADR-0018).
+     *
+     * <p>{@code paketId} dan {@code excludeIds} ditambahkan untuk panel pinjam ruang kerja master
+     * ({@code QuestionService.searchMasterBorrowable}) — baris "diklik" di tabel Paket atas panel
+     * itu menyaring lewat parameter yang sama ini, bukan query keempat yang menduplikasi klausa
+     * {@code clientId is null}/{@code subjectId}/{@code topicId}/{@code pattern} di atas.
+     * {@code excludeIds} idiomnya sama seperti {@code QuestionRepository.searchForBuilder}: tidak
+     * pernah kosong, sentinel UUID nil dipasang pemanggil saat tidak ada yang dikecualikan.
      */
     @Query("select q from QuestionEntity q where q.clientId is null "
             + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "
+            + "and (:paketId is null or q.paketId = :paketId) "
             + "and (:topicId is null or q.topicId = :topicId) "
+            + "and q.id not in :excludeIds "
             + "and lower(q.bodyText) like :pattern "
             + "order by q.createdAt desc")
     Page<QuestionEntity> searchMaster(
             @Param("subjectId") UUID subjectId,
+            @Param("paketId") UUID paketId,
             @Param("topicId") UUID topicId,
+            @Param("excludeIds") Collection<UUID> excludeIds,
             @Param("pattern") String pattern,
             Pageable pageable);
 

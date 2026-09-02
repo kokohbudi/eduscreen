@@ -276,9 +276,10 @@ class MasterContentRenderTest extends PostgresTestBase {
         TopicEntity topicTarget = paketService.topicsOf(target.getId()).get(0);
 
         // Sebelum perbaikan, basePath kosong di sini dan jalurnya jatuh ke fallback '/bank-soal'
-        // Client — yang untuk EDUSCREEN_ADMIN dijawab 403, membuat panel ini gagal senyap.
+        // Client — yang untuk EDUSCREEN_ADMIN dijawab 403, membuat panel ini gagal senyap. Tanpa
+        // filterPaketId sama sekali: tabel soal panel pinjam sudah terisi lintas Paket master
+        // begitu dibuka, tidak menunggu satu pun baris Paket diklik lebih dulu.
         mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("sourcePaketId", sumber.getId().toString())
                         .with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
@@ -297,6 +298,32 @@ class MasterContentRenderTest extends PostgresTestBase {
         mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", target.getId()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal sumber pinjam render unik")));
+    }
+
+    @Test
+    @DisplayName("TC-36: panel pinjam ruang kerja master menawarkan Paket master saja, tanpa Paket milik Client, sekaligus lintas Subject (AC-B19)")
+    void panelPinjamMasterMenawarkanPaketMasterSaja() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity target = data.masterPaket("Sejarah Kelas 9 Render Pinjam", "Paket master target pinjam");
+        // Satu-satunya Paket master lain, di Subject BERBEDA: membuktikan tabel Paket master
+        // menawarkan lintas Subject juga, sama seperti sisi Client.
+        PaketEntity sumberLain = data.masterPaket("Matematika Kelas 4 Render Pinjam", "Paket master sumber lain subject");
+        TopicEntity topikSumberLain = paketService.topicsOf(sumberLain.getId()).get(0);
+        data.masterMcq(topikSumberLain, "Soal master lintas subject unik");
+
+        ClientEntity client = data.client("SD Master Pinjam Bukan Master");
+        PaketEntity paketClient = data.paket(client, "Sejarah Kelas 9 Render Pinjam", "Paket Client bukan master");
+        TopicEntity topikClient = paketService.topicsOf(paketClient.getId()).get(0);
+        data.mcq(client, topikClient, "Soal Client bukan master unik", 4);
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master sumber lain subject")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal master lintas subject unik")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Paket Client bukan master"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Soal Client bukan master unik"))));
     }
 
     @Test

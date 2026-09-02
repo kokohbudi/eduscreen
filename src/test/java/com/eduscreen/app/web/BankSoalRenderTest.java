@@ -214,15 +214,16 @@ class BankSoalRenderTest extends PostgresTestBase {
         TopicEntity topikSumber = paketService.topicsOf(sumber.getId()).get(0);
         QuestionEntity dipinjam = data.mcq(client, topikSumber, "Soal sudah dipinjam render", 4);
         data.mcq(client, topikSumber, "Soal belum dipinjam render", 4);
-        // Topic sumber tanpa soal: cabang daftar kosong panel pinjam ikut dirender.
-        paketService.addTopic(sumber.getId(), "Topik Kosong Render", client.getId());
         PaketEntity target = data.paket(client, "Fisika BankRender", "Paket Target Pinjam");
         TopicEntity topikTarget = paketService.topicsOf(target.getId()).get(0);
 
-        // Panel awal tanpa sumber terpilih: pilihan Paket sumber tampil.
+        // Panel awal tanpa Paket diklik: tabel soal SUDAH terisi lintas Paket, tanpa menunggu
+        // apa pun disaring dulu — itulah cacat yang diperbaiki (defect asli produk).
         mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Paket Sumber Pinjam")));
+                .andExpect(content().string(containsString("Paket Sumber Pinjam")))
+                .andExpect(content().string(containsString("Soal sudah dipinjam render")))
+                .andExpect(content().string(containsString("Soal belum dipinjam render")));
 
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
                         .param("topicId", topikTarget.getId().toString())
@@ -230,8 +231,10 @@ class BankSoalRenderTest extends PostgresTestBase {
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
 
+        // Setelah dipinjam: hilang dari tabel soal (unfiltered maupun difilter ke Paket sumbernya),
+        // Salin seluruh Topic tetap tersedia begitu Paket diklik.
         mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("sourcePaketId", sumber.getId().toString()).with(admin))
+                        .param("filterPaketId", sumber.getId().toString()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Soal belum dipinjam render")))
                 .andExpect(content().string(not(containsString("Soal sudah dipinjam render"))))
@@ -249,9 +252,59 @@ class BankSoalRenderTest extends PostgresTestBase {
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
         mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("sourcePaketId", sumber.getId().toString()).with(admin))
+                        .param("filterPaketId", sumber.getId().toString()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(not(containsString("Soal belum dipinjam render"))));
+    }
+
+    @Test
+    @DisplayName("AC-B19: Paket baru di Subject yang belum punya Paket lain tetap menawarkan sumber dari Subject lain di panel pinjam")
+    void panelPinjamMenawarkanSumberLintasSubjectUntukPaketSubjectSendirian() throws Exception {
+        ClientEntity client = data.client("SD Bank Pinjam Lintas Subject");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Lintas")));
+        // Sejarah: Paket satu-satunya di Subject-nya, persis kasus yang ditemukan pemilik produk.
+        PaketEntity sejarah = data.paket(client, "Sejarah Kelas 9 BankPinjam", "Paket Sejarah Sendirian");
+        // Matematika: Subject lain, satu-satunya sumber yang tersedia untuk Sejarah.
+        PaketEntity matematika = data.paket(client, "Matematika Kelas 4 BankPinjam", "Paket Matematika Sumber");
+        TopicEntity topikMatematika = paketService.topicsOf(matematika.getId()).get(0);
+        data.mcq(client, topikMatematika, "Soal matematika lintas subject", 4);
+
+        mvc.perform(get("/bank-soal/paket/{id}/pinjam", sejarah.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Paket Matematika Sumber")))
+                .andExpect(content().string(containsString("Soal matematika lintas subject")));
+    }
+
+    @Test
+    @DisplayName("TC-36: Paket milik Client lain tidak pernah muncul sebagai sumber di panel pinjam")
+    void panelPinjamTidakMenawarkanPaketMilikClientLain() throws Exception {
+        ClientEntity client = data.client("SD Bank Pinjam Sendiri");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Sendiri")));
+        PaketEntity target = data.paket(client, "Biologi BankPinjam", "Paket Target Sendiri");
+        ClientEntity lain = data.client("SD Bank Pinjam Lain");
+        PaketEntity paketLain = data.paket(lain, "Biologi BankPinjam", "Paket Milik Client Lain Pinjam");
+        TopicEntity topikLain = paketService.topicsOf(paketLain.getId()).get(0);
+        data.mcq(lain, topikLain, "Soal milik Client lain pinjam", 4);
+
+        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("Paket Milik Client Lain Pinjam"))))
+                .andExpect(content().string(not(containsString("Soal milik Client lain pinjam"))));
+    }
+
+    @Test
+    @DisplayName("AC-B20: panel pinjam tidak menawarkan soal milik Paket tujuan sendiri sebagai sumber")
+    void panelPinjamTidakMenawarkanSoalMilikPaketTujuanSendiri() throws Exception {
+        ClientEntity client = data.client("SD Bank Pinjam Diri Sendiri");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Diri")));
+        PaketEntity target = data.paket(client, "Kimia BankPinjam", "Paket Target Diri Sendiri");
+        TopicEntity topikTarget = paketService.topicsOf(target.getId()).get(0);
+        data.mcq(client, topikTarget, "Soal milik Paket tujuan sendiri", 4);
+
+        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(not(containsString("Soal milik Paket tujuan sendiri"))))
+                .andExpect(content().string(not(containsString("Paket Target Diri Sendiri"))));
     }
 
     @Test

@@ -78,11 +78,8 @@ public class QuestionService {
     @Transactional(readOnly = true)
     public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID paketId, UUID topicId, QuestionType type,
                                                  Collection<UUID> excluded, String q, Pageable pageable) {
-        Collection<UUID> excludeIds = excluded == null || excluded.isEmpty()
-                ? List.of(new UUID(0L, 0L))
-                : excluded;
         return questions.searchForBuilder(
-                clientId, paketId, topicId, type, excludeIds, ExerciseService.likePattern(q), pageable);
+                clientId, paketId, topicId, type, excludeOrSentinel(excluded), ExerciseService.likePattern(q), pageable);
     }
 
     /**
@@ -93,11 +90,39 @@ public class QuestionService {
     public Page<QuestionEntity> searchMaster(UUID subjectId, UUID topicId, String q,
                                              StatusTerbit status, Pageable pageable) {
         String pattern = ExerciseService.likePattern(q);
+        Collection<UUID> tanpaKecuali = excludeOrSentinel(null);
         return switch (status) {
-            case null -> questions.searchMaster(subjectId, topicId, pattern, pageable);
+            case null -> questions.searchMaster(subjectId, null, topicId, tanpaKecuali, pattern, pageable);
             case DRAF -> questions.searchUnpublishedMaster(subjectId, topicId, pattern, pageable);
             case TERBIT -> questions.searchPublishedMaster(subjectId, topicId, pattern, pageable);
         };
+    }
+
+    /**
+     * Panel pinjam ruang kerja master ({@code MasterContentController#panelPinjam}): padanan
+     * {@link #searchForBuilder} untuk Paket ber-{@code clientId} null, memakai query
+     * {@link QuestionRepository#searchMaster} yang sama dengan {@code /eduscreen/bank-soal/cari}
+     * di atas — bukan query kelima.
+     *
+     * <p>Status terbit/draf sengaja TIDAK disaring di sini, beda dari {@link #searchMaster}:
+     * sumber pinjam boleh berupa Paket master yang masih draf (padanan {@code findMaster} lama,
+     * yang juga tidak menyaring {@code publishedAt}). Gerbang penerbitan (AC-B12) hanya berlaku
+     * saat Paket TUJUAN hendak terbit, bukan saat isinya sekadar disalin dari Paket master lain.
+     */
+    @Transactional(readOnly = true)
+    public Page<QuestionEntity> searchMasterBorrowable(UUID paketId, UUID topicId, Collection<UUID> excluded,
+                                                        String q, Pageable pageable) {
+        return questions.searchMaster(null, paketId, topicId, excludeOrSentinel(excluded),
+                ExerciseService.likePattern(q), pageable);
+    }
+
+    /**
+     * {@code not in ()} bukan SQL yang sah, jadi daftar kecuali yang kosong diganti UUID nil
+     * sentinel — UUIDv7 tidak pernah bernilai nol (ADR-0009), jadi ia tidak menyaring apa pun.
+     * Satu idiom, dipakai {@link #searchForBuilder} dan {@link #searchMasterBorrowable}.
+     */
+    private static Collection<UUID> excludeOrSentinel(Collection<UUID> excluded) {
+        return excluded == null || excluded.isEmpty() ? List.of(new UUID(0L, 0L)) : excluded;
     }
 
     /**

@@ -138,61 +138,160 @@
       th:text="${pesan}">Soal dihapus.</li>
 
   <!--
-    Panel pinjam. Soal yang salinannya sudah ada di Paket ini tidak dirender sama sekali
-    (AC-B04): menampilkannya lalu menolak saat disimpan hanya memindahkan kekecewaan ke
-    belakang.
+    Panel pinjam: dua tabel bertumpuk, bukan pemilih Paket-lalu-Topic satu per satu seperti
+    dulu. Tabel Paket di atas menawarkan SELURUH Paket lain milik pemanggil lintas Subject
+    (BR asli: "kalau mau ambil soal dari paket lain juga bisa, ambil dari subjek lain juga
+    bisa") — mengklik baris menyaring tabel soal di bawah ke Paket itu, tapi TANPA mengklik apa
+    pun tabel bawah sudah terisi lintas Paket dan Subject sejak awal. Itulah cacat yang
+    diperbaiki: Paket baru di Subject yang belum punya Paket lain dulu tidak menawarkan sumber
+    sama sekali karena daftar sumbernya dipersempit ke Subject yang sama lebih dulu.
+
+    Soal yang salinannya sudah ada di Paket ini (AC-B04) maupun yang memang milik Paket ini
+    sendiri tidak dirender sama sekali — disaring di query utama controller, bukan di sini.
   -->
   <div th:fragment="panelPinjam" class="rounded border border-slate-200 bg-white p-4">
-    <!-- Ganti sumber lewat hx-get ke panel ini sendiri, bukan submit GET biasa: submit biasa
-         menavigasi seluruh halaman ke URL fragmen telanjang. -->
-    <form th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
-          hx-target="#panel-pinjam" hx-swap="innerHTML"
-          class="mb-4 flex items-end gap-2 text-sm">
-      <div>
-        <label for="sourcePaketId" class="block font-medium text-slate-700">Ambil dari Paket</label>
-        <select id="sourcePaketId" name="sourcePaketId" onchange="this.form.requestSubmit()"
-                class="mt-1 rounded border border-slate-300 px-2 py-1.5">
-          <option value="">-- Paket --</option>
-          <option th:each="p : ${paketLain}" th:value="${p.id}" th:text="${p.title}"
-                  th:selected="${sumber != null and sumber.id == p.id}">Paket</option>
-        </select>
-      </div>
-    </form>
-    <p th:if="${#lists.isEmpty(paketLain)}" class="text-sm text-slate-500">
-      Belum ada Paket lain di Subject ini yang bisa dipinjam.
+
+    <!-- Tabel Paket: klik baris menyaring tabel soal di bawah lewat hx-get ke panel ini sendiri
+         (refresh penuh #panel-pinjam, bukan submit GET biasa yang menavigasi seluruh halaman ke
+         URL fragmen telanjang). Tidak berhalaman: sejajar tabel Paket tingkat 1 (bank/paket.html)
+         yang memakai query yang sama (findByClientIdOrderByTitleAsc/findAllMaster) tanpa
+         paginasi juga. -->
+    <table class="mb-2 w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2">Paket</th>
+          <th class="py-2">Subject</th>
+          <th class="py-2 w-16 text-right">Soal</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="p : ${paketLain}"
+            th:classappend="${filterPaketId != null and filterPaketId == p.id} ? 'bg-slate-100 font-medium' : 'hover:bg-slate-50'"
+            th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id}, filterPaketId=${p.id})}"
+            hx-target="#panel-pinjam" hx-swap="innerHTML"
+            class="cursor-pointer border-b border-slate-100">
+          <td class="py-2" th:text="${p.title}">Paket</td>
+          <td class="py-2" th:text="${namaSubject[p.subjectId]}">Subject</td>
+          <td class="py-2 text-right" th:text="${jumlahSoalPaket[p.id] ?: 0}">0</td>
+        </tr>
+      </tbody>
+    </table>
+    <p th:if="${#lists.isEmpty(paketLain)}" class="mb-4 text-sm text-slate-500">
+      Belum ada Paket lain yang bisa dipinjam.
+    </p>
+    <p th:if="${filterPaketId != null}" class="mb-4 text-sm">
+      Menyaring ke satu Paket.
+      <a th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
+         hx-target="#panel-pinjam" hx-swap="innerHTML"
+         class="cursor-pointer text-slate-600 underline">× Semua Paket</a>
     </p>
 
-    <form th:if="${sumber != null}" method="post"
-          th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}">
-      <div class="mb-3">
-        <label for="topicTujuan" class="block text-sm font-medium text-slate-700">Masukkan ke Topic</label>
-        <select id="topicTujuan" name="topicId" required
-                class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
-          <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
-        </select>
-      </div>
+    <!-- Satu form nyata: tombol "Salin soal terpilih" dan "Salin seluruh Topic ini" sama-sama
+         POST /pinjam biasa (bukan HTMX) seperti sebelumnya — hasilnya redirect balik ke halaman
+         isi Paket. filterPaketId dibawa sebagai field tersembunyi supaya tetap ikut terkirim
+         saat penyaring Topic/kata kunci di bawah memicu hx-get ke panel ini sendiri (htmx
+         menyertakan seluruh field form terdekat, bukan cuma elemen yang memicunya). -->
+    <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}">
+      <input type="hidden" name="filterPaketId" th:if="${filterPaketId != null}" th:value="${filterPaketId}">
 
-      <div th:each="t : ${topicSumber}" th:with="soalT=${soalSumber[t.id]}" class="mb-3">
-        <div class="flex items-center justify-between">
-          <h3 class="text-sm font-semibold" th:text="${t.title}">Topic sumber</h3>
-          <button type="submit" name="sourceTopicId" th:value="${t.id}"
-                  class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
-            Salin seluruh Topic ini
-          </button>
+      <div class="mb-3 flex flex-wrap items-end gap-2 text-sm"
+           th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
+           hx-target="#panel-pinjam" hx-swap="innerHTML"
+           hx-trigger="change from:#filterTopicId, click from:#cariPinjamBtn">
+        <div>
+          <label for="filterTopicId" class="block font-medium text-slate-700">Saring Topic</label>
+          <!-- Kosong sampai satu Paket diklik: seluruh Topic lintas Paket Client bisa jadi
+               ratusan baris tanpa struktur yang berguna untuk dipilih, sedangkan Topic satu
+               Paket sudah tersedia lewat method yang sama dengan halaman isi Paket
+               (PaketService.topicsOf) — bukan query baru. -->
+          <select id="filterTopicId" name="filterTopicId" th:disabled="${filterPaketId == null}"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 disabled:bg-slate-100">
+            <option value="">Semua Topic</option>
+            <option th:each="t : ${filterTopics}" th:value="${t.id}" th:text="${t.title}"
+                    th:selected="${filterTopicId != null and filterTopicId == t.id}">Topic</option>
+          </select>
         </div>
-        <label th:each="q : ${soalT ?: {}}"
-               th:unless="${sudahDipinjam.contains(q.id)}"
-               class="flex items-center gap-2 py-1 text-sm">
-          <input type="checkbox" name="questionIds" th:value="${q.id}" class="rounded border-slate-300">
-          <span th:text="${#strings.abbreviate(q.bodyText, 100)}">Cuplikan soal</span>
-        </label>
+        <div class="flex-1">
+          <label for="qPinjam" class="block font-medium text-slate-700">Cari</label>
+          <input type="text" id="qPinjam" name="q" th:value="${q}" placeholder="Kata kunci isi soal..."
+                 class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+        </div>
+        <button type="button" id="cariPinjamBtn"
+                class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Cari</button>
+        <div class="ml-auto">
+          <label for="topicTujuan" class="block font-medium text-slate-700">Masukkan ke Topic</label>
+          <select id="topicTujuan" name="topicId" required
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
+          </select>
+        </div>
       </div>
 
-      <button type="submit"
-              class="mt-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-        Salin soal terpilih
-      </button>
+      <div id="hasil-pinjam" th:replace="~{::hasilPinjam}"></div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button type="submit" th:if="${hasil.totalElements > 0}"
+                class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Salin soal terpilih
+        </button>
+        <!-- sourceTopicId di sini SENGAJA nama berbeda dari filterTopicId di atas: keduanya
+             hidup dalam satu <form> yang sama, dan kalau nama field penyaring dan pemicu salin
+             borongan disamakan, "Salin soal terpilih" ikut terbaca sebagai "Salin seluruh Topic"
+             begitu saja karena Topic sedang disaring — bukan soal yang dicentang pengguna yang
+             menentukan aksinya. -->
+        <button type="submit" name="sourceTopicId" th:value="${filterTopicId}" th:disabled="${filterTopicId == null}"
+                class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40">
+          Salin seluruh Topic ini
+        </button>
+      </div>
     </form>
+  </div>
+
+  <!--
+    Hasil tabel soal panel pinjam, fragmen sendiri supaya penyaring Topic/kata kunci dan
+    paginasi bisa menukar bagian ini saja (target #hasil-pinjam) tanpa membangun ulang tabel
+    Paket di atasnya. Paginasi 20/halaman: sejajar bank/cari.html dan exercise/builder.html,
+    dua panel pencarian soal lain yang sudah lebih dulu memakai ukuran ini — bukan kebijakan
+    baru untuk panel ini sendirian.
+  -->
+  <div th:fragment="hasilPinjam" id="hasil-pinjam">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2 w-8"></th>
+          <th class="py-2">Isi soal</th>
+          <th class="py-2">Tipe</th>
+          <th class="py-2">Paket</th>
+          <th class="py-2">Topic</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="soal : ${hasil}" class="border-b border-slate-100 align-top">
+          <td class="py-2">
+            <input type="checkbox" name="questionIds" th:value="${soal.id}" class="rounded border-slate-300">
+          </td>
+          <td class="py-2" th:text="${#strings.abbreviate(soal.bodyText, 110)}">Cuplikan soal</td>
+          <td class="py-2" th:text="${soal.type.name() == 'ESSAY' ? 'Esai' : 'Pilihan Ganda'}">Tipe</td>
+          <td class="py-2" th:text="${paketById[soal.paketId]?.title}">Paket</td>
+          <td class="py-2" th:text="${judulTopic[soal.topicId]}">Topic</td>
+        </tr>
+      </tbody>
+    </table>
+    <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">Belum ada soal yang cocok.</p>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${hasil.totalPages > 0}">
+      <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${hasil.hasPrevious()}"
+           th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id}, filterPaketId=${filterPaketId}, filterTopicId=${filterTopicId}, q=${q}, page=${hasil.number - 1})}"
+           hx-target="#panel-pinjam" hx-swap="innerHTML"
+           class="cursor-pointer rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${hasil.hasNext()}"
+           th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id}, filterPaketId=${filterPaketId}, filterTopicId=${filterTopicId}, q=${q}, page=${hasil.number + 1})}"
+           hx-target="#panel-pinjam" hx-swap="innerHTML"
+           class="cursor-pointer rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
   </div>
 
 </div>

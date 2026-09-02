@@ -13,6 +13,7 @@ import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
@@ -25,9 +26,12 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Ruang kerja kembar Bank Soal untuk konten master Eduscreen (ADR-0018).
@@ -222,23 +226,51 @@ public class MasterContentController {
         return "soal/editor :: detail";
     }
 
-    /** Panel pinjam antar-Paket master, sama alasan dengan {@link BankSoalController#panelPinjam}. */
+    /**
+     * Panel pinjam antar-Paket master, sejajar {@link BankSoalController#panelPinjam}: tabel
+     * Paket master lain di atas (seluruh Subject sekaligus, klik baris menyaring tabel soal di
+     * bawah), tabel soal bercentang di bawah. {@code searchMasterBorrowable} yang membawa
+     * {@code clientId is null} — padanan {@code searchForBuilder} sisi Client.
+     */
     @GetMapping("/eduscreen/bank-soal/paket/{id}/pinjam")
     public String panelPinjam(@PathVariable UUID id,
-                              @RequestParam(required = false) UUID sourcePaketId,
+                              @RequestParam(required = false) UUID filterPaketId,
+                              @RequestParam(required = false) UUID filterTopicId,
+                              @RequestParam(required = false) String q,
+                              @RequestParam(defaultValue = "0") int page,
                               Model model) {
         PaketEntity target = pakets.require(id, MASTER);
         model.addAttribute("paket", target);
         model.addAttribute("topics", pakets.topicsOf(id));
-        model.addAttribute("sudahDipinjam", borrow.borrowedSourceIds(id));
-        model.addAttribute("paketLain", paketRepository.findMaster(target.getSubjectId())
-                .stream().filter(p -> !p.getId().equals(id)).toList());
-        if (sourcePaketId != null) {
-            PaketEntity sumber = pakets.require(sourcePaketId, MASTER);
-            model.addAttribute("sumber", sumber);
-            model.addAttribute("topicSumber", pakets.topicsOf(sumber.getId()));
-            model.addAttribute("soalSumber", questions.groupByTopic(sumber.getId()));
-        }
+
+        List<PaketEntity> paketLain = paketRepository.findAllMaster().stream()
+                .filter(p -> !p.getId().equals(id))
+                .toList();
+        model.addAttribute("paketLain", paketLain);
+        model.addAttribute("namaSubject", namaSubject(taxonomy.visibleSubjects(MASTER)));
+        model.addAttribute("jumlahSoalPaket", jumlahSoalMaster());
+
+        model.addAttribute("filterPaketId", filterPaketId);
+        model.addAttribute("filterTopicId", filterTopicId);
+        model.addAttribute("q", q);
+        model.addAttribute("filterTopics", filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of());
+
+        Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
+        questionRepository.findByPaketIdOrderByPositionAsc(id)
+                .forEach(soal -> dikecualikan.add(soal.getId()));
+        Page<QuestionEntity> hasil = questions.searchMasterBorrowable(filterPaketId, filterTopicId,
+                dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
+        model.addAttribute("hasil", hasil);
+
+        Map<UUID, PaketEntity> paketById = paketLain.stream()
+                .collect(Collectors.toMap(PaketEntity::getId, p -> p));
+        model.addAttribute("paketById", paketById);
+        Map<UUID, String> judulTopic = new HashMap<>();
+        pakets.topicsByIds(hasil.getContent().stream().map(QuestionEntity::getTopicId)
+                        .collect(Collectors.toSet()))
+                .forEach(t -> judulTopic.put(t.getId(), t.getTitle()));
+        model.addAttribute("judulTopic", judulTopic);
+
         // Tanpa ini basePath kosong, dan bank/isi.html jatuh ke fallback '/bank-soal' — rute
         // Client, yang untuk EDUSCREEN_ADMIN dijawab 403 (temuan review Task 10).
         isiJalur(model);

@@ -9,6 +9,7 @@ import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
 
@@ -86,6 +87,17 @@ public class PaketService {
 
     public List<TopicEntity> topicsOf(UUID paketId) {
         return topics.findByPaketIdOrderByPositionAsc(paketId);
+    }
+
+    /**
+     * Topic tersebar lintas banyak Paket sekaligus, dipetakan sekali untuk label kolom Topic di
+     * tabel hasil panel pinjam ({@code BankSoalController}/{@code MasterContentController}) —
+     * bukan satu query per baris. Tidak menyaring kepemilikan: {@code ids} datang dari
+     * {@code Question} yang sudah lolos {@code searchForBuilder}/{@code searchMasterBorrowable},
+     * jadi sudah tenant-aman sebelum sampai sini; method ini murni pembacaan label tampilan.
+     */
+    public List<TopicEntity> topicsByIds(Collection<UUID> ids) {
+        return topics.findAllById(ids);
     }
 
     @Transactional

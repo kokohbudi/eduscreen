@@ -430,6 +430,11 @@ berikut:
   tanpa Paket milik Client lain ikut tampil. Memilih Subject lewat penyaring `subjectId`
   mempersempit tabel yang sama ke satu Subject, bukan berpindah ke templat atau tingkat
   navigasi lain.
+- **AC-B19**: Panel pinjam menawarkan sumber lintas Subject sejak dibuka, termasuk soal dari Paket
+  yang Subject-nya belum punya Paket lain — daftar sumber tidak pernah dipersempit ke Subject
+  Paket tujuan lebih dulu, dan tetap terisi tanpa menunggu satu Paket diklik/disaring.
+- **AC-B20**: Panel pinjam tidak pernah menawarkan Question yang sudah berada di Paket tujuan
+  sendiri sebagai sumber pinjam.
 
 ### Exercise & Assignment
 
