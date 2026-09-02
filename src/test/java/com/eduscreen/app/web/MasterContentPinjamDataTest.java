@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -46,7 +47,9 @@ class MasterContentPinjamDataTest extends PostgresTestBase {
 
     private PinjamPanelData ambil(UUID targetId, RequestPostProcessor principal,
                                   String... paramPairs) throws Exception {
-        MockHttpServletRequestBuilder req = get("/eduscreen/bank-soal/paket/{id}/pinjam", targetId).with(principal);
+        // Accept: application/json — sama seperti fetch() sungguhan di pinjamPanel() (bank/isi.html).
+        MockHttpServletRequestBuilder req = get("/eduscreen/bank-soal/paket/{id}/pinjam", targetId)
+                .accept(MediaType.APPLICATION_JSON).with(principal);
         for (int i = 0; i + 1 < paramPairs.length; i += 2) {
             req = req.param(paramPairs[i], paramPairs[i + 1]);
         }
@@ -130,8 +133,34 @@ class MasterContentPinjamDataTest extends PostgresTestBase {
         ClientEntity client = data.client("SD Master JSON 404");
         PaketEntity paketClient = data.paket(client, "Biologi JSON Master 404", "Paket Client JSON untuk 404 master");
 
-        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", paketClient.getId()).with(admin))
+        // Accept: application/json disertakan sengaja — lihat komentar sejajar di
+        // BankSoalPinjamDataTest#paketMilikClientLainDijawab404.
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", paketClient.getId())
+                        .accept(MediaType.APPLICATION_JSON).with(admin))
                 .andExpect(status().isNotFound())
+                .andExpect(content().string(not(containsString("Exception"))));
+    }
+
+    /**
+     * C1 (temuan review, sisi master): {@code filterPaketId} dulu tidak melewati
+     * {@code pakets.require(...)} sebelum {@code topicsOf(...)} — Eduscreen Admin bisa menarik
+     * judul Topic milik sebuah Client ke ruang kerja master lewat parameter ini begitu saja.
+     * Sejajar {@link BankSoalPinjamDataTest#filterPaketIdMilikClientLainDijawab404}.
+     */
+    @Test
+    @DisplayName("TC-36 (TC-09): filterPaketId milik sebuah Client di GET .../pinjam ruang kerja master dijawab 404, judul Topic-nya tidak pernah bocor")
+    void filterPaketIdMilikClientDijawab404() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity target = data.masterPaket("Sejarah Kelas 9 JSON Filter Master", "Paket master target JSON filter");
+        ClientEntity client = data.client("SD Master JSON Filter Bocor");
+        PaketEntity paketClient = data.paket(client, "Kimia JSON Filter Master", "Paket Client JSON Filter Master");
+        TopicEntity topikClient = paketService.addTopic(paketClient.getId(), "Topik Rahasia Client Master", client.getId());
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("filterPaketId", paketClient.getId().toString())
+                        .accept(MediaType.APPLICATION_JSON).with(admin))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(not(containsString(topikClient.getTitle()))))
                 .andExpect(content().string(not(containsString("Exception"))));
     }
 }

@@ -288,7 +288,11 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Pinjam soal dari Paket lain")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "x-data=\"pinjamPanel(&#39;" + target.getId() + "&#39;, &#39;/eduscreen/bank-soal&#39;)\"")));
+                        "x-data=\"pinjamPanel(&#39;" + target.getId() + "&#39;, &#39;/eduscreen/bank-soal&#39;)\"")))
+                // Kemampuan "salin seluruh Topic" (temuan review I3, lihat komentar sejajar di
+                // BankSoalRenderTest#panelPinjamKerangkaSsrDirender).
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Salin seluruh Topic ini")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"sourceTopicId\"")));
     }
 
     /** AC-B03 sisi master: soal yang dicentang mendarat di Paket tujuan lewat POST biasa (SSR, tidak tersentuh ADR-0019). */

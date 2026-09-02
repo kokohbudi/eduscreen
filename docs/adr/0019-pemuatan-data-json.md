@@ -78,14 +78,27 @@ Karena itu, tiap permukaan yang memakai jalur ini wajib membawa dua penjaga:
 Tanpa keduanya, permukaan itu berjalan tanpa jaring — dan proyek ini sudah dua kali membuktikan
 kelas kegagalan itu nyata.
 
-**Penerapan pada yang sudah ada.** Menjawab soal Practice tetap fragment: balasannya memuat
-`explanationHtml` yang dirender `th:utext` plus render ulang KaTeX. Auto-save jawaban Quiz pindah ke
-JSON — balasannya cuma "tersimpan, sekian dari sekian". Hitung mundur Timer pindah ke JSON, dan itu
-justru lebih jujur terhadap TC-15 yang sudah menyebutnya komponen yang murni menampilkan; sisa waktu
-yang berlaku tetap datang dari server, jam klien tidak pernah jadi rujukan.
+**Penerapan pada yang sudah ada.** Menjawab soal Practice **dan** auto-save jawaban Quiz
+sama-sama tetap fragment: `ExamSessionController.saveAnswer` (`PUT /siswa/sesi/{id}/jawaban/{qid}`)
+membalas `siswa/practice :: soal` atau `siswa/pengerjaan :: soal` — fragmen **batang soal utuh**,
+bukan "tersimpan, sekian dari sekian". Keduanya memuat `explanationHtml`/`bodyHtml` yang dirender
+`th:utext` plus render ulang KaTeX, jadi keduanya jatuh ke sisi fragment pertanyaan di atas, apa
+adanya.
 
-Rumusan pertama ADR ini menyebut ketiganya wajib fragment. Itu keliru — ditulis tanpa memeriksa apa
-yang sebenarnya dikembalikan tiap endpoint, dan dua dari tiga contohnya salah.
+Hitung mundur Timer **tidak dipindah** oleh ADR ini. `SessionTimeController.remaining`
+(`GET /siswa/sesi/{id}/waktu`) membalas `siswa/fragmen-waktu` — sebuah `<span>` berisi `sisaDetik`
+(angka) dan `berjalan` (boolean), tidak ada `_html` apa pun di dalamnya. Di bawah pembeda tajam di
+atas, itu jatuh ke sisi JSON, dan karena itu **melanggar TC-14 yang baru sejak ADR ini disahkan** —
+bukan sesuatu yang boleh diam-diam dibiarkan. Dicatat di sini sebagai **utang migrasi bernama**,
+sengaja TIDAK dikerjakan sekarang: memindahkannya butuh TC-14a-nya sendiri (tes kontrak JSON, dan
+salah satu dari tes peramban sungguhan atau tes render SSR plus catatan eksplisit), dan itu di
+luar cakupan perubahan Bank Soal yang melahirkan ADR ini.
+
+Rumusan pertama ADR ini menyebut ketiganya wajib fragment, lalu revisi keduanya salah arah lain:
+menyebut auto-save Quiz dan Timer sama-sama pindah ke JSON tanpa memeriksa apa yang sebenarnya
+dikembalikan `ExamSessionController.saveAnswer` (fragmen soal berisi HTML, bukan status polos).
+Keduanya ditulis tanpa memeriksa balasan endpoint yang sebenarnya — koreksi ini yang sudah, dua
+kali.
 
 ## Alternatif yang ditolak
 

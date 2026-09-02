@@ -14,6 +14,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -51,7 +52,9 @@ class BankSoalPinjamDataTest extends PostgresTestBase {
 
     private PinjamPanelData ambil(UUID targetId, RequestPostProcessor principal,
                                   String... paramPairs) throws Exception {
-        MockHttpServletRequestBuilder req = get("/bank-soal/paket/{id}/pinjam", targetId).with(principal);
+        // Accept: application/json — sama seperti fetch() sungguhan di pinjamPanel() (bank/isi.html).
+        MockHttpServletRequestBuilder req = get("/bank-soal/paket/{id}/pinjam", targetId)
+                .accept(MediaType.APPLICATION_JSON).with(principal);
         for (int i = 0; i + 1 < paramPairs.length; i += 2) {
             req = req.param(paramPairs[i], paramPairs[i + 1]);
         }
@@ -134,9 +137,43 @@ class BankSoalPinjamDataTest extends PostgresTestBase {
         PaketEntity paketLain = data.paket(lain, "Kimia JSON Lain", "Paket JSON Milik Client Lain");
 
         // Bentuk galatnya sendiri (ADR-0019 pagar 3): status 404 yang benar, plus pesan yang bisa
-        // ditampilkan apa adanya di klien — bukan payload kosong atau stack trace.
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", paketLain.getId()).with(admin))
+        // ditampilkan apa adanya di klien — bukan payload kosong atau stack trace. Accept:
+        // application/json disertakan sengaja: klien sungguhan (fetch() di pinjamPanel()) selalu
+        // mengirimnya, dan ini satu-satunya tempat kepatuhan TC-31 diklaim terbukti — tanpa
+        // header ini, request tidak merepresentasikan apa yang benar-benar dikirim klien.
+        mvc.perform(get("/bank-soal/paket/{id}/pinjam", paketLain.getId())
+                        .accept(MediaType.APPLICATION_JSON).with(admin))
                 .andExpect(status().isNotFound())
+                .andExpect(content().string(not(containsString("Exception"))));
+    }
+
+    /**
+     * C1 (temuan review): {@code filterPaketId} datang langsung dari parameter permintaan dan
+     * dulu tidak pernah melewati {@code pakets.require(...)} sebelum {@code topicsOf(...)} —
+     * {@code TopicRepository.findByPaketIdOrderByPositionAsc} cuma join ke Paket untuk
+     * menghormati {@code deleted_at}, tidak menyaring {@code clientId} sama sekali. Akibatnya
+     * Client A yang mengirim {@code filterPaketId} milik Client B mendapat judul Topic Client B
+     * begitu saja (200 berisi), sekaligus jadi oracle keberadaan (TC-09): id asing membalas
+     * tidak kosong, id yang tidak ada membalas kosong, dua-duanya 200 — persis yang TC-09
+     * larang bisa dibedakan.
+     */
+    @Test
+    @DisplayName("TC-36 (TC-09): filterPaketId milik Client lain di GET .../pinjam dijawab 404, judul Topic-nya tidak pernah bocor")
+    void filterPaketIdMilikClientLainDijawab404() throws Exception {
+        ClientEntity milikku = data.client("SD Pinjam JSON Filter A");
+        var admin = user(data.principal(data.user(milikku, UserRole.CLIENT_ADMIN, "Admin JSON Filter A")));
+        PaketEntity target = data.paket(milikku, "Sejarah JSON Filter", "Paket Target JSON Filter");
+        ClientEntity lain = data.client("SD Pinjam JSON Filter B");
+        PaketEntity paketLain = data.paket(lain, "Kimia JSON Filter Lain", "Paket JSON Filter Milik Client Lain");
+        // Topic bernama unik (bukan "Topik 1" bawaan): supaya assersi "tidak bocor" di bawah
+        // sungguh membuktikan sesuatu, bukan kebetulan cocok dengan judul generik.
+        TopicEntity topikLain = paketService.addTopic(paketLain.getId(), "Topik Rahasia Client Lain", lain.getId());
+
+        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("filterPaketId", paketLain.getId().toString())
+                        .accept(MediaType.APPLICATION_JSON).with(admin))
+                .andExpect(status().isNotFound())
+                .andExpect(content().string(not(containsString(topikLain.getTitle()))))
                 .andExpect(content().string(not(containsString("Exception"))));
     }
 
@@ -178,6 +215,12 @@ class BankSoalPinjamDataTest extends PostgresTestBase {
                 .contains("Paket Matematika JSON Saring", "Paket IPA JSON Saring");
         assertThat(tanpaSaring.soal().content()).extracting(PinjamPanelData.SoalRow::isi)
                 .contains("Soal json saring matematika", "Soal json saring ipa");
+        // AC-B21: dropdown Subject cuma menawarkan Subject yang benar-benar punya Paket sumber —
+        // Subject Paket TARGET sendiri ("Sejarah JSON Saring") tidak punya Paket lain sama sekali
+        // di Subject itu, jadi tidak boleh muncul di dropdown (menawarkannya berarti menyodorkan
+        // pilihan yang pasti berujung "Semua Paket" kosong).
+        assertThat(tanpaSaring.subjects()).extracting(PinjamPanelData.Opsi::id)
+                .containsExactlyInAnyOrder(paketMtk.getSubjectId(), paketIpa.getSubjectId());
 
         // Saring Subject Matematika: daftar Paket menyempit (aturan 7), begitu juga soal.
         PinjamPanelData tersaringSubject = ambil(target.getId(), admin,
@@ -190,7 +233,11 @@ class BankSoalPinjamDataTest extends PostgresTestBase {
         // Saring Paket langsung: Topic dropdown ikut terisi Topic Paket itu, soal menyempit sama.
         PinjamPanelData tersaringPaket = ambil(target.getId(), admin,
                 "filterPaketId", paketIpa.getId().toString());
-        assertThat(tersaringPaket.topics()).extracting(PinjamPanelData.Opsi::id).contains(topikIpa.getId());
+        // containsExactly, bukan contains: kalau penyempitan Topic-nya dicabut sepenuhnya
+        // (kembali ke "seluruh Topic Client"), assersi contains tetap hijau — cuma
+        // containsExactly yang benar-benar gagal saat itu terjadi.
+        assertThat(tersaringPaket.topics()).extracting(PinjamPanelData.Opsi::id)
+                .containsExactly(topikIpa.getId());
         assertThat(tersaringPaket.soal().content()).extracting(PinjamPanelData.SoalRow::isi)
                 .containsExactly("Soal json saring ipa");
     }

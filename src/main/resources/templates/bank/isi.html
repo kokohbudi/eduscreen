@@ -154,8 +154,13 @@
             </div>
             <div class="flex-1">
               <label class="block font-medium text-slate-700">Cari</label>
-              <!-- TC-25: kata kunci menyentuh bodyText teks polos di server, bukan bodyHtml. -->
+              <!-- TC-25: kata kunci menyentuh bodyText teks polos di server, bukan bodyHtml.
+                   @keydown.enter.prevent WAJIB: kolom ini duduk di dalam <form> yang tombol
+                   submit-nya "Salin soal terpilih" — tanpa ini, Enter (kebiasaan wajar di kotak
+                   pencarian) mengirim POST pinjam apa adanya yang sedang tercentang, melempar
+                   pengguna keluar panel, dan menghapus seluruh penyaring/pilihan (temuan review). -->
               <input type="search" :value="q" @input.debounce.400ms="ubahCari($event.target.value)"
+                     @keydown.enter.prevent
                      placeholder="Cari isi soal..." class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
             </div>
           </div>
@@ -288,19 +293,30 @@
             </p>
           </div>
 
-          <!-- Bar aksi: aturan 3 (hitungan tersembunyi) dan tombol Salin/Bersihkan. Salin adalah
-               POST biasa (bukan HTMX/JSON) — hasilnya redirect balik ke halaman isi Paket ini,
-               sama seperti sebelumnya. -->
-          <div class="mt-4 flex flex-wrap items-center justify-between gap-2" x-show="jumlahTerpilih > 0">
+          <!-- Bar aksi: aturan 3 (hitungan tersembunyi) dan tombol Salin/Bersihkan/Salin-seluruh-
+               Topic. Salin adalah POST biasa (bukan HTMX/JSON) — hasilnya redirect balik ke
+               halaman isi Paket ini, sama seperti sebelumnya. Bar ini terlihat kalau ADA soal
+               tercentang ATAU ada Topic yang sedang disaring — kemampuan "salin seluruh Topic"
+               tidak butuh satu pun centang, ia menyalin seluruh isi Topic yang difilter. -->
+          <div class="mt-4 flex flex-wrap items-center justify-between gap-2" x-show="jumlahTerpilih > 0 || topicFilterId">
             <span>
-              <span x-text="jumlahTerpilih + ' soal terpilih'"></span>
+              <span x-show="jumlahTerpilih > 0" x-text="jumlahTerpilih + ' soal terpilih'"></span>
               <span x-show="hitungTersembunyi > 0" class="text-slate-500"
                     x-text="' · ' + hitungTersembunyi + ' tidak terlihat karena penyaring'"></span>
             </span>
             <span class="flex gap-2">
-              <button type="button" @click="bersihkan()"
+              <button type="button" @click="bersihkan()" x-show="jumlahTerpilih > 0"
                       class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Bersihkan</button>
-              <button type="submit"
+              <!-- name="sourceTopicId" SENGAJA beda dari topicFilterId (state Alpine si
+                   penyaring): keduanya hidup di form yang sama, dan menyamakan namanya akan
+                   membuat "Salin soal terpilih" ikut terbaca sebagai "Salin seluruh Topic" begitu
+                   saja karena Topic kebetulan sedang disaring — bukan soal yang dicentang
+                   pengguna yang menentukan aksinya. Tombol ini menyambung ke borrowTopic lewat
+                   cabang sourceTopicId di PaketBorrowService (BankSoalController#pinjam),
+                   dipertahankan sesuai bentuk yang disetujui — jangan dicabut lagi. -->
+              <button type="submit" name="sourceTopicId" :value="topicFilterId" x-show="topicFilterId"
+                      class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Salin seluruh Topic ini</button>
+              <button type="submit" x-show="jumlahTerpilih > 0"
                       class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">Salin soal terpilih</button>
             </span>
           </div>

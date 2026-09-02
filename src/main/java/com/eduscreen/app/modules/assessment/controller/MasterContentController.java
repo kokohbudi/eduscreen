@@ -249,16 +249,27 @@ public class MasterContentController {
                                            @RequestParam(defaultValue = "0") int page) {
         pakets.require(id, MASTER);
 
-        List<SubjectEntity> subjects = taxonomy.visibleSubjects(MASTER);
-        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketLain = paketRepository.findAllMaster().stream()
                 .filter(p -> !p.getId().equals(id))
                 .toList();
         Map<UUID, PaketEntity> paketById = paketLain.stream()
                 .collect(Collectors.toMap(PaketEntity::getId, p -> p));
+        // AC-B21: Subject yang ditawarkan hanya yang benar-benar punya Paket master sumber, sama
+        // alasan dengan BankSoalController#panelPinjamData.
+        Set<UUID> subjectIdDenganPaket = paketLain.stream().map(PaketEntity::getSubjectId).collect(Collectors.toSet());
+        List<SubjectEntity> subjects = taxonomy.visibleSubjects(MASTER).stream()
+                .filter(s -> subjectIdDenganPaket.contains(s.getId()))
+                .toList();
+        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketPilihan = filterSubjectId == null ? paketLain
                 : paketLain.stream().filter(p -> p.getSubjectId().equals(filterSubjectId)).toList();
-        List<TopicEntity> filterTopics = filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of();
+        // require() DULU wajib (TC-36, TC-09), sama alasan dengan BankSoalController#panelPinjamData:
+        // findByPaketIdOrderByPositionAsc tidak menyaring clientId sama sekali, jadi tanpa ini
+        // filterPaketId milik sebuah Client membalas judul Topic-nya begitu saja ke ruang kerja
+        // master.
+        List<TopicEntity> filterTopics = filterPaketId != null
+                ? pakets.topicsOf(pakets.require(filterPaketId, MASTER).getId())
+                : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
         questionRepository.findByPaketIdOrderByPositionAsc(id)

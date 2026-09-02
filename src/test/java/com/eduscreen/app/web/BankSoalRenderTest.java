@@ -236,6 +236,12 @@ class BankSoalRenderTest extends PostgresTestBase {
                 // ini bentuk yang benar dilihat lewat MockMvc, bukan bentuk yang salah.
                 .andExpect(content().string(containsString(
                         "x-data=\"pinjamPanel(&#39;" + paket.getId() + "&#39;")))
+                // Kemampuan "salin seluruh Topic" (temuan review I3): tombolnya ikut hilang dari
+                // layar saat panel ditulis ulang padahal kemampuannya diminta dipertahankan, dan
+                // tidak ada tes yang menangkapnya waktu itu. Assersi ini yang menutup lubang itu —
+                // tombolnya wajib ada di kerangka SSR, disambungkan ke penyaring Topic aktif.
+                .andExpect(content().string(containsString("Salin seluruh Topic ini")))
+                .andExpect(content().string(containsString("name=\"sourceTopicId\"")))
                 .andExpect(content().string(not(containsString("basePath"))));
     }
 

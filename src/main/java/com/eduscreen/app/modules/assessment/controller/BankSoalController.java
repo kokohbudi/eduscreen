@@ -283,20 +283,34 @@ public class BankSoalController {
         UUID clientId = user.requireClientId();
         pakets.require(id, clientId);
 
-        List<SubjectEntity> subjects = taxonomy.visibleSubjects(clientId);
-        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketLain = paketRepository.findByClientIdOrderByTitleAsc(clientId).stream()
                 .filter(p -> !p.getId().equals(id))
                 .toList();
         Map<UUID, PaketEntity> paketById = paketLain.stream()
                 .collect(Collectors.toMap(PaketEntity::getId, p -> p));
+        // AC-B21: Subject yang ditawarkan hanya yang benar-benar punya Paket sumber — bukan
+        // seluruh Subject GLOBAL/Client yang kebetulan terlihat. visibleSubjects() tanpa
+        // penyempitan ini akan menawarkan Subject yang pasti berujung "Semua Paket" kosong begitu
+        // dipilih, persis pelanggaran yang AC-B21 larang.
+        Set<UUID> subjectIdDenganPaket = paketLain.stream().map(PaketEntity::getSubjectId).collect(Collectors.toSet());
+        List<SubjectEntity> subjects = taxonomy.visibleSubjects(clientId).stream()
+                .filter(s -> subjectIdDenganPaket.contains(s.getId()))
+                .toList();
+        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketPilihan = filterSubjectId == null ? paketLain
                 : paketLain.stream().filter(p -> p.getSubjectId().equals(filterSubjectId)).toList();
         // Dropdown Topic mengikuti Paket yang sedang dipilih saja: seluruh Topic lintas-Paket
         // Client bisa jadi ratusan baris tanpa struktur yang berguna untuk dipilih, sedangkan
         // Topic satu Paket sudah tersedia lewat method yang sama dengan halaman isi Paket
-        // (PaketService.topicsOf) — bukan query baru.
-        List<TopicEntity> filterTopics = filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of();
+        // (PaketService.topicsOf) — bukan query baru. require() DULU wajib (TC-36, TC-09):
+        // TopicRepository.findByPaketIdOrderByPositionAsc cuma join ke Paket untuk menghormati
+        // deleted_at, tidak menyaring clientId sama sekali — tanpa require ini, filterPaketId
+        // milik Client lain membalas judul Topic-nya begitu saja (200 berisi, bukan 404), dan itu
+        // sekaligus oracle keberadaan: id asing membalas tidak kosong, id yang tidak ada membalas
+        // kosong, keduanya 200 — persis yang TC-09 larang bisa dibedakan.
+        List<TopicEntity> filterTopics = filterPaketId != null
+                ? pakets.topicsOf(pakets.require(filterPaketId, clientId).getId())
+                : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
         questionRepository.findByPaketIdOrderByPositionAsc(id)
