@@ -6,6 +6,7 @@ import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
+import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -111,7 +113,7 @@ public class BankSoalController {
                        Model model) {
         UUID clientId = user.requireClientId();
         model.addAttribute("hasil", questions.searchForBuilder(
-                clientId, null, topicId, null, List.of(), q, PageRequest.of(page, UKURAN_HALAMAN)));
+                clientId, null, null, topicId, null, List.of(), q, PageRequest.of(page, UKURAN_HALAMAN)));
         model.addAttribute("subjectId", subjectId);
         model.addAttribute("topicId", topicId);
         model.addAttribute("q", q);
@@ -245,67 +247,105 @@ public class BankSoalController {
     }
 
     /**
-     * Panel pinjam sebagai fragmen HTMX: tabel Paket di atas (seluruh Paket lain milik Client,
-     * lintas Subject — mengklik satu baris menyaring tabel soal di bawah), dan tabel soal
-     * bercentang di bawah (BR asli: "kalau mau ambil soal dari paket lain juga bisa, ambil dari
-     * subjek lain juga bisa"). Sebelum ada Paket yang diklik, tabel bawah SUDAH terisi lintas
-     * Paket dan Subject — itulah cacat yang diperbaiki di sini: Paket baru di Subject yang belum
-     * punya Paket lain dulu tidak menawarkan sumber sama sekali karena daftar sumbernya
-     * dipersempit ke Subject yang sama.
+     * Data panel pinjam sebagai JSON (ADR-0019), dimuat dan dirender ulang Alpine di klien
+     * ({@code pinjamPanel} di {@code bank/isi.html}) setiap penyaring berubah — bukan lagi
+     * fragmen HTMX. Alasan perubahannya: pengguna mencentang soal lintas Subject/Paket sebelum
+     * menyalin, dan keadaan centangan itu harus bertahan melewati setiap perubahan penyaring;
+     * fragmen menukar HTML yang memuat centangan itu sendiri, JSON tidak (lihat ADR-0019).
+     *
+     * <p>Tanpa satu pun penyaring terisi, {@code soal} SUDAH berisi lintas Paket dan Subject
+     * (AC-B19) — itulah cacat asal yang diperbaiki: Paket baru di Subject yang belum punya Paket
+     * lain dulu tidak menawarkan sumber sama sekali karena daftar sumbernya dipersempit ke
+     * Subject yang sama lebih dulu.
      *
      * <p>Soal yang salinannya sudah ada di Paket tujuan (AC-B04) maupun yang memang milik Paket
-     * tujuan sendiri sama-sama tidak dirender — keduanya masuk {@code excludeIds} query utama
-     * ({@code searchForBuilder}), bukan disaring belakangan di kode pemanggil (TC-36): panel
-     * perakit Exercise sudah memakai mekanisme pengecualian ini untuk soal yang sudah terpasang,
-     * di sini isinya cuma alasan yang beda.
+     * tujuan sendiri (AC-B20) sama-sama tidak dirender — keduanya masuk {@code excludeIds} query
+     * utama ({@code searchForBuilder}), bukan disaring belakangan di kode pemanggil (TC-36):
+     * panel perakit Exercise sudah memakai mekanisme pengecualian ini untuk soal yang sudah
+     * terpasang, di sini isinya cuma alasan yang beda.
+     *
+     * <p>{@code pakets}/{@code topics} balasan ini sudah disempitkan Subject→Paket→Topic di
+     * server (aturan 7 ADR-0019): klien tidak pernah menawarkan Paket yang pasti nol hasil untuk
+     * Subject yang sedang dipilih. {@code Paket} milik Client lain menjawab 404 lewat
+     * {@link PaketService#require} sebelum satu baris pun dirakit (TC-36, TC-09) — galat itu
+     * ditangani {@code GlobalExceptionAdvice} yang sama dengan seluruh rute lain, bukan jalur
+     * baru (ADR-0019 pagar 2 dan 3).
      */
     @GetMapping("/bank-soal/paket/{id}/pinjam")
-    public String panelPinjam(@PathVariable UUID id,
-                              @RequestParam(required = false) UUID filterPaketId,
-                              @RequestParam(required = false) UUID filterTopicId,
-                              @RequestParam(required = false) String q,
-                              @RequestParam(defaultValue = "0") int page,
-                              @AuthenticationPrincipal UserPrincipal user,
-                              Model model) {
+    @ResponseBody
+    public PinjamPanelData panelPinjamData(@PathVariable UUID id,
+                                           @RequestParam(required = false) UUID filterSubjectId,
+                                           @RequestParam(required = false) UUID filterPaketId,
+                                           @RequestParam(required = false) UUID filterTopicId,
+                                           @RequestParam(required = false) String q,
+                                           @RequestParam(defaultValue = "0") int page,
+                                           @AuthenticationPrincipal UserPrincipal user) {
         UUID clientId = user.requireClientId();
-        PaketEntity target = pakets.require(id, clientId);
-        model.addAttribute("paket", target);
-        model.addAttribute("topics", pakets.topicsOf(id));
+        pakets.require(id, clientId);
 
+        List<SubjectEntity> subjects = taxonomy.visibleSubjects(clientId);
+        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketLain = paketRepository.findByClientIdOrderByTitleAsc(clientId).stream()
                 .filter(p -> !p.getId().equals(id))
                 .toList();
-        model.addAttribute("paketLain", paketLain);
-        model.addAttribute("namaSubject", namaSubject(taxonomy.visibleSubjects(clientId)));
-        Map<UUID, Long> jumlahSoalPaket = new HashMap<>();
-        questionRepository.countByPaket(clientId).forEach(c -> jumlahSoalPaket.put(c.getPaketId(), c.getJumlah()));
-        model.addAttribute("jumlahSoalPaket", jumlahSoalPaket);
-
-        model.addAttribute("filterPaketId", filterPaketId);
-        model.addAttribute("filterTopicId", filterTopicId);
-        model.addAttribute("q", q);
-        // Dropdown Topic mengikuti Paket yang sedang diklik saja: seluruh Topic lintas-Paket
-        // Client bisa jadi ratusan baris tanpa struktur yang berguna, sedangkan Topic satu Paket
-        // sudah dipakai ulang lewat method yang sama dengan halaman isi Paket (PaketService.topicsOf).
-        model.addAttribute("filterTopics", filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of());
+        Map<UUID, PaketEntity> paketById = paketLain.stream()
+                .collect(Collectors.toMap(PaketEntity::getId, p -> p));
+        List<PaketEntity> paketPilihan = filterSubjectId == null ? paketLain
+                : paketLain.stream().filter(p -> p.getSubjectId().equals(filterSubjectId)).toList();
+        // Dropdown Topic mengikuti Paket yang sedang dipilih saja: seluruh Topic lintas-Paket
+        // Client bisa jadi ratusan baris tanpa struktur yang berguna untuk dipilih, sedangkan
+        // Topic satu Paket sudah tersedia lewat method yang sama dengan halaman isi Paket
+        // (PaketService.topicsOf) — bukan query baru.
+        List<TopicEntity> filterTopics = filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
         questionRepository.findByPaketIdOrderByPositionAsc(id)
                 .forEach(soal -> dikecualikan.add(soal.getId()));
-        Page<QuestionEntity> hasil = questions.searchForBuilder(clientId, filterPaketId, filterTopicId, null,
-                dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
-        model.addAttribute("hasil", hasil);
+        Page<QuestionEntity> hasil = questions.searchForBuilder(clientId, filterSubjectId, filterPaketId,
+                filterTopicId, null, dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
 
-        Map<UUID, PaketEntity> paketById = paketLain.stream()
-                .collect(Collectors.toMap(PaketEntity::getId, p -> p));
-        model.addAttribute("paketById", paketById);
         Map<UUID, String> judulTopic = new HashMap<>();
         pakets.topicsByIds(hasil.getContent().stream().map(QuestionEntity::getTopicId)
                         .collect(Collectors.toSet()))
                 .forEach(t -> judulTopic.put(t.getId(), t.getTitle()));
-        model.addAttribute("judulTopic", judulTopic);
 
-        return "bank/isi :: panelPinjam";
+        return pinjamPanelData(subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, judulTopic);
+    }
+
+    /**
+     * Merakit {@link PinjamPanelData} dari entitas yang sudah dibaca controller — satu tempat,
+     * dipakai {@link #panelPinjamData} maupun {@code MasterContentController#panelPinjamData},
+     * supaya bentuk JSON kedua sisi benar-benar identik, bukan cuma sengaja disamakan tangan.
+     */
+    static PinjamPanelData pinjamPanelData(List<SubjectEntity> subjects, Map<UUID, String> namaSubject,
+                                           List<PaketEntity> paketPilihan, Map<UUID, PaketEntity> paketById,
+                                           List<TopicEntity> filterTopics, Page<QuestionEntity> hasil,
+                                           Map<UUID, String> judulTopic) {
+        List<PinjamPanelData.SoalRow> baris = hasil.getContent().stream().map(s -> {
+            PaketEntity p = paketById.get(s.getPaketId());
+            return new PinjamPanelData.SoalRow(s.getId(), abbreviate(s.getBodyText()),
+                    s.getType() == QuestionType.ESSAY ? "Esai" : "Pilihan Ganda",
+                    s.getPaketId(), p != null ? p.getTitle() : null,
+                    p != null ? p.getSubjectId() : null, p != null ? namaSubject.get(p.getSubjectId()) : null,
+                    s.getTopicId(), judulTopic.get(s.getTopicId()));
+        }).toList();
+        return new PinjamPanelData(
+                subjects.stream().map(s -> new PinjamPanelData.Opsi(s.getId(), s.getName())).toList(),
+                paketPilihan.stream().map(p -> new PinjamPanelData.Opsi(p.getId(), p.getTitle())).toList(),
+                filterTopics.stream().map(t -> new PinjamPanelData.Opsi(t.getId(), t.getTitle())).toList(),
+                new PinjamPanelData.HasilSoal(baris, hasil.getNumber(), hasil.getTotalPages(),
+                        hasil.getTotalElements(), hasil.hasPrevious(), hasil.hasNext()));
+    }
+
+    /**
+     * Cuplikan isi soal untuk tabel panel pinjam — padanan {@code #strings.abbreviate(text, 110)}
+     * Thymeleaf, ditulis ulang di Java karena balasan ini JSON, bukan HTML yang dirender Thymeleaf.
+     */
+    static String abbreviate(String text) {
+        if (text == null) {
+            return "";
+        }
+        return text.length() <= 110 ? text : text.substring(0, 107) + "...";
     }
 
     @PostMapping("/bank-soal/paket/{id}/pinjam")

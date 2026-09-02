@@ -265,28 +265,42 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal dibuat lewat layar unik")));
     }
 
+    /**
+     * ADR-0019 (TC-14a): {@code GET .../pinjam} sekarang JSON, isi panel dirender Alpine di
+     * klien. Tes ini SENGAJA cuma membuktikan kerangka SSR memakai {@code basePath} master yang
+     * benar (bukan fallback Client yang dijawab 403 untuk EDUSCREEN_ADMIN — regresi review
+     * Task 10) — bukan lagi isi panelnya, yang sudah dirakit Alpine dari JSON.
+     *
+     * <p><b>Catatan eksplisit TC-14a, sama dengan {@code BankSoalRenderTest}: perilaku sisi
+     * klien panel ini tidak dijaga tes render mana pun di proyek ini — penjaganya cuma tes
+     * kontrak JSON di {@code MasterContentPinjamDataTest}.</b>
+     */
     @Test
-    @DisplayName("TC-13: panel pinjam master benar-benar memakai jalur /eduscreen/bank-soal, bukan fallback Client yang dijawab 403 (regresi review Task 10)")
-    void panelPinjamMasterMemakaiJalurSendiri() throws Exception {
+    @DisplayName("TC-13 (TC-14a): kerangka SSR panel pinjam master memakai jalur /eduscreen/bank-soal, bukan fallback Client (regresi review Task 10)")
+    void panelPinjamMasterKerangkaSsrMemakaiJalurSendiri() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity target = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket tujuan pinjam render");
+
+        // Thymeleaf meng-HTML-escape kutip tunggal literal (' -> &#39;) saat merender th:attr;
+        // peramban mendekodenya kembali sebelum Alpine membaca atributnya (lihat komentar sejajar
+        // di BankSoalRenderTest#panelPinjamKerangkaSsrDirender).
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Pinjam soal dari Paket lain")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "x-data=\"pinjamPanel(&#39;" + target.getId() + "&#39;, &#39;/eduscreen/bank-soal&#39;)\"")));
+    }
+
+    /** AC-B03 sisi master: soal yang dicentang mendarat di Paket tujuan lewat POST biasa (SSR, tidak tersentuh ADR-0019). */
+    @Test
+    @DisplayName("AC-B03: soal yang dicentang di panel pinjam master mendarat di Paket tujuan")
+    void pinjamMasterMendaratDiPaketTujuan() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         PaketEntity sumber = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket sumber pinjam render");
         TopicEntity topicSumber = paketService.topicsOf(sumber.getId()).get(0);
         QuestionEntity soalSumber = data.masterMcq(topicSumber, "Soal sumber pinjam render unik");
-        PaketEntity target = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket tujuan pinjam render");
+        PaketEntity target = data.masterPaket("Fisika Kelas 9 Render Pinjam", "Paket tujuan pinjam render lain");
         TopicEntity topicTarget = paketService.topicsOf(target.getId()).get(0);
-
-        // Sebelum perbaikan, basePath kosong di sini dan jalurnya jatuh ke fallback '/bank-soal'
-        // Client — yang untuk EDUSCREEN_ADMIN dijawab 403, membuat panel ini gagal senyap. Tanpa
-        // filterPaketId sama sekali: tabel soal panel pinjam sudah terisi lintas Paket master
-        // begitu dibuka, tidak menunggu satu pun baris Paket diklik lebih dulu.
-        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
-                        .with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "hx-get=\"/eduscreen/bank-soal/paket/" + target.getId() + "/pinjam\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "action=\"/eduscreen/bank-soal/paket/" + target.getId() + "/pinjam\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal sumber pinjam render unik")));
 
         mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
                         .param("topicId", topicTarget.getId().toString())
@@ -298,32 +312,6 @@ class MasterContentRenderTest extends PostgresTestBase {
         mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", target.getId()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal sumber pinjam render unik")));
-    }
-
-    @Test
-    @DisplayName("TC-36: panel pinjam ruang kerja master menawarkan Paket master saja, tanpa Paket milik Client, sekaligus lintas Subject (AC-B19)")
-    void panelPinjamMasterMenawarkanPaketMasterSaja() throws Exception {
-        var admin = user(data.principal(data.eduscreenAdmin()));
-        PaketEntity target = data.masterPaket("Sejarah Kelas 9 Render Pinjam", "Paket master target pinjam");
-        // Satu-satunya Paket master lain, di Subject BERBEDA: membuktikan tabel Paket master
-        // menawarkan lintas Subject juga, sama seperti sisi Client.
-        PaketEntity sumberLain = data.masterPaket("Matematika Kelas 4 Render Pinjam", "Paket master sumber lain subject");
-        TopicEntity topikSumberLain = paketService.topicsOf(sumberLain.getId()).get(0);
-        data.masterMcq(topikSumberLain, "Soal master lintas subject unik");
-
-        ClientEntity client = data.client("SD Master Pinjam Bukan Master");
-        PaketEntity paketClient = data.paket(client, "Sejarah Kelas 9 Render Pinjam", "Paket Client bukan master");
-        TopicEntity topikClient = paketService.topicsOf(paketClient.getId()).get(0);
-        data.mcq(client, topikClient, "Soal Client bukan master unik", 4);
-
-        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master sumber lain subject")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal master lintas subject unik")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("Paket Client bukan master"))))
-                .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("Soal Client bukan master unik"))));
     }
 
     @Test

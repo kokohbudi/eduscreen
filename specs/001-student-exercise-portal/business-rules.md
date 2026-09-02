@@ -435,6 +435,10 @@ berikut:
   Paket tujuan lebih dulu, dan tetap terisi tanpa menunggu satu Paket diklik/disaring.
 - **AC-B20**: Panel pinjam tidak pernah menawarkan Question yang sudah berada di Paket tujuan
   sendiri sebagai sumber pinjam.
+- **AC-B21**: Penyaring Subject/Paket/Topic pada panel pinjam saling menyempit: memilih satu
+  Subject membuat daftar Paket yang ditawarkan hanya berisi Paket di Subject itu, dan memilih
+  satu Paket membuat daftar Topic yang ditawarkan hanya berisi Topic milik Paket itu. Penyaring
+  tidak pernah menawarkan pilihan yang pasti menghasilkan nol soal.
 
 ### Exercise & Assignment
 

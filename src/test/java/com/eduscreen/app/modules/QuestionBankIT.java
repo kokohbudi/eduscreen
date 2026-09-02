@@ -69,19 +69,19 @@ class QuestionBankIT extends PostgresTestBase {
 
         // Tanpa saringan: ketiganya muncul.
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), "saringunik", PageRequest.of(0, 20))
+                client.getId(), null, null, null, null, List.of(), "saringunik", PageRequest.of(0, 20))
                 .getTotalElements()).isEqualTo(3);
 
         // Practice hanya boleh memuat pilihan ganda (BR-M04): esai disingkirkan sebelum merakit.
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, null, QuestionType.MULTIPLE_CHOICE, List.of(), "saringunik",
+                client.getId(), null, null, null, QuestionType.MULTIPLE_CHOICE, List.of(), "saringunik",
                 PageRequest.of(0, 20)).getTotalElements()).isEqualTo(2);
 
         // Yang sudah terpasang disembunyikan; pengecualian kosong tidak menyaring apa pun.
         ExerciseEntity exercise = exerciseService.create(client.getId(), "Ulangan", guru.getId());
         exerciseService.addQuestions(exercise.getId(), List.of(pg1.getId()), client.getId());
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(pg1.getId()), "saringunik", PageRequest.of(0, 20)))
+                client.getId(), null, null, null, null, List.of(pg1.getId()), "saringunik", PageRequest.of(0, 20)))
                 .extracting(QuestionEntity::getId)
                 .doesNotContain(pg1.getId())
                 .contains(pg2.getId());
@@ -108,7 +108,7 @@ class QuestionBankIT extends PostgresTestBase {
         data.mcq(client, topicB, "Soal di Paket B", 4);
 
         Page<QuestionEntity> hasil = questionService.searchForBuilder(
-                client.getId(), paketA.getId(), null, null, List.of(), null,
+                client.getId(), null, paketA.getId(), null, null, List.of(), null,
                 PageRequest.of(0, 20));
 
         assertThat(hasil.getContent())
@@ -136,7 +136,7 @@ class QuestionBankIT extends PostgresTestBase {
         // paketId sah milik Client B disodorkan sambil clientId yang dipakai tetap Client A —
         // skenario paling dekat dengan penyerang yang menebak/menyalin id Paket orang lain.
         Page<QuestionEntity> hasil = questionService.searchForBuilder(
-                client.getId(), paketLain.getId(), null, null, List.of(), null,
+                client.getId(), null, paketLain.getId(), null, null, List.of(), null,
                 PageRequest.of(0, 20));
 
         assertThat(hasil.getContent()).isEmpty();
@@ -319,7 +319,7 @@ class QuestionBankIT extends PostgresTestBase {
         // search() sudah dicabut (Task 14): searchForBuilder dengan paketId/type null dan
         // excluded kosong adalah pencarian bank soal Client biasa, satu-satunya yang tersisa.
         Page<QuestionEntity> hasilPencarian = questionService.searchForBuilder(
-                client.getId(), null, topic.getId(), null, List.of(), "", PageRequest.of(0, 50));
+                client.getId(), null, null, topic.getId(), null, List.of(), "", PageRequest.of(0, 50));
         assertThat(hasilPencarian.getContent())
                 .extracting(QuestionEntity::getId).doesNotContain(q1.getId());
 
@@ -364,7 +364,7 @@ class QuestionBankIT extends PostgresTestBase {
         // Bank soal adalah milik Client, bukan milik Guru perorangan — tidak ada sekat konten
         // privat per Guru di dalam satu Client (BR-P02); Guru B mencari tanpa menyaring topic.
         Page<QuestionEntity> hasilPencarianGuruB = questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), "", PageRequest.of(0, 50));
+                client.getId(), null, null, null, null, List.of(), "", PageRequest.of(0, 50));
         assertThat(hasilPencarianGuruB.getContent())
                 .extracting(QuestionEntity::getId).contains(soalGuruA.getId());
 

@@ -7,6 +7,7 @@ import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
+import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -227,54 +229,50 @@ public class MasterContentController {
     }
 
     /**
-     * Panel pinjam antar-Paket master, sejajar {@link BankSoalController#panelPinjam}: tabel
-     * Paket master lain di atas (seluruh Subject sekaligus, klik baris menyaring tabel soal di
-     * bawah), tabel soal bercentang di bawah. {@code searchMasterBorrowable} yang membawa
-     * {@code clientId is null} — padanan {@code searchForBuilder} sisi Client.
+     * Data panel pinjam master sebagai JSON (ADR-0019), sejajar
+     * {@link BankSoalController#panelPinjamData}: {@code searchMasterBorrowable} yang membawa
+     * {@code clientId is null} adalah padanan {@code searchForBuilder} sisi Client, dan
+     * {@code PinjamPanelData} yang sama dirakit lewat helper statis
+     * {@code BankSoalController.pinjamPanelData} supaya bentuk JSON kedua sisi identik.
+     *
+     * <p>Tidak butuh {@code isiJalur}/{@code basePath} seperti rute HTML lain di kelas ini: JSON
+     * tidak mengandung tautan template yang bisa jatuh ke fallback Client — klien (Alpine di
+     * {@code bank/isi.html}) sudah tahu {@code basePath} dari halaman SSR yang memuatnya.
      */
     @GetMapping("/eduscreen/bank-soal/paket/{id}/pinjam")
-    public String panelPinjam(@PathVariable UUID id,
-                              @RequestParam(required = false) UUID filterPaketId,
-                              @RequestParam(required = false) UUID filterTopicId,
-                              @RequestParam(required = false) String q,
-                              @RequestParam(defaultValue = "0") int page,
-                              Model model) {
-        PaketEntity target = pakets.require(id, MASTER);
-        model.addAttribute("paket", target);
-        model.addAttribute("topics", pakets.topicsOf(id));
+    @ResponseBody
+    public PinjamPanelData panelPinjamData(@PathVariable UUID id,
+                                           @RequestParam(required = false) UUID filterSubjectId,
+                                           @RequestParam(required = false) UUID filterPaketId,
+                                           @RequestParam(required = false) UUID filterTopicId,
+                                           @RequestParam(required = false) String q,
+                                           @RequestParam(defaultValue = "0") int page) {
+        pakets.require(id, MASTER);
 
+        List<SubjectEntity> subjects = taxonomy.visibleSubjects(MASTER);
+        Map<UUID, String> namaSubject = namaSubject(subjects);
         List<PaketEntity> paketLain = paketRepository.findAllMaster().stream()
                 .filter(p -> !p.getId().equals(id))
                 .toList();
-        model.addAttribute("paketLain", paketLain);
-        model.addAttribute("namaSubject", namaSubject(taxonomy.visibleSubjects(MASTER)));
-        model.addAttribute("jumlahSoalPaket", jumlahSoalMaster());
-
-        model.addAttribute("filterPaketId", filterPaketId);
-        model.addAttribute("filterTopicId", filterTopicId);
-        model.addAttribute("q", q);
-        model.addAttribute("filterTopics", filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of());
+        Map<UUID, PaketEntity> paketById = paketLain.stream()
+                .collect(Collectors.toMap(PaketEntity::getId, p -> p));
+        List<PaketEntity> paketPilihan = filterSubjectId == null ? paketLain
+                : paketLain.stream().filter(p -> p.getSubjectId().equals(filterSubjectId)).toList();
+        List<TopicEntity> filterTopics = filterPaketId != null ? pakets.topicsOf(filterPaketId) : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
         questionRepository.findByPaketIdOrderByPositionAsc(id)
                 .forEach(soal -> dikecualikan.add(soal.getId()));
-        Page<QuestionEntity> hasil = questions.searchMasterBorrowable(filterPaketId, filterTopicId,
-                dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
-        model.addAttribute("hasil", hasil);
+        Page<QuestionEntity> hasil = questions.searchMasterBorrowable(filterSubjectId, filterPaketId,
+                filterTopicId, dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
 
-        Map<UUID, PaketEntity> paketById = paketLain.stream()
-                .collect(Collectors.toMap(PaketEntity::getId, p -> p));
-        model.addAttribute("paketById", paketById);
         Map<UUID, String> judulTopic = new HashMap<>();
         pakets.topicsByIds(hasil.getContent().stream().map(QuestionEntity::getTopicId)
                         .collect(Collectors.toSet()))
                 .forEach(t -> judulTopic.put(t.getId(), t.getTitle()));
-        model.addAttribute("judulTopic", judulTopic);
 
-        // Tanpa ini basePath kosong, dan bank/isi.html jatuh ke fallback '/bank-soal' — rute
-        // Client, yang untuk EDUSCREEN_ADMIN dijawab 403 (temuan review Task 10).
-        isiJalur(model);
-        return "bank/isi :: panelPinjam";
+        return BankSoalController.pinjamPanelData(
+                subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, judulTopic);
     }
 
     @PostMapping("/eduscreen/bank-soal/paket/{id}/pinjam")

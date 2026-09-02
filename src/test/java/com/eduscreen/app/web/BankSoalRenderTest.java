@@ -87,8 +87,10 @@ class BankSoalRenderTest extends PostgresTestBase {
                 .andExpect(content().string(containsString("Soal isi paket render")))
                 .andExpect(content().string(containsString(
                         "/bank-soal/paket/" + paket.getId() + "/soal/baru?topicId=" + topik1.getId())))
-                .andExpect(content().string(containsString(
-                        "hx-get=\"/bank-soal/paket/" + paket.getId() + "/pinjam\"")))
+                // ADR-0019: panel pinjam bukan lagi hx-get statis — tombolnya membuka panel
+                // Alpine (pinjamPanel), yang baru memanggil GET .../pinjam sebagai JSON saat
+                // diklik. Kerangka SSR-nya sendiri dibuktikan terpisah di panelPinjamKerangkaSsrDirender.
+                .andExpect(content().string(containsString("Pinjam soal dari Paket lain")))
                 .andExpect(content().string(not(containsString("basePath"))));
 
         // Topic baru harus terlihat setelah redirect — sukses yang tak terlihat terbaca gagal.
@@ -205,106 +207,74 @@ class BankSoalRenderTest extends PostgresTestBase {
         assertThat(senama).isEqualTo(1);
     }
 
+    /**
+     * ADR-0019 (TC-14a): {@code GET .../pinjam} pindah ke JSON — isi panel (penyaring, tabel
+     * soal, tab Terpilih, keadaan centangan) sekarang dirender Alpine di klien, bukan Thymeleaf.
+     * MockMvc tidak menjalankan JavaScript, jadi tes ini SENGAJA cuma membuktikan kerangka SSR:
+     * tombol pembuka dan pembungkus Alpine benar-benar ada di HTML yang dikirim server.
+     *
+     * <p><b>Catatan eksplisit TC-14a: perilaku sisi klien panel ini — AC-B19 (lintas Subject
+     * sejak awal), AC-B20 (bukan soal Paket sendiri), AC-B04 (bukan yang sudah dipinjam), aturan
+     * 1-7 ADR-0019 (centangan bertahan, tab Terpilih tidak ikut disaring, sorot yang bertahan,
+     * dropdown menyempit, dst) — TIDAK dijaga tes render mana pun di proyek ini.</b> Penjaganya
+     * cuma tes kontrak JSON di {@code BankSoalPinjamDataTest} (bentuk balasan, penyaringan tenant,
+     * bentuk galat) — proyek ini belum punya sarana tes peramban sungguhan untuk menjaga sisi
+     * Alpine-nya, dan itu risiko yang disadari, bukan diam-diam dilewatkan (ADR-0019).
+     */
     @Test
-    @DisplayName("AC-B04 (AC-B03): panel pinjam tidak menampilkan soal yang salinannya sudah ada di Paket tujuan, dan salinannya tampil di isi Paket")
-    void panelPinjamMenyembunyikanYangSudahDipinjam() throws Exception {
-        ClientEntity client = data.client("SD Bank B04");
-        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin B04")));
+    @DisplayName("TC-13 (TC-14a): kerangka SSR panel pinjam (tombol pembuka, pembungkus Alpine) dirender di halaman isi Paket")
+    void panelPinjamKerangkaSsrDirender() throws Exception {
+        ClientEntity client = data.client("SD Bank Pinjam Kerangka");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Kerangka")));
+        PaketEntity paket = data.paket(client, "Fisika BankPinjam Kerangka", "Paket Kerangka Pinjam");
+
+        mvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Pinjam soal dari Paket lain")))
+                // Thymeleaf meng-HTML-escape kutip tunggal literal (' -> &#39;) saat merender
+                // th:attr; peramban mendekodenya kembali sebelum Alpine membaca atributnya, jadi
+                // ini bentuk yang benar dilihat lewat MockMvc, bukan bentuk yang salah.
+                .andExpect(content().string(containsString(
+                        "x-data=\"pinjamPanel(&#39;" + paket.getId() + "&#39;")))
+                .andExpect(content().string(not(containsString("basePath"))));
+    }
+
+    /**
+     * AC-B03: salinan hasil pinjam benar-benar mendarat di Paket tujuan, dan bisa dilihat lagi
+     * lewat halaman isi Paket (SSR, tidak tersentuh ADR-0019). Bagian yang membaca sumbernya
+     * SEBELUM disalin — yang dulu diperiksa lewat panel HTML — sekarang dibuktikan lewat
+     * kontrak JSON di {@code BankSoalPinjamDataTest}, bukan di sini.
+     */
+    @Test
+    @DisplayName("AC-B03: soal yang dicentang dan Topic sumber yang dipinjam borongan sama-sama mendarat di Paket tujuan")
+    void pinjamMendaratDiPaketTujuan() throws Exception {
+        ClientEntity client = data.client("SD Bank B03");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin B03")));
         PaketEntity sumber = data.paket(client, "Fisika BankRender", "Paket Sumber Pinjam");
         TopicEntity topikSumber = paketService.topicsOf(sumber.getId()).get(0);
-        QuestionEntity dipinjam = data.mcq(client, topikSumber, "Soal sudah dipinjam render", 4);
-        data.mcq(client, topikSumber, "Soal belum dipinjam render", 4);
+        QuestionEntity dipinjam = data.mcq(client, topikSumber, "Soal dicentang render", 4);
+        data.mcq(client, topikSumber, "Soal borongan Topic render", 4);
         PaketEntity target = data.paket(client, "Fisika BankRender", "Paket Target Pinjam");
         TopicEntity topikTarget = paketService.topicsOf(target.getId()).get(0);
-
-        // Panel awal tanpa Paket diklik: tabel soal SUDAH terisi lintas Paket, tanpa menunggu
-        // apa pun disaring dulu — itulah cacat yang diperbaiki (defect asli produk).
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Paket Sumber Pinjam")))
-                .andExpect(content().string(containsString("Soal sudah dipinjam render")))
-                .andExpect(content().string(containsString("Soal belum dipinjam render")));
 
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
                         .param("topicId", topikTarget.getId().toString())
                         .param("questionIds", dipinjam.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
-
-        // Setelah dipinjam: hilang dari tabel soal (unfiltered maupun difilter ke Paket sumbernya),
-        // Salin seluruh Topic tetap tersedia begitu Paket diklik.
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("filterPaketId", sumber.getId().toString()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Soal belum dipinjam render")))
-                .andExpect(content().string(not(containsString("Soal sudah dipinjam render"))))
-                .andExpect(content().string(containsString("Salin seluruh Topic ini")));
-
-        // Salinan hasil pinjam benar-benar mendarat di Paket tujuan (AC-B03).
         mvc.perform(get("/bank-soal/paket/{id}", target.getId()).with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Soal sudah dipinjam render")));
+                .andExpect(content().string(containsString("Soal dicentang render")));
 
-        // Pinjam satu Topic sumber sekaligus lewat tombolnya.
+        // Pinjam satu Topic sumber sekaligus lewat "Salin seluruh Topic ini".
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
                         .param("topicId", topikTarget.getId().toString())
                         .param("sourceTopicId", topikSumber.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("filterPaketId", sumber.getId().toString()).with(admin))
+        mvc.perform(get("/bank-soal/paket/{id}", target.getId()).with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Soal belum dipinjam render"))));
-    }
-
-    @Test
-    @DisplayName("AC-B19: Paket baru di Subject yang belum punya Paket lain tetap menawarkan sumber dari Subject lain di panel pinjam")
-    void panelPinjamMenawarkanSumberLintasSubjectUntukPaketSubjectSendirian() throws Exception {
-        ClientEntity client = data.client("SD Bank Pinjam Lintas Subject");
-        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Lintas")));
-        // Sejarah: Paket satu-satunya di Subject-nya, persis kasus yang ditemukan pemilik produk.
-        PaketEntity sejarah = data.paket(client, "Sejarah Kelas 9 BankPinjam", "Paket Sejarah Sendirian");
-        // Matematika: Subject lain, satu-satunya sumber yang tersedia untuk Sejarah.
-        PaketEntity matematika = data.paket(client, "Matematika Kelas 4 BankPinjam", "Paket Matematika Sumber");
-        TopicEntity topikMatematika = paketService.topicsOf(matematika.getId()).get(0);
-        data.mcq(client, topikMatematika, "Soal matematika lintas subject", 4);
-
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", sejarah.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Paket Matematika Sumber")))
-                .andExpect(content().string(containsString("Soal matematika lintas subject")));
-    }
-
-    @Test
-    @DisplayName("TC-36: Paket milik Client lain tidak pernah muncul sebagai sumber di panel pinjam")
-    void panelPinjamTidakMenawarkanPaketMilikClientLain() throws Exception {
-        ClientEntity client = data.client("SD Bank Pinjam Sendiri");
-        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Sendiri")));
-        PaketEntity target = data.paket(client, "Biologi BankPinjam", "Paket Target Sendiri");
-        ClientEntity lain = data.client("SD Bank Pinjam Lain");
-        PaketEntity paketLain = data.paket(lain, "Biologi BankPinjam", "Paket Milik Client Lain Pinjam");
-        TopicEntity topikLain = paketService.topicsOf(paketLain.getId()).get(0);
-        data.mcq(lain, topikLain, "Soal milik Client lain pinjam", 4);
-
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Paket Milik Client Lain Pinjam"))))
-                .andExpect(content().string(not(containsString("Soal milik Client lain pinjam"))));
-    }
-
-    @Test
-    @DisplayName("AC-B20: panel pinjam tidak menawarkan soal milik Paket tujuan sendiri sebagai sumber")
-    void panelPinjamTidakMenawarkanSoalMilikPaketTujuanSendiri() throws Exception {
-        ClientEntity client = data.client("SD Bank Pinjam Diri Sendiri");
-        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Pinjam Diri")));
-        PaketEntity target = data.paket(client, "Kimia BankPinjam", "Paket Target Diri Sendiri");
-        TopicEntity topikTarget = paketService.topicsOf(target.getId()).get(0);
-        data.mcq(client, topikTarget, "Soal milik Paket tujuan sendiri", 4);
-
-        mvc.perform(get("/bank-soal/paket/{id}/pinjam", target.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(not(containsString("Soal milik Paket tujuan sendiri"))))
-                .andExpect(content().string(not(containsString("Paket Target Diri Sendiri"))));
+                .andExpect(content().string(containsString("Soal borongan Topic render")));
     }
 
     @Test

@@ -74,12 +74,17 @@ public class QuestionService {
      *
      * <p>{@code excluded} kosong diganti UUID nil, bukan dibelokkan ke query lain: {@code not in ()}
      * tidak sah, sedangkan UUIDv7 tidak pernah nol sehingga sentinel itu tidak menyaring apa pun.
+     *
+     * <p>{@code subjectId} ditambahkan untuk panel pinjam ({@code BankSoalController#panelPinjam},
+     * AC-B19) — Exercise builder ({@code ExerciseController}) dan {@code /bank-soal/cari} tetap
+     * mengirim {@code null} di sini, tidak berubah perilakunya.
      */
     @Transactional(readOnly = true)
-    public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID paketId, UUID topicId, QuestionType type,
-                                                 Collection<UUID> excluded, String q, Pageable pageable) {
-        return questions.searchForBuilder(
-                clientId, paketId, topicId, type, excludeOrSentinel(excluded), ExerciseService.likePattern(q), pageable);
+    public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID subjectId, UUID paketId, UUID topicId,
+                                                 QuestionType type, Collection<UUID> excluded, String q,
+                                                 Pageable pageable) {
+        return questions.searchForBuilder(clientId, subjectId, paketId, topicId, type,
+                excludeOrSentinel(excluded), ExerciseService.likePattern(q), pageable);
     }
 
     /**
@@ -110,9 +115,9 @@ public class QuestionService {
      * saat Paket TUJUAN hendak terbit, bukan saat isinya sekadar disalin dari Paket master lain.
      */
     @Transactional(readOnly = true)
-    public Page<QuestionEntity> searchMasterBorrowable(UUID paketId, UUID topicId, Collection<UUID> excluded,
-                                                        String q, Pageable pageable) {
-        return questions.searchMaster(null, paketId, topicId, excludeOrSentinel(excluded),
+    public Page<QuestionEntity> searchMasterBorrowable(UUID subjectId, UUID paketId, UUID topicId,
+                                                        Collection<UUID> excluded, String q, Pageable pageable) {
+        return questions.searchMaster(subjectId, paketId, topicId, excludeOrSentinel(excluded),
                 ExerciseService.likePattern(q), pageable);
     }
 

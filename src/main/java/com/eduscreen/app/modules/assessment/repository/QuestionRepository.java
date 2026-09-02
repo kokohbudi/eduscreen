@@ -74,8 +74,14 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * <p>{@code excludeIds} tidak pernah kosong — {@code not in ()} bukan SQL yang sah. Pemanggil
      * mengirim UUID nil sebagai isi pengganti; UUIDv7 tidak pernah bernilai nol, jadi ia tidak
      * bisa berbenturan dengan pengenal soal mana pun (ADR-0009).
+     *
+     * <p>{@code subjectId} ditambahkan untuk panel pinjam ({@code BankSoalController#panelPinjam},
+     * AC-B19): satu-satunya penyaring yang belum ada di sini sebelumnya, dan sengaja ditambahkan
+     * ke query yang sudah ada ini alih-alih melahirkan query kelima — subquery ke
+     * {@code PaketEntity} yang sama dipakai {@code QuestionRepository.searchMaster}.
      */
     @Query("select q from QuestionEntity q where q.clientId = :clientId "
+            + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "
             + "and (:paketId is null or q.paketId = :paketId) "
             + "and (:topicId is null or q.topicId = :topicId) "
             + "and (:type is null or q.type = :type) "
@@ -84,6 +90,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             + "order by q.createdAt desc")
     Page<QuestionEntity> searchForBuilder(
             @Param("clientId") UUID clientId,
+            @Param("subjectId") UUID subjectId,
             @Param("paketId") UUID paketId,
             @Param("topicId") UUID topicId,
             @Param("type") QuestionType type,

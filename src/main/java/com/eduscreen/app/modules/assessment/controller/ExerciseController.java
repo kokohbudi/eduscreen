@@ -76,7 +76,7 @@ public class ExerciseController {
         // Pencarian berikutnya lewat HTMX memakai GET /exercise/{id}/cari (lihat cari() di bawah
         // dan exercise/builder.html) — panel ini menyaring per Paket, bukan Subject (ADR-0018).
         model.addAttribute("hasil", questions.searchForBuilder(
-                clientId, null, null, null, List.of(), null,
+                clientId, null, null, null, null, List.of(), null,
                 PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
         model.addAttribute("paketId", null);
         model.addAttribute("topicId", null);
@@ -114,7 +114,7 @@ public class ExerciseController {
                 ? exercises.itemsOf(id).stream().map(ExerciseItemEntity::getQuestionId).toList()
                 : List.of();
         model.addAttribute("hasil", questions.searchForBuilder(
-                clientId, paketId, topicId, type, terpasang, q,
+                clientId, null, paketId, topicId, type, terpasang, q,
                 PageRequest.of(page, UKURAN_HALAMAN_BANK_SOAL)));
         model.addAttribute("paketId", paketId);
         model.addAttribute("topicId", topicId);

@@ -232,7 +232,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         // search() sudah dicabut (Task 14): searchForBuilder dengan paketId/type null dan
         // excluded kosong adalah pencarian bank soal Client biasa, satu-satunya yang tersisa.
         Page<QuestionEntity> salinan = questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), "unikrambat", PageRequest.of(0, 20));
+                client.getId(), null, null, null, null, List.of(), "unikrambat", PageRequest.of(0, 20));
         assertThat(salinan.getContent()).hasSize(1);
         assertThat(salinan.getContent().get(0).getBodyText()).isEqualTo("Redaksi lama unikrambat");
     }
@@ -260,7 +260,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
                 .getTotalElements()).isZero();
 
         Page<QuestionEntity> salinan = questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), "unikhapus", PageRequest.of(0, 20));
+                client.getId(), null, null, null, null, List.of(), "unikhapus", PageRequest.of(0, 20));
         assertThat(salinan.getContent()).hasSize(1);
     }
 
@@ -358,7 +358,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
 
         // Keduanya terlihat di bank soal Client tanpa sekat apa pun (BR-P02).
         Page<QuestionEntity> bank = questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), null, PageRequest.of(0, 50));
+                client.getId(), null, null, null, null, List.of(), null, PageRequest.of(0, 50));
         assertThat(bank.getContent()).extracting(QuestionEntity::getBodyText)
                 .contains("Soal dari Eduscreen", "Soal buatan sekolah");
 
@@ -386,7 +386,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
         QuestionEntity salinan = questionService.searchForBuilder(
-                client.getId(), null, null, null, List.of(), "Soal satu arah", PageRequest.of(0, 20))
+                client.getId(), null, null, null, null, List.of(), "Soal satu arah", PageRequest.of(0, 20))
                 .getContent().get(0);
 
         // Salinan membawa jejak asal, master tidak; tidak ada jalur yang membalik arah itu.
