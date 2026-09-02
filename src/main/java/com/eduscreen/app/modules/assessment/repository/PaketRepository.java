@@ -14,6 +14,9 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
 
     Optional<PaketEntity> findByIdAndClientId(UUID id, UUID clientId);
 
+    /** Padanan {@link #findByIdAndClientId} untuk ruang kerja master: pemiliknya harus Eduscreen. */
+    Optional<PaketEntity> findByIdAndClientIdIsNull(UUID id);
+
     List<PaketEntity> findByClientIdAndSubjectIdOrderByTitleAsc(UUID clientId, UUID subjectId);
 
     /** Paket master, dipakai ruang kerja Eduscreen. */

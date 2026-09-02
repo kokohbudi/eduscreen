@@ -19,9 +19,10 @@ import java.util.UUID;
  * <p>{@code clientId} null berarti bekerja di ruang kerja master Eduscreen. Satu layanan untuk
  * dua sisi: bentuk datanya sama, yang berbeda hanya pemiliknya (ADR-0018).
  *
- * <p>Kelas ini satu-satunya tempat {@link PaketEntity} dirakit bersama Topic-nya. Merakitnya di
- * tempat lain berarti aturan lahir Paket — Topic bawaan, pemilihan pemilik, pemeriksaan Subject
- * — tersebar dan lambat laun tidak lagi seragam.
+ * <p>Kelas ini satu-satunya tempat Paket <b>baru</b> dirakit beserta Topic bawaannya. Merakitnya
+ * di tempat lain berarti aturan lahir Paket — Topic bawaan, pemilihan pemilik, pemeriksaan
+ * Subject — tersebar dan lambat laun tidak lagi seragam. Salinan hasil adopsi katalog bukan
+ * kelahiran: ia dirakit {@code ContentAdoptionService} dari Paket master beserta Topic aslinya.
  */
 @Service
 public class PaketService {
@@ -79,7 +80,7 @@ public class PaketService {
     /** Paket yang boleh ditulis pemanggil. Milik Client lain menghasilkan 404, bukan 403 (TC-36). */
     public PaketEntity require(UUID id, UUID clientId) {
         return (clientId == null
-                ? pakets.findById(id).filter(p -> p.getClientId() == null)
+                ? pakets.findByIdAndClientIdIsNull(id)
                 : pakets.findByIdAndClientId(id, clientId))
                 .orElseThrow(() -> new ResourceNotFoundException("Paket tidak ditemukan"));
     }

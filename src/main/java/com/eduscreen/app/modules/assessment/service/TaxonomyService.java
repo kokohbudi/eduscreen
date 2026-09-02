@@ -87,18 +87,24 @@ public class TaxonomyService {
      * Subject untuk sebuah Paket: dipakai ulang bila namanya sudah ada, dibuat bila belum.
      *
      * <p>Pencocokan mengabaikan besar-kecil huruf dan spasi tepi, supaya "Matematika Kelas 4" dan
-     * "matematika kelas 4 " tidak melahirkan dua Subject yang bagi manusia sama. Subject GLOBAL
-     * ikut dicocokkan lebih dulu: Client tidak perlu membuat salinan lokal dari mapel yang sudah
-     * disediakan Eduscreen.
+     * "matematika kelas 4 " tidak melahirkan dua Subject yang bagi manusia sama. Bila nama itu
+     * ada sebagai Subject GLOBAL sekaligus kembaran lokal — nama Subject Client tidak dipagari
+     * indeks unik, jadi kembaran mungkin — GLOBAL yang menang: Client tidak perlu memelihara
+     * salinan lokal dari mapel yang sudah disediakan Eduscreen, dan pemenangnya tidak boleh
+     * bergantung pada urutan baris yang kebetulan.
      */
     public SubjectEntity findOrCreateSubject(String name, UUID clientId) {
         String bersih = name == null ? "" : name.trim();
         if (bersih.isEmpty()) {
             throw new IllegalArgumentException("Nama Subject tidak boleh kosong");
         }
-        return visibleSubjects(clientId).stream()
+        List<SubjectEntity> senama = visibleSubjects(clientId).stream()
                 .filter(s -> s.getName().equalsIgnoreCase(bersih))
+                .toList();
+        return senama.stream()
+                .filter(s -> s.getOrigin() == ContentOrigin.GLOBAL)
                 .findFirst()
+                .or(() -> senama.stream().findFirst())
                 .orElseGet(() -> clientId == null
                         ? createGlobalSubject(bersih)
                         : createClientSubject(clientId, bersih));

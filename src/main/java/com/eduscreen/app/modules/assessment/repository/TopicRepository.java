@@ -14,7 +14,14 @@ import java.util.UUID;
  */
 public interface TopicRepository extends JpaRepository<TopicEntity, UUID> {
 
-    List<TopicEntity> findByPaketIdOrderByPositionAsc(UUID paketId);
+    /**
+     * Seluruh Topic sebuah Paket, terurut posisi. Join ke Paket disengaja: {@code deleted_at}
+     * Paket adalah satu-satunya sumber kebenaran daur hidupnya (TC-35), jadi Topic sebuah Paket
+     * yang sudah dihapus ikut lenyap dari sini tanpa perlu menandai tiap barisnya satu-satu.
+     */
+    @Query("select t from TopicEntity t, PaketEntity p "
+            + "where t.paketId = p.id and p.id = :paketId order by t.position asc")
+    List<TopicEntity> findByPaketIdOrderByPositionAsc(@Param("paketId") UUID paketId);
 
     @Query("select t from TopicEntity t, PaketEntity p "
             + "where t.paketId = p.id and t.id = :id and p.clientId = :clientId")

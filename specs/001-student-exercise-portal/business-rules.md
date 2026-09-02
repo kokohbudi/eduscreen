@@ -390,6 +390,9 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
   daftar pinjam Paket itu.
 - **AC-B05**: Adopsi katalog dilakukan per Paket dan menyalin Paket, seluruh Topic, seluruh
   Question, beserta Option-nya.
+- **AC-B06**: Paket yang dibuat dengan nama Subject yang sudah ada menempel ke Subject itu,
+  bukan melahirkan Subject kedua bernama sama. Pencocokan mengabaikan besar-kecil huruf dan
+  spasi tepi.
 
 ### Exercise & Assignment
 
