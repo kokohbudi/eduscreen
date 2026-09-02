@@ -13,12 +13,11 @@
       permintaan langsung tanpa Timer untuk mode QUIZ tetap ditolak oleh service.
     -->
     <form method="post" th:action="@{/guru/assignment}" x-data="{ mode: 'QUIZ' }"
-          class="max-w-2xl space-y-6 rounded border border-slate-200 bg-white p-6">
+          class="card max-w-2xl space-y-6 p-6">
 
       <div>
-        <label for="exerciseId" class="block text-sm font-medium text-slate-700">Exercise</label>
-        <select id="exerciseId" name="exerciseId" required
-                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        <label for="exerciseId" class="label">Exercise</label>
+        <select id="exerciseId" name="exerciseId" required class="select">
           <option value="">Pilih Exercise</option>
           <option th:each="e : ${exercises}" th:value="${e.id}" th:text="${e.title}"
                    th:selected="${exerciseId != null and exerciseId == e.id}">Judul Exercise</option>
@@ -26,93 +25,84 @@
       </div>
 
       <div>
-        <span class="block text-sm font-medium text-slate-700">Ruangan tujuan</span>
+        <span class="label">Ruangan tujuan</span>
         <!--
           Memilih beberapa Ruangan sekaligus menghasilkan Assignment TERPISAH untuk masing-masing
           — bukan satu Assignment yang dibagi ke semuanya (BR-M02, AC-M02). Waktu, penutupan, dan
           rekap tiap Ruangan berdiri sendiri sejak saat ini.
         -->
-        <div class="mt-1 grid grid-cols-1 gap-1 rounded border border-slate-300 p-3 sm:grid-cols-2">
-          <label th:each="r : ${ruangan}" class="flex items-center gap-2 text-sm">
-            <input type="checkbox" name="ruanganIds" th:value="${r.id}" class="rounded border-slate-300">
+        <div class="mt-1 grid grid-cols-1 gap-1 rounded-lg border border-line-2 p-2 sm:grid-cols-2">
+          <label th:each="r : ${ruangan}" class="flex items-center gap-2.5 rounded-md px-2 py-2 text-sm hover:bg-surface-2">
+            <input type="checkbox" name="ruanganIds" th:value="${r.id}" class="check">
             <span th:text="${r.name}">Nama Ruangan</span>
           </label>
-          <p th:if="${#lists.isEmpty(ruangan)}" class="text-sm text-slate-400 sm:col-span-2">
+          <p th:if="${#lists.isEmpty(ruangan)}" class="px-2 py-2 text-sm text-ink-2 sm:col-span-2">
             Anda belum ditugaskan ke Ruangan mana pun.
           </p>
         </div>
       </div>
 
       <div>
-        <label for="title" class="block text-sm font-medium text-slate-700">Judul Assignment</label>
-        <input type="text" id="title" name="title" required
-               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        <label for="title" class="label">Judul Assignment</label>
+        <input type="text" id="title" name="title" required class="input">
       </div>
 
       <div>
-        <span class="block text-sm font-medium text-slate-700">Mode</span>
-        <div class="mt-1 flex gap-4 text-sm">
-          <label class="flex items-center gap-2">
+        <span class="label mb-1">Mode</span>
+        <div class="seg relative">
+          <label>
             <input type="radio" name="mode" value="QUIZ" x-model="mode" checked>
             Quiz
           </label>
-          <label class="flex items-center gap-2">
+          <label>
             <input type="radio" name="mode" value="PRACTICE" x-model="mode">
             Latihan
           </label>
         </div>
+        <p class="hint">Quiz: ada Timer, jawaban bisa diubah sampai dikumpulkan. Latihan: pembahasan terbuka seketika.</p>
       </div>
 
-      <div x-show="mode === 'QUIZ'" class="space-y-4">
+      <div x-show="mode === 'QUIZ'" x-transition.opacity.duration.200ms class="space-y-4 rounded-lg bg-surface-2 p-4">
         <div>
-          <label for="timerDurationMinutes" class="block text-sm font-medium text-slate-700">
-            Durasi Timer (menit)
-          </label>
-          <input type="number" id="timerDurationMinutes" name="timerDurationMinutes" min="1"
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="timerDurationMinutes" class="label">Durasi Timer (menit)</label>
+          <input type="number" id="timerDurationMinutes" name="timerDurationMinutes" min="1" class="input">
         </div>
         <div>
-          <label for="maxAttempts" class="block text-sm font-medium text-slate-700">Maksimum percobaan</label>
-          <input type="number" id="maxAttempts" name="maxAttempts" min="1" value="1"
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="maxAttempts" class="label">Maksimum percobaan</label>
+          <input type="number" id="maxAttempts" name="maxAttempts" min="1" value="1" class="input">
         </div>
         <div>
-          <label for="revealAnswersAt" class="block text-sm font-medium text-slate-700">
-            Pembahasan terbuka
-          </label>
-          <select id="revealAnswersAt" name="revealAnswersAt"
-                  class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="revealAnswersAt" class="label">Pembahasan terbuka</label>
+          <select id="revealAnswersAt" name="revealAnswersAt" class="select">
             <option value="AFTER_SUBMIT">Setelah Siswa mengumpulkan</option>
             <option value="AFTER_EXPIRATION">Setelah batas akhir lewat</option>
           </select>
         </div>
       </div>
 
-      <div class="flex gap-6 text-sm">
-        <label class="flex items-center gap-2">
-          <input type="checkbox" name="shuffleQuestions" class="rounded border-slate-300">
+      <div class="flex flex-col gap-2 text-sm sm:flex-row sm:gap-6">
+        <label class="flex items-center gap-2.5">
+          <input type="checkbox" name="shuffleQuestions" class="check">
           Acak urutan soal
         </label>
-        <label class="flex items-center gap-2">
-          <input type="checkbox" name="shuffleOptions" class="rounded border-slate-300">
+        <label class="flex items-center gap-2.5">
+          <input type="checkbox" name="shuffleOptions" class="check">
           Acak urutan opsi jawaban
         </label>
       </div>
 
       <div>
-        <label for="expiresAt" class="block text-sm font-medium text-slate-700">Batas akhir</label>
+        <label for="expiresAt" class="label">Batas akhir</label>
         <!--
           Waktu yang diketik di sini ditafsirkan dalam zona waktu CLIENT (sekolah), bukan zona
           perangkat yang kebetulan dipakai Guru saat mengisi formulir (BR-T02, AC-T06).
         -->
-        <input type="datetime-local" id="expiresAt" name="expiresAt" required
-               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        <input type="datetime-local" id="expiresAt" name="expiresAt" required class="input">
       </div>
 
-      <button type="submit"
-              class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-        Terbitkan
-      </button>
+      <div class="flex justify-end border-t border-line pt-5">
+        <button type="submit" class="btn btn-primary w-full sm:w-auto">Terbitkan</button>
+      </div>
     </form>
 
   </div>

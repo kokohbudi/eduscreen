@@ -5,12 +5,11 @@
 <div th:replace="~{layout/base :: page('Assignment', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="mb-4 flex flex-wrap items-end justify-between gap-3">
       <!-- Navigasi biasa (bukan HTMX) supaya URL yang disaring tetap bisa disalin/di-bookmark. -->
-      <form method="get" th:action="@{/guru/assignment}" class="flex items-center gap-3 text-sm">
-        <label for="filterRuangan" class="font-medium text-slate-700">Ruangan</label>
-        <select id="filterRuangan" name="ruanganId" onchange="this.form.submit()"
-                class="rounded border border-slate-300 px-2 py-1">
+      <form method="get" th:action="@{/guru/assignment}" class="w-full sm:w-auto">
+        <label for="filterRuangan" class="label">Ruangan</label>
+        <select id="filterRuangan" name="ruanganId" onchange="this.form.submit()" class="select sm:w-64">
           <option value="">Semua Ruangan</option>
           <option th:each="r : ${ruangan}" th:value="${r.id}" th:text="${r.name}"
                   th:selected="${param.ruanganId != null and #strings.equals(param.ruanganId[0], r.id.toString())}">
@@ -18,38 +17,42 @@
           </option>
         </select>
       </form>
-      <a th:href="@{/guru/assignment/baru}"
-         class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-        Terbitkan Assignment
-      </a>
+      <a th:href="@{/guru/assignment/baru}" class="btn btn-primary">Terbitkan Assignment</a>
     </div>
 
-    <div th:if="${#lists.isEmpty(assignments)}"
-         class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+    <div th:if="${#lists.isEmpty(assignments)}" class="empty">
       Belum ada Assignment untuk ditampilkan.
     </div>
 
-    <div th:unless="${#lists.isEmpty(assignments)}" class="overflow-x-auto">
-      <table class="w-full border-collapse text-sm">
+    <div th:unless="${#lists.isEmpty(assignments)}" class="card p-0">
+      <table class="table table-hover">
         <thead>
-          <tr class="border-b border-slate-200 text-left text-slate-500">
-            <th scope="col" class="py-2">Judul</th>
-            <th scope="col" class="py-2">Mode</th>
-            <th scope="col" class="py-2">Status</th>
-            <th scope="col" class="py-2">Batas akhir</th>
-            <th scope="col" class="py-2">Aksi</th>
+          <tr>
+            <th scope="col">Judul</th>
+            <th scope="col">Mode</th>
+            <th scope="col">Status</th>
+            <th scope="col">Batas akhir</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
           </tr>
         </thead>
         <tbody>
-          <tr th:each="a : ${assignments}" class="border-b border-slate-100">
-            <td class="py-2 font-medium text-slate-900" th:text="${a.title}">Judul</td>
-            <td class="py-2" th:text="${a.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</td>
-            <td class="py-2" th:text="${a.status}">STATUS</td>
-            <td class="py-2" th:text="${#temporals.format(a.expiresAt, 'dd MMM yyyy HH:mm')}">Batas akhir</td>
-            <td class="py-2 space-x-2">
-              <a th:href="@{/guru/assignment/{id}(id=${a.id})}" class="text-slate-600 underline">Detail</a>
-              <a th:href="@{/guru/assignment/{id}/rekap(id=${a.id})}" class="text-slate-600 underline">Rekap</a>
-              <a th:href="@{/guru/assignment/{id}/penilaian(id=${a.id})}" class="text-slate-600 underline">Penilaian</a>
+          <tr th:each="a : ${assignments}">
+            <td class="font-medium">
+              <a th:href="@{/guru/assignment/{id}(id=${a.id})}" class="hover:text-accent" th:text="${a.title}">Judul</a>
+            </td>
+            <td>
+              <span th:class="${a.mode.name() == 'QUIZ'} ? 'badge badge-accent' : 'badge'"
+                    th:text="${a.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</span>
+            </td>
+            <td>
+              <span th:class="${a.status.name() == 'PUBLISHED'} ? 'badge badge-success' : (${a.status.name() == 'DRAFT'} ? 'badge badge-warn' : 'badge')"
+                    th:text="${a.status}">STATUS</span>
+            </td>
+            <td class="whitespace-nowrap text-ink-2" th:text="${#temporals.format(a.expiresAt, 'dd MMM yyyy HH:mm')}">Batas akhir</td>
+            <td class="whitespace-nowrap text-right">
+              <a th:href="@{/guru/assignment/{id}(id=${a.id})}" class="btn btn-ghost btn-sm">Detail</a>
+              <a th:href="@{/guru/assignment/{id}/rekap(id=${a.id})}" class="btn btn-ghost btn-sm">Rekap</a>
+              <a th:href="@{/guru/assignment/{id}/penilaian(id=${a.id})}" class="btn btn-ghost btn-sm">Penilaian</a>
             </td>
           </tr>
         </tbody>

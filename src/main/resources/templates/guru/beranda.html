@@ -6,55 +6,50 @@
   <div th:fragment="content" th:remove="tag">
 
     <section class="mb-10">
-      <h2 class="mb-3 text-lg font-semibold">Ruangan yang ditugaskan</h2>
+      <h2 class="section-title">Ruangan yang ditugaskan</h2>
 
-      <div th:if="${#lists.isEmpty(ruangan)}"
-           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+      <div th:if="${#lists.isEmpty(ruangan)}" class="empty">
+        <strong>Belum ada Ruangan</strong>
         Anda belum ditugaskan ke Ruangan mana pun. Hubungi Admin sekolah Anda.
       </div>
 
-      <ul th:unless="${#lists.isEmpty(ruangan)}" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <li th:each="r : ${ruangan}"
-            class="rounded border border-slate-200 bg-white p-4">
-          <p class="font-medium text-slate-900" th:text="${r.name}">Nama Ruangan</p>
-          <div class="mt-2 flex flex-wrap gap-3 text-sm">
-            <a th:href="@{/guru/assignment(ruanganId=${r.id})}" class="text-slate-600 underline">
-              Lihat Assignment
-            </a>
-            <a th:href="@{/guru/ruangan/{id}/latihan(id=${r.id})}" class="text-slate-600 underline">
-              Aktivitas latihan
-            </a>
+      <ul th:unless="${#lists.isEmpty(ruangan)}" class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <li th:each="r : ${ruangan}" class="card card-hover flex flex-col gap-3 p-4">
+          <p class="font-semibold" th:text="${r.name}">Nama Ruangan</p>
+          <div class="mt-auto flex flex-wrap gap-1">
+            <a th:href="@{/guru/assignment(ruanganId=${r.id})}" class="btn btn-secondary btn-sm">Assignment</a>
+            <a th:href="@{/guru/ruangan/{id}/latihan(id=${r.id})}" class="btn btn-ghost btn-sm">Aktivitas latihan</a>
           </div>
         </li>
       </ul>
     </section>
 
     <section>
-      <h2 class="mb-3 text-lg font-semibold">Assignment terbaru</h2>
-
-      <div th:if="${#lists.isEmpty(assignments)}"
-           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
-        Belum ada Assignment yang diterbitkan.
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 class="section-title mb-0">Assignment terbaru</h2>
+        <a th:href="@{/guru/assignment/baru}" class="btn btn-primary btn-sm">Terbitkan Assignment</a>
       </div>
 
-      <ul th:unless="${#lists.isEmpty(assignments)}" class="space-y-2">
-        <li th:each="a : ${assignments}"
-            class="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-200 bg-white px-4 py-3">
-          <div>
+      <div th:if="${#lists.isEmpty(assignments)}" class="empty">
+        <strong>Belum ada Assignment</strong>
+        Terbitkan Exercise ke salah satu Ruangan Anda untuk memulai.
+      </div>
+
+      <ul th:unless="${#lists.isEmpty(assignments)}" class="card p-0 divide-y divide-line">
+        <li th:each="a : ${assignments}" class="flex items-center gap-3 px-4 py-3 sm:px-5">
+          <div class="min-w-0 flex-1">
             <a th:href="@{/guru/assignment/{id}(id=${a.id})}"
-               class="font-medium text-slate-900 underline-offset-2 hover:underline"
+               class="block truncate font-medium hover:text-accent"
                th:text="${a.title}">Judul Assignment</a>
-            <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
-              <span class="rounded bg-slate-100 px-2 py-0.5 font-medium"
+            <div class="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-2">
+              <span th:class="${a.mode.name() == 'QUIZ'} ? 'badge badge-accent' : 'badge'"
                     th:text="${a.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</span>
-              <span th:text="${a.status}">STATUS</span>
-              <span th:text="|Batas akhir: ${#temporals.format(a.expiresAt, 'dd MMM yyyy HH:mm')}|">Batas akhir</span>
+              <span th:class="${a.status.name() == 'PUBLISHED'} ? 'badge badge-success' : 'badge'"
+                    th:text="${a.status}">STATUS</span>
+              <span th:text="|Batas akhir ${#temporals.format(a.expiresAt, 'dd MMM yyyy HH:mm')}|">Batas akhir</span>
             </div>
           </div>
-          <a th:href="@{/guru/assignment/{id}(id=${a.id})}"
-             class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
-            Buka
-          </a>
+          <a th:href="@{/guru/assignment/{id}(id=${a.id})}" class="btn btn-secondary btn-sm">Buka</a>
         </li>
       </ul>
     </section>
