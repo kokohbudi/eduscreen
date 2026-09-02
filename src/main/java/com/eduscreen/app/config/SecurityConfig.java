@@ -62,8 +62,7 @@ public class SecurityConfig {
                 // bukan peran di pagar ini (TC-26, TC-08).
                 .requestMatchers(HttpMethod.POST, "/gambar")
                     .hasAnyRole("CLIENT_ADMIN", "GURU", "EDUSCREEN_ADMIN")
-                .requestMatchers("/bank-soal", "/bank-soal/**", "/soal/**", "/exercise/**",
-                        "/subject/**")
+                .requestMatchers("/bank-soal", "/bank-soal/**", "/exercise/**")
                     .hasAnyRole("CLIENT_ADMIN", "GURU")
                 // Membaca gambar terbuka untuk setiap peran — Siswa perlu melihat gambar di
                 // dalam soal yang sedang dikerjakannya. Yang menyaring adalah client_id di

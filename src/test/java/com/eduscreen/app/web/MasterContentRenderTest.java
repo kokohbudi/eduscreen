@@ -328,20 +328,6 @@ class MasterContentRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("FR-013 (BR-O03): Subject lokal Client juga memuat ulang, bukan menyisip diam-diam")
-    void subjectLokalClientMemuatUlang() throws Exception {
-        ClientEntity client = data.client("SD Render Subject");
-        var clientAdmin = user(data.principal(
-                data.user(client, UserRole.CLIENT_ADMIN, "Admin Render Subject")));
-
-        mockMvc.perform(post("/admin/subject").param("name", "Bahasa Sunda Kelas 5 render")
-                        .with(clientAdmin).with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location",
-                        org.hamcrest.Matchers.startsWith("/soal?subjectId=")));
-    }
-
-    @Test
     @DisplayName("TC-13 (AC-B11, FR-074): katalog Paket dirender per Subject, lengkap dengan penanda adopsi")
     void katalogPaketDirender() throws Exception {
         ClientEntity client = data.client("SD Render");
@@ -435,14 +421,22 @@ class MasterContentRenderTest extends PostgresTestBase {
     void bankSoalClientTetapMemakaiJalurnyaSendiri() throws Exception {
         ClientEntity client = data.client("SD Render2");
         var guru = user(data.principal(data.user(client, UserRole.GURU, "Guru")));
-        TopicEntity topic = data.topic(client, "Matematika Kelas 4", "Aljabar");
+        PaketEntity paket = data.paket(client, "Matematika Kelas 4 Render2", "Paket Render2");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
         data.mcq(client, topic, "Soal sekolah render", 4);
 
-        mockMvc.perform(get("/soal").with(guru))
+        // GET /soal lama (QuestionBankController) sudah dicabut (Task 14): jalur Client sekarang
+        // isi Paket Bank Soal, {@code basePath} jatuh ke bawaan "/bank-soal" lewat fallback
+        // Thymeleaf (bank/isi.html), bukan disuntik jalur master.
+        mockMvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(guru))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("hx-delete=\"/soal/")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/admin/subject\"")))
-                // Nilai bawaan templat bersama, bukan jalur master yang bocor lewat.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "href=\"/bank-soal/soal/")))
+                // Tombol Hapus dan Terbit/Tarik hanya dipaparkan di ruang kerja master
+                // (bank/isi.html, ${master ?: false}); Client tidak pernah melihatnya sama
+                // sekali — bukan sekadar disembunyikan lewat CSS.
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("hx-delete="))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("/eduscreen/"))));
     }

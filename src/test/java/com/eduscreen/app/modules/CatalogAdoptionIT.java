@@ -229,8 +229,10 @@ class CatalogAdoptionIT extends PostgresTestBase {
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false))), null, master.getId());
 
-        Page<QuestionEntity> salinan = questionService.search(
-                client.getId(), null, "unikrambat", PageRequest.of(0, 20));
+        // search() sudah dicabut (Task 14): searchForBuilder dengan paketId/type null dan
+        // excluded kosong adalah pencarian bank soal Client biasa, satu-satunya yang tersisa.
+        Page<QuestionEntity> salinan = questionService.searchForBuilder(
+                client.getId(), null, null, null, List.of(), "unikrambat", PageRequest.of(0, 20));
         assertThat(salinan.getContent()).hasSize(1);
         assertThat(salinan.getContent().get(0).getBodyText()).isEqualTo("Redaksi lama unikrambat");
     }
@@ -252,8 +254,8 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(questions.searchPublishedMaster(null, null, "%unikhapus%", PageRequest.of(0, 20))
                 .getTotalElements()).isZero();
 
-        Page<QuestionEntity> salinan = questionService.search(
-                client.getId(), null, "unikhapus", PageRequest.of(0, 20));
+        Page<QuestionEntity> salinan = questionService.searchForBuilder(
+                client.getId(), null, null, null, List.of(), "unikhapus", PageRequest.of(0, 20));
         assertThat(salinan.getContent()).hasSize(1);
     }
 
@@ -350,8 +352,8 @@ class CatalogAdoptionIT extends PostgresTestBase {
         QuestionEntity buatanSendiri = data.mcq(client, topicSekolah, "Soal buatan sekolah", 4);
 
         // Keduanya terlihat di bank soal Client tanpa sekat apa pun (BR-P02).
-        Page<QuestionEntity> bank = questionService.search(
-                client.getId(), null, null, PageRequest.of(0, 50));
+        Page<QuestionEntity> bank = questionService.searchForBuilder(
+                client.getId(), null, null, null, List.of(), null, PageRequest.of(0, 50));
         assertThat(bank.getContent()).extracting(QuestionEntity::getBodyText)
                 .contains("Soal dari Eduscreen", "Soal buatan sekolah");
 
@@ -378,8 +380,9 @@ class CatalogAdoptionIT extends PostgresTestBase {
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        QuestionEntity salinan = questionService.search(
-                client.getId(), null, "Soal satu arah", PageRequest.of(0, 20)).getContent().get(0);
+        QuestionEntity salinan = questionService.searchForBuilder(
+                client.getId(), null, null, null, List.of(), "Soal satu arah", PageRequest.of(0, 20))
+                .getContent().get(0);
 
         // Salinan membawa jejak asal, master tidak; tidak ada jalur yang membalik arah itu.
         assertThat(salinan.getSourceQuestionId()).isEqualTo(soal.getId());

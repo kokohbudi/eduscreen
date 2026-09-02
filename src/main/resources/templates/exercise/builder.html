@@ -103,16 +103,16 @@
   </div>
 
   <!--
-    Hasil pencarian panel perakit, berhalaman. Fragmen sendiri, bukan dipakai ulang dari
-    soal/daftar.html: panel ini SELALU berada dalam konteks satu Exercise (exerciseId tidak
-    pernah null di sini), jadi tidak perlu variabel basePath/itemPath yang menopang dua konteks
-    sekaligus seperti soal/daftar.html — dan menyaringnya per Paket, bukan Subject (ADR-0018).
+    Hasil pencarian panel perakit, berhalaman. Fragmen sendiri, bukan dipakai ulang dari templat
+    lain: panel ini SELALU berada dalam konteks satu Exercise (exerciseId tidak pernah null di
+    sini), jadi tidak perlu variabel basePath/itemPath yang menopang lebih dari satu konteks
+    sekaligus — dan menyaringnya per Paket, bukan Subject (ADR-0018).
 
-    Kerangka tabel dan pola th:block/th:replace di bawah memang serupa soal/daftar.html — dua
-    tabel hasil pencarian soal wajar terlihat mirip. Duplikasi ini SENGAJA dibiarkan, bukan
-    diekstrak jadi fragmen bersama: soal/daftar.html dan rute /soal yang melayaninya dijadwalkan
-    dicabut di task pembersihan terakhir rangkaian ini, jadi fragmen bersama yang dibuat sekarang
-    hanya akan dibongkar lagi tak lama kemudian. Berkas ini yang akan bertahan.
+    Kerangka tabel dan pola th:block/th:replace di bawah dulu serupa soal/daftar.html — dua tabel
+    hasil pencarian soal yang wajar terlihat mirip. soal/daftar.html dan rute /soal yang
+    melayaninya sudah dicabut (task pembersihan taksonomi lama, ADR-0018); berkas ini yang
+    bertahan sebagai satu-satunya panel pencarian bank soal yang tersisa, jadi duplikasi yang
+    dulu disengaja kini sudah tidak relevan lagi untuk didiskusikan.
   -->
   <div th:fragment="hasil" id="hasil-soal">
     <table class="w-full border-collapse text-sm">

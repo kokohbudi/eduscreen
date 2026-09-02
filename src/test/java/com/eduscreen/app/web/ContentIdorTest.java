@@ -1,7 +1,6 @@
 package com.eduscreen.app.web;
 
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
-import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.StoredImageEntity;
 import com.eduscreen.app.modules.assessment.service.ImageService;
 import com.eduscreen.app.support.PostgresTestBase;
@@ -20,11 +19,8 @@ import java.io.ByteArrayOutputStream;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -32,18 +28,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /**
  * T040 — IDOR pada bank soal, perakit Exercise, dan penyajian gambar.
  *
- * <p>{@link com.eduscreen.app.modules.assessment.controller.QuestionBankController},
+ * <p>{@link com.eduscreen.app.modules.assessment.controller.BankSoalController},
  * {@link com.eduscreen.app.modules.assessment.controller.ExerciseController}, dan
  * {@link com.eduscreen.app.modules.assessment.controller.ImageController} membentuk satu
  * permukaan: bank soal, Exercise yang merakitnya, dan gambar yang disisipkan di dalamnya harus
  * sama-sama tertutup dari Client lain (TC-08, TC-09, TC-26, TC-36).
+ *
+ * <p>{@code QuestionBankController} lama (rute {@code /soal/**}, {@code /subject/**}) sudah
+ * dicabut (Task 14, ADR-0018): penggantinya {@link
+ * com.eduscreen.app.modules.assessment.controller.BankSoalController} sudah punya cakupan IDOR
+ * sendiri di {@code BankSoalRenderTest} (TC-36). Tiga kasus di sini yang tidak punya rute
+ * pengganti langsung — pencarian bebas lintas Topic ({@code GET /soal}, kini digantikan
+ * penelusuran per-Paket yang sudah tertutup lewat {@code pakets.require}), penghapusan Question
+ * oleh Client/Guru (tombol hapus sudah tidak dipaparkan di luar ruang kerja master, lihat
+ * {@code bank/isi.html}), dan pemblokiran peran SISWA di jalur detail Question (sudah tercakup
+ * satu prefiks lebih atas oleh {@code BankSoalRenderTest#pagarPeranBankSoal}, yang menutup
+ * seluruh {@code /bank-soal/**} bagi SISWA lewat SecurityConfig) — sengaja tidak dipindahkan,
+ * bukan lupa dihapus.
  */
 @AutoConfigureMockMvc
 class ContentIdorTest extends PostgresTestBase {
 
     @Autowired MockMvc mockMvc;
     @Autowired TestData data;
-    @Autowired QuestionRepository questions;
     @Autowired ImageService images;
 
     @Test
@@ -52,52 +59,19 @@ class ContentIdorTest extends PostgresTestBase {
         Tenants tenants = data.twoTenants();
         QuestionEntity soalClientB = tenants.b().questions().get(0);
 
-        MvcResult milikClientLain = mockMvc.perform(get("/soal/{id}", soalClientB.getId())
+        // Rute Bank Soal ({@code GET /bank-soal/soal/{id}}), penerus /soal/{id} lama (Task 14).
+        MvcResult milikClientLain = mockMvc.perform(get("/bank-soal/soal/{id}", soalClientB.getId())
                         .with(user(data.principal(tenants.a().guru()))))
                 .andExpect(status().isNotFound())
                 .andReturn();
 
-        MvcResult tidakAda = mockMvc.perform(get("/soal/{id}", UUID.randomUUID())
+        MvcResult tidakAda = mockMvc.perform(get("/bank-soal/soal/{id}", UUID.randomUUID())
                         .with(user(data.principal(tenants.a().guru()))))
                 .andExpect(status().isNotFound())
                 .andReturn();
 
         assertEquals(tidakAda.getResponse().getContentAsString(),
                 milikClientLain.getResponse().getContentAsString());
-    }
-
-    @Test
-    @DisplayName("AC-P02: pencarian bank soal Guru Client A tidak pernah memuat Question Client B")
-    void pencarianBankSoalTidakMemuatSoalClientLain() throws Exception {
-        Tenants tenants = data.twoTenants();
-        String teksSoalClientB = tenants.b().questions().get(0).getBodyText();
-
-        MvcResult hasil = mockMvc.perform(get("/soal")
-                        .header("HX-Request", "true")
-                        .with(user(data.principal(tenants.a().guru()))))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        // Batas Client sudah ditegakkan di klausa query (TC-08); ini pembuktian sisi hitam-kotak
-        // bahwa isinya benar-benar tidak pernah keluar lewat body respons (AC-P02).
-        assertFalse(hasil.getResponse().getContentAsString().contains(teksSoalClientB));
-    }
-
-    @Test
-    @DisplayName("TC-09: menghapus Question Client lain ditolak 404 dan soalnya tetap ada")
-    void hapusSoalClientLainTidakMenghapusApaPun() throws Exception {
-        Tenants tenants = data.twoTenants();
-        QuestionEntity soalClientB = tenants.b().questions().get(0);
-
-        mockMvc.perform(delete("/soal/{id}", soalClientB.getId())
-                        .with(user(data.principal(tenants.a().guru())))
-                        .with(csrf()))
-                .andExpect(status().isNotFound());
-
-        // 404 yang diam-diam tetap menghapus adalah kegagalan yang lebih buruk daripada 403;
-        // @SQLRestriction membuat soal yang terhapus lunak hilang dari query ini juga, jadi
-        // "masih ada" berarti deleted_at benar-benar masih null.
-        assertTrue(questions.findByIdAndClientId(soalClientB.getId(), tenants.b().client().getId()).isPresent());
     }
 
     @Test
@@ -134,24 +108,6 @@ class ContentIdorTest extends PostgresTestBase {
         mockMvc.perform(get("/gambar/{id}", gambar.getId())
                         .with(user(data.principal(tenants.b().guru()))))
                 .andExpect(status().isNotFound());
-    }
-
-    @Test
-    @DisplayName("AC-P04: Siswa yang mengetahui id Question tidak pernah mendapat isinya lewat /soal/{id}")
-    void siswaTidakBisaMembacaQuestionLangsung() throws Exception {
-        Tenants tenants = data.twoTenants();
-        QuestionEntity soal = tenants.a().questions().get(0);
-
-        MvcResult hasil = mockMvc.perform(get("/soal/{id}", soal.getId())
-                        .with(user(data.principal(tenants.a().siswa()))))
-                .andReturn();
-
-        // SecurityConfig menolak peran SISWA di /soal/** lebih dulu (403); seandainya jalur itu
-        // tercapai, controller sendiri membalas 404. Yang dituntut AC-P04 bukan kode angka yang
-        // mana, melainkan isi soal tidak pernah keluar lewat salah satu dari keduanya.
-        int statusDidapat = hasil.getResponse().getStatus();
-        assertTrue(statusDidapat == 403 || statusDidapat == 404,
-                "Diharapkan 403 atau 404, didapat " + statusDidapat);
     }
 
     private byte[] pngKecil() throws Exception {

@@ -52,26 +52,10 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     List<QuestionEntity> findByClientIdAndTopicIdOrderByCreatedAtAsc(UUID clientId, UUID topicId);
 
     /**
-     * Pencarian menyentuh {@code body_text} yang teks polos, bukan HTML (TC-25).
-     *
-     * <p>{@code pattern} sudah berupa pola {@code like} huruf kecil dan tidak pernah null;
-     * pemanggil mengirim {@code "%"} bila tidak ada kata kunci. PostgreSQL tidak bisa
-     * menyimpulkan tipe parameter yang hanya muncul di dalam {@code concat}, sehingga bentuk
-     * {@code (:q is null or ...)} gagal saat runtime.
-     */
-    @Query("select q from QuestionEntity q where q.clientId = :clientId "
-            + "and (:topicId is null or q.topicId = :topicId) "
-            + "and lower(q.bodyText) like :pattern "
-            + "order by q.createdAt desc")
-    Page<QuestionEntity> search(
-            @Param("clientId") UUID clientId,
-            @Param("topicId") UUID topicId,
-            @Param("pattern") String pattern,
-            Pageable pageable);
-
-    /**
-     * Varian {@link #search} untuk perakit Exercise: menambah saringan Paket, tipe soal, dan
-     * pengecualian soal yang sudah terpasang.
+     * Pencarian panel perakit Exercise: menambah saringan Paket, tipe soal, dan pengecualian
+     * soal yang sudah terpasang. Satu-satunya pencarian bank soal Client yang tersisa sejak
+     * {@code GET /soal} lama dicabut (Task 14) — dipanggil dengan {@code paketId} null dari
+     * panel yang menelusuri lintas Paket.
      *
      * <p>{@code paketId} disaring di dalam query utama ini, bukan di kode pemanggil (TC-36):
      * Paket milik Client lain otomatis menghasilkan nol baris karena klausa {@code clientId}
@@ -146,30 +130,12 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             + "and q.clientId is null and q.publishedAt is not null")
     Optional<QuestionEntity> findPublishedMasterById(@Param("id") UUID id);
 
-    /** Gerbang penerbitan paket: Question di dalamnya yang masih digarap (FR-069). */
-    @Query("select q from QuestionEntity q where q.publishedAt is null "
-            + "and q.id in (select i.questionId from ExerciseItemEntity i where i.exerciseId = :exerciseId)")
-    List<QuestionEntity> findUnpublishedInExercise(@Param("exerciseId") UUID exerciseId);
-
     /**
      * Gerbang penerbitan Paket (AC-B12, FR-067, FR-069 setara): Question di dalamnya yang masih
-     * digarap. {@code question.paketId} sudah langsung menunjuk Paket-nya (ADR-0018), jadi tidak
-     * perlu subquery lewat tabel perantara seperti {@link #findUnpublishedInExercise}.
+     * digarap. {@code question.paketId} langsung menunjuk Paket-nya (ADR-0018).
      */
     @Query("select q from QuestionEntity q where q.publishedAt is null and q.paketId = :paketId")
     List<QuestionEntity> findUnpublishedInPaket(@Param("paketId") UUID paketId);
-
-    /**
-     * Penanda "sudah pernah diadopsi" untuk katalog (FR-076, FR-077).
-     *
-     * <p>{@code sourceQuestionId} sudah ditulis sejak adopsi pertama sebagai jejak asal
-     * (ADR-0001); menelusurinya adalah pemakaian yang memang dirancang untuknya, bukan tabel
-     * jejak baru. Dibatasi pada pengenal yang tampil di satu halaman katalog supaya biayanya
-     * tetap datar berapa pun besar katalognya.
-     */
-    @Query("select distinct q.sourceQuestionId from QuestionEntity q "
-            + "where q.clientId = :clientId and q.sourceQuestionId in :ids")
-    List<UUID> findAdoptedSourceIds(@Param("clientId") UUID clientId, @Param("ids") Collection<UUID> ids);
 
     /**
      * Dipakai HANYA untuk memuat soal yang sudah tercatat di {@code session_question} milik

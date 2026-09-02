@@ -74,8 +74,7 @@ public class ExerciseController {
 
         // Penelusuran bank soal awal saat perakit dibuka: belum difilter Paket/Topic mana pun.
         // Pencarian berikutnya lewat HTMX memakai GET /exercise/{id}/cari (lihat cari() di bawah
-        // dan exercise/builder.html) — bukan lagi GET /soal milik QuestionBankController, karena
-        // panel ini sekarang menyaring per Paket, bukan Subject (ADR-0018).
+        // dan exercise/builder.html) — panel ini menyaring per Paket, bukan Subject (ADR-0018).
         model.addAttribute("hasil", questions.searchForBuilder(
                 clientId, null, null, null, List.of(), null,
                 PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
@@ -91,10 +90,10 @@ public class ExerciseController {
 
     /**
      * Panel penelusuran bank soal di dalam perakit: menyaring per Paket dan Topic (ADR-0018),
-     * bukan lagi Subject/Topic. Rute sendiri di bawah {@code /exercise/{id}}, bukan berbagi
-     * {@code GET /soal} milik {@link QuestionBankController} — {@code exerciseId} datang dari
-     * path, bukan parameter opsional yang gampang lupa dikirim, dan bentuk fragmen hasilnya bebas
-     * berbeda dari daftar bank soal biasa.
+     * bukan lagi Subject/Topic. Rute sendiri di bawah {@code /exercise/{id}}, bukan berbagi rute
+     * dengan {@link com.eduscreen.app.modules.assessment.controller.BankSoalController} —
+     * {@code exerciseId} datang dari path, bukan parameter opsional yang gampang lupa dikirim,
+     * dan bentuk fragmen hasilnya bebas berbeda dari daftar bank soal biasa.
      */
     @GetMapping("/exercise/{id}/cari")
     public String cari(@PathVariable UUID id,

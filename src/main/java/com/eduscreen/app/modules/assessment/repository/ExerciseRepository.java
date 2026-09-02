@@ -36,18 +36,9 @@ public interface ExerciseRepository extends JpaRepository<ExerciseEntity, UUID> 
                                 @Param("pattern") String pattern,
                                 Pageable pageable);
 
-    /** Katalog Client: hanya paket master yang sudah terbit (FR-067, FR-074). */
-    @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is not null "
-            + "and lower(e.title) like :pattern "
-            + "order by e.updatedAt desc")
-    Page<ExerciseEntity> searchPublishedMaster(@Param("pattern") String pattern, Pageable pageable);
-
-    /** Gerbang adopsi paket: yang belum terbit tidak bisa diadopsi (FR-067, TC-09). */
-    @Query("select e from ExerciseEntity e where e.id = :id "
-            + "and e.clientId is null and e.publishedAt is not null")
-    Optional<ExerciseEntity> findPublishedMasterById(@Param("id") UUID id);
-
-    // countPublishedMaster/findMasterBlocked/findMasterReadyToPublish pindah ke PaketRepository:
-    // dashboard Eduscreen sekarang membaca Paket master, bukan Exercise master yang dicabut
-    // (ADR-0018, Task 10 — port dasbor).
+    // searchPublishedMaster/findPublishedMasterById (Exercise master ber-clientId null) dan
+    // countPublishedMaster/findMasterBlocked/findMasterReadyToPublish pindah/dicabut ke
+    // PaketRepository: dashboard dan katalog Eduscreen sekarang membaca Paket master, bukan
+    // Exercise master yang sudah tidak punya alasan hidup (ADR-0018, Task 10 — port dasbor;
+    // Task 14 — pembersihan sisa query yang jadi yatim).
 }

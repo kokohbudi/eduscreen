@@ -93,15 +93,6 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
     List<UUID> findAdoptedSourceIds(@Param("clientId") UUID clientId,
                                     @Param("ids") Collection<UUID> ids);
 
-    /**
-     * Apakah Client ini sudah pernah mengadopsi Paket master itu (FR-076, FR-077).
-     *
-     * <p>Dibaca dari {@code sourcePaketId} yang ditulis sejak adopsi pertama, bukan dari
-     * pencocokan judul: master yang di-rename Eduscreen dan salinan yang dirapikan Client Admin
-     * sama-sama membuat tebakan berdasarkan judul meleset.
-     */
-    boolean existsByClientIdAndSourcePaketId(UUID clientId, UUID sourcePaketId);
-
     interface SubjectCount {
         UUID getSubjectId();
 

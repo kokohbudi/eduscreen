@@ -1,7 +1,6 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
-import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
@@ -35,12 +34,10 @@ public class TaxonomyService {
 
     private final SubjectRepository subjects;
     private final TopicRepository topics;
-    private final PaketRepository pakets;
 
-    public TaxonomyService(SubjectRepository subjects, TopicRepository topics, PaketRepository pakets) {
+    public TaxonomyService(SubjectRepository subjects, TopicRepository topics) {
         this.subjects = subjects;
         this.topics = topics;
-        this.pakets = pakets;
     }
 
     @Transactional(readOnly = true)
@@ -197,16 +194,5 @@ public class TaxonomyService {
             throw new ResourceNotFoundException("Subject tidak ditemukan");
         }
         return subject;
-    }
-
-    /**
-     * Subject yang menaungi sebuah Topic. Sejak ADR-0018 Topic tidak lagi membawa Subject
-     * sendiri: ia mewarisinya dari Paket, jadi pertanyaannya dijawab satu tempat saja.
-     */
-    @Transactional(readOnly = true)
-    public UUID subjectIdOf(TopicEntity topic) {
-        return pakets.findById(topic.getPaketId())
-                .orElseThrow(() -> new ResourceNotFoundException("Paket tidak ditemukan"))
-                .getSubjectId();
     }
 }

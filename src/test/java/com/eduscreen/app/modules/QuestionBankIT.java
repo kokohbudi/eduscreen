@@ -316,8 +316,10 @@ class QuestionBankIT extends PostgresTestBase {
 
         // (a) Q1 hilang dari pencarian bank soal — soal yang dihapus hilang dari PENCARIAN,
         // bukan dari sesi yang sudah memakainya.
-        Page<QuestionEntity> hasilPencarian = questionService.search(
-                client.getId(), topic.getId(), "", PageRequest.of(0, 50));
+        // search() sudah dicabut (Task 14): searchForBuilder dengan paketId/type null dan
+        // excluded kosong adalah pencarian bank soal Client biasa, satu-satunya yang tersisa.
+        Page<QuestionEntity> hasilPencarian = questionService.searchForBuilder(
+                client.getId(), null, topic.getId(), null, List.of(), "", PageRequest.of(0, 50));
         assertThat(hasilPencarian.getContent())
                 .extracting(QuestionEntity::getId).doesNotContain(q1.getId());
 
@@ -361,8 +363,8 @@ class QuestionBankIT extends PostgresTestBase {
 
         // Bank soal adalah milik Client, bukan milik Guru perorangan — tidak ada sekat konten
         // privat per Guru di dalam satu Client (BR-P02); Guru B mencari tanpa menyaring topic.
-        Page<QuestionEntity> hasilPencarianGuruB = questionService.search(
-                client.getId(), null, "", PageRequest.of(0, 50));
+        Page<QuestionEntity> hasilPencarianGuruB = questionService.searchForBuilder(
+                client.getId(), null, null, null, List.of(), "", PageRequest.of(0, 50));
         assertThat(hasilPencarianGuruB.getContent())
                 .extracting(QuestionEntity::getId).contains(soalGuruA.getId());
 

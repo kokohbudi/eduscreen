@@ -104,45 +104,4 @@ public class PaketService {
         paket.softDelete(OffsetDateTime.now());
         pakets.save(paket);
     }
-
-    // ------------------------------------------------- jembatan alur lama
-
-    /**
-     * Topic milik Client di bawah Subject GLOBAL atau miliknya sendiri (FR-014, TC-09).
-     *
-     * <p>Sementara sampai Task 6: alur lama masih menyebut "buat Topic" sebagai langkah pertama,
-     * jadi satu Topic lahir bersama satu Paket sewadah bernama sama supaya punya induk yang sah.
-     * Ruang kerja Bank Soal yang memisahkan pembuatan Paket sebagai langkah tersendiri ditulis
-     * menyusul, dan jembatan ini ikut dibongkar bersamanya.
-     */
-    @Transactional
-    public TopicEntity createClientTopic(UUID subjectId, UUID clientId, String name) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Nama Topic wajib diisi");
-        }
-        taxonomy.requireVisibleSubject(subjectId, clientId);
-        String bersih = name.trim();
-        PaketEntity paket = pakets.save(PaketEntity.forClient(clientId, subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
-    }
-
-    /**
-     * Topic master Eduscreen, di bawah Subject yang juga GLOBAL (FR-061).
-     *
-     * <p>Berbeda dengan Subject GLOBAL yang dibaca langsung dan tidak pernah disalin, Paket
-     * master beserta Topic-nya <b>disalin</b> ke Client saat adopsi (BR-O02, AC-O02). Asimetri
-     * itu disengaja dan ditegakkan {@code ContentAdoptionService}, bukan di sini.
-     *
-     * <p>Sementara sampai Task 6: lihat catatan yang sama di {@link #createClientTopic}.
-     */
-    @Transactional
-    public TopicEntity createGlobalTopic(UUID subjectId, String name) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Nama Topic wajib diisi");
-        }
-        taxonomy.requireGlobalSubject(subjectId);
-        String bersih = name.trim();
-        PaketEntity paket = pakets.save(PaketEntity.master(subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, 0));
-    }
 }

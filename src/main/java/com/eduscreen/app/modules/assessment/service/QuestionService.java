@@ -57,21 +57,10 @@ public class QuestionService {
     }
 
     /**
-     * Pencarian menyentuh {@code body_text}, turunan teks polos dari {@code body_html}, bukan
-     * kolom HTML itu sendiri (TC-25) — mencari markup akan salah memunculkan setiap soal
-     * bergambar, dan kata yang terpotong tag tidak akan pernah ketemu.
-     */
-    @Transactional(readOnly = true)
-    public Page<QuestionEntity> search(UUID clientId, UUID topicId, String q, Pageable pageable) {
-        String pattern = ExerciseService.likePattern(q);
-        return clientId == null
-                ? questions.searchMaster(null, topicId, pattern, pageable)
-                : questions.search(clientId, topicId, pattern, pageable);
-    }
-
-    /**
-     * Pencarian panel perakit Exercise: seperti {@link #search}, ditambah saringan Paket, tipe
-     * soal, dan pengecualian soal yang sudah terpasang di Exercise yang sedang dirakit.
+     * Pencarian bank soal Client, ditambah saringan Paket, tipe soal, dan pengecualian soal
+     * yang sudah terpasang di Exercise yang sedang dirakit — satu-satunya pencarian bank soal
+     * Client yang tersisa sejak {@code QuestionService.search} lama dicabut (Task 14). Dipanggil
+     * dengan {@code paketId} null dan {@code excluded} kosong dari luar konteks perakit Exercise.
      *
      * <p>{@code paketId} null berarti tidak difilter Paket sama sekali — perakit boleh menelusuri
      * lintas Paket dan Topic mana pun di dalam Client (BR-E01, FR-024); saringan ini hanya

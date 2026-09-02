@@ -148,7 +148,9 @@ class EduscreenDashboardIT extends PostgresTestBase {
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());
 
-        pakets.createGlobalTopic(subject.getId(), "Asam Basa");
+        // createGlobalTopic sudah dicabut (Task 14): create() dengan clientId null melahirkan
+        // Paket master beserta Topic bawaannya sekali jalan (PaketService.TOPIC_BAWAAN).
+        pakets.create(new PaketService.PaketDraft("Asam Basa", subject.getId(), null), null, null);
 
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).doesNotContain(subject.getId());
@@ -162,7 +164,10 @@ class EduscreenDashboardIT extends PostgresTestBase {
 
         // FR-014: Client boleh menggantungkan Topic lokal di bawah Subject GLOBAL. Topic itu tidak
         // terlihat di ruang kerja master, jadi Subject-nya TETAP buntu bagi Eduscreen Admin.
-        pakets.createClientTopic(subject.getId(), client.getId(), "Bab lokal sekolah");
+        // createClientTopic sudah dicabut (Task 14): create() dengan clientId milik Client
+        // menghasilkan Paket Client di bawah Subject global yang sama, Topic bawaan ikut serta.
+        pakets.create(new PaketService.PaketDraft("Bab lokal sekolah", subject.getId(), null),
+                client.getId(), null);
 
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());

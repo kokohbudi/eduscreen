@@ -51,15 +51,6 @@ public class ExerciseService {
         return exercises.search(clientId, likePattern(q), pageable);
     }
 
-    /**
-     * Katalog Client dan pilihan paket saat onboarding: hanya paket master yang sudah terbit
-     * (FR-067, FR-074).
-     */
-    @Transactional(readOnly = true)
-    public Page<ExerciseEntity> listPublishedMaster(String q, Pageable pageable) {
-        return exercises.searchPublishedMaster(likePattern(q), pageable);
-    }
-
     /** Pola {@code like} huruf kecil; kata kunci kosong menjadi {@code "%"}, bukan null. */
     static String likePattern(String keyword) {
         return keyword == null || keyword.isBlank()

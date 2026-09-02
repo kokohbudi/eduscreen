@@ -55,26 +55,31 @@ class MasterContentIT extends PostgresTestBase {
     MasterPublishingService publishing;
 
     @Test
-    @DisplayName("BR-O02 (FR-061): Topic yang dibuat Eduscreen Admin lahir GLOBAL tanpa pemilik Client")
+    @DisplayName("BR-O02 (FR-061): Paket yang dibuat Eduscreen Admin lahir GLOBAL tanpa pemilik Client, Topic bawaannya ikut serta")
     void topicMasterLahirGlobal() {
         SubjectEntity subject = subjects.save(SubjectEntity.global("Matematika Kelas 4 master"));
 
-        TopicEntity topic = pakets.createGlobalTopic(subject.getId(), "Pecahan");
+        // createGlobalTopic sudah dicabut (Task 14): create() dengan clientId null adalah jalan
+        // sungguhan yang dipakai MasterContentController, dan ia melahirkan Topic bawaan sekali
+        // jalan (PaketService.TOPIC_BAWAAN) — kepemilikan Topic diwarisi dari Paket ini
+        // (ADR-0018).
+        PaketEntity paket = pakets.create(
+                new PaketService.PaketDraft("Pecahan", subject.getId(), null), null, null);
 
-        // Kepemilikan Topic diwarisi dari Paket induknya (ADR-0018): master berarti Paket
-        // tanpa Client, di bawah Subject yang sama.
-        PaketEntity paket = data.paketOf(topic);
         assertThat(paket.getClientId()).isNull();
         assertThat(paket.getSubjectId()).isEqualTo(subject.getId());
     }
 
     @Test
-    @DisplayName("TC-09 (FR-061): Subject milik sebuah Client tidak bisa menampung Topic master; ia diperlakukan seolah tidak ada")
+    @DisplayName("TC-09 (FR-061): Subject milik sebuah Client tidak bisa menampung Paket master; ia diperlakukan seolah tidak ada")
     void subjectMilikClientTidakBisaMenampungTopicMaster() {
         ClientEntity client = data.client("SD Master1");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
 
-        assertThatThrownBy(() -> pakets.createGlobalTopic(data.subjectIdOf(topicClient), "Pecahan"))
+        // createGlobalTopic sudah dicabut (Task 14): pemeriksaan requireGlobalSubject yang sama
+        // sekarang ditegakkan di dalam create() lewat requireSubject (lihat PaketService).
+        assertThatThrownBy(() -> pakets.create(
+                new PaketService.PaketDraft("Pecahan", data.subjectIdOf(topicClient), null), null, null))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
