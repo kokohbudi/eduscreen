@@ -12,6 +12,7 @@ import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import com.eduscreen.app.support.PostgresTestBase;
@@ -44,6 +45,8 @@ class MasterContentIT extends PostgresTestBase {
     @Autowired
     TaxonomyService taxonomy;
     @Autowired
+    PaketService pakets;
+    @Autowired
     QuestionRepository questions;
     @Autowired
     SubjectRepository subjects;
@@ -57,7 +60,7 @@ class MasterContentIT extends PostgresTestBase {
     void topicMasterLahirGlobal() {
         SubjectEntity subject = subjects.save(SubjectEntity.global("Matematika Kelas 4 master"));
 
-        TopicEntity topic = taxonomy.createGlobalTopic(subject.getId(), "Pecahan");
+        TopicEntity topic = pakets.createGlobalTopic(subject.getId(), "Pecahan");
 
         // Kepemilikan Topic diwarisi dari Paket induknya (ADR-0018): master berarti Paket
         // tanpa Client, di bawah Subject yang sama.
@@ -72,7 +75,7 @@ class MasterContentIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Master1");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
 
-        assertThatThrownBy(() -> taxonomy.createGlobalTopic(data.subjectIdOf(topicClient), "Pecahan"))
+        assertThatThrownBy(() -> pakets.createGlobalTopic(data.subjectIdOf(topicClient), "Pecahan"))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

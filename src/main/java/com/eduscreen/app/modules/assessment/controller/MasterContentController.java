@@ -9,6 +9,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import org.springframework.data.domain.PageRequest;
@@ -55,15 +56,18 @@ public class MasterContentController {
 
     private final QuestionService questions;
     private final TaxonomyService taxonomy;
+    private final PaketService pakets;
     private final MasterPublishingService publishing;
     private final ExerciseService paket;
 
     public MasterContentController(QuestionService questions,
                                    TaxonomyService taxonomy,
+                                   PaketService pakets,
                                    MasterPublishingService publishing,
                                    ExerciseService paket) {
         this.questions = questions;
         this.taxonomy = taxonomy;
+        this.pakets = pakets;
         this.publishing = publishing;
         this.paket = paket;
     }
@@ -110,7 +114,7 @@ public class MasterContentController {
     /** Topic yang lahir di sini GLOBAL: dibaca semua Client, dan disalin saat adopsi (BR-O02). */
     @PostMapping("/eduscreen/subject/{id}/topic")
     public String createTopic(@PathVariable UUID id, @RequestParam String name, Model model) {
-        model.addAttribute("topic", taxonomy.createGlobalTopic(id, name));
+        model.addAttribute("topic", pakets.createGlobalTopic(id, name));
         return "soal/daftar :: opsiTopicBaru";
     }
 

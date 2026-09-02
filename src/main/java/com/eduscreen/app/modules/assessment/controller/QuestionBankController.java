@@ -7,6 +7,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
 import com.eduscreen.app.modules.assessment.service.ImageService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
@@ -42,13 +43,15 @@ public class QuestionBankController {
 
     private final QuestionService questions;
     private final TaxonomyService taxonomy;
+    private final PaketService pakets;
     private final ImageService images;
     private final ExerciseService exercises;
 
     public QuestionBankController(QuestionService questions, TaxonomyService taxonomy,
-                                  ImageService images, ExerciseService exercises) {
+                                  PaketService pakets, ImageService images, ExerciseService exercises) {
         this.questions = questions;
         this.taxonomy = taxonomy;
+        this.pakets = pakets;
         this.images = images;
         this.exercises = exercises;
     }
@@ -83,7 +86,7 @@ public class QuestionBankController {
                               @RequestParam String name,
                               @AuthenticationPrincipal UserPrincipal user,
                               Model model) {
-        model.addAttribute("topic", taxonomy.createClientTopic(id, user.requireClientId(), name));
+        model.addAttribute("topic", pakets.createClientTopic(id, user.requireClientId(), name));
         return "soal/daftar :: opsiTopicBaru";
     }
 

@@ -1,7 +1,6 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.ContentOrigin;
-import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
@@ -27,9 +26,9 @@ import java.util.UUID;
  * satu Topic tambahan.
  *
  * <p>Sejak ADR-0018 Topic tidak lagi menggantung langsung di Subject: ia hidup di dalam satu
- * Paket, dan kepemilikannya diwarisi dari Paket itu. Method Topic di kelas ini masih memakai
- * bentuk lama dan karena itu membuat Paket sewadah sendiri; ruang kerja Bank Soal yang memisah
- * keduanya ditulis menyusul.
+ * Paket, dan kepemilikannya diwarisi dari Paket itu. Daur hidup Paket beserta Topic-nya karena
+ * itu dirakit satu tempat di {@link PaketService}; kelas ini tinggal mengurus Subject dan
+ * pembacaan Topic.
  */
 @Service
 public class TaxonomyService {
@@ -85,6 +84,27 @@ public class TaxonomyService {
     }
 
     /**
+     * Subject untuk sebuah Paket: dipakai ulang bila namanya sudah ada, dibuat bila belum.
+     *
+     * <p>Pencocokan mengabaikan besar-kecil huruf dan spasi tepi, supaya "Matematika Kelas 4" dan
+     * "matematika kelas 4 " tidak melahirkan dua Subject yang bagi manusia sama. Subject GLOBAL
+     * ikut dicocokkan lebih dulu: Client tidak perlu membuat salinan lokal dari mapel yang sudah
+     * disediakan Eduscreen.
+     */
+    public SubjectEntity findOrCreateSubject(String name, UUID clientId) {
+        String bersih = name == null ? "" : name.trim();
+        if (bersih.isEmpty()) {
+            throw new IllegalArgumentException("Nama Subject tidak boleh kosong");
+        }
+        return visibleSubjects(clientId).stream()
+                .filter(s -> s.getName().equalsIgnoreCase(bersih))
+                .findFirst()
+                .orElseGet(() -> clientId == null
+                        ? createGlobalSubject(bersih)
+                        : createClientSubject(clientId, bersih));
+    }
+
+    /**
      * Memperbaiki nama Subject GLOBAL yang salah ketik.
      *
      * <p>Subject GLOBAL tidak pernah disalin ke Client (BR-O02): setiap sekolah menunjuk baris
@@ -114,43 +134,6 @@ public class TaxonomyService {
         if (subjects.existsByOriginAndNameIgnoreCase(ContentOrigin.GLOBAL, name)) {
             throw new IllegalArgumentException("Subject global bernama \"" + name + "\" sudah ada");
         }
-    }
-
-    /**
-     * Subject induk boleh GLOBAL (milik Eduscreen) atau CLIENT milik Client ini sendiri
-     * (FR-014); Subject milik Client lain diperlakukan seolah tidak ada (TC-09).
-     */
-    @Transactional
-    public TopicEntity createClientTopic(UUID subjectId, UUID clientId, String name) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Nama Topic wajib diisi");
-        }
-        requireVisibleSubject(subjectId, clientId);
-        // sementara sampai Task 6: satu Topic lahir bersama satu Paket sewadah, supaya alur lama
-        // yang masih menyebut "Topic" punya induk yang sah. Pembuatan Paket sebagai langkah
-        // tersendiri ditulis di ruang kerja Bank Soal.
-        String bersih = name.trim();
-        PaketEntity paket = pakets.save(PaketEntity.forClient(clientId, subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, topics.nextPosition(paket.getId())));
-    }
-
-    /**
-     * Topic master Eduscreen, di bawah Subject yang juga GLOBAL (FR-061).
-     *
-     * <p>Berbeda dengan Subject GLOBAL yang dibaca langsung dan tidak pernah disalin, Paket
-     * master beserta Topic-nya <b>disalin</b> ke Client saat adopsi (BR-O02, AC-O02). Asimetri
-     * itu disengaja dan ditegakkan {@code ContentAdoptionService}, bukan di sini.
-     */
-    @Transactional
-    public TopicEntity createGlobalTopic(UUID subjectId, String name) {
-        if (name == null || name.isBlank()) {
-            throw new IllegalArgumentException("Nama Topic wajib diisi");
-        }
-        requireGlobalSubject(subjectId);
-        // sementara sampai Task 6: lihat catatan yang sama di createClientTopic.
-        String bersih = name.trim();
-        PaketEntity paket = pakets.save(PaketEntity.master(subjectId, bersih, null));
-        return topics.save(TopicEntity.of(paket.getId(), bersih, topics.nextPosition(paket.getId())));
     }
 
     /** Subject milik sebuah Client tidak boleh menampung Topic master; ia diperlakukan seolah tidak ada. */

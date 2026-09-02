@@ -10,6 +10,7 @@ import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.EduscreenDashboardService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
@@ -37,6 +38,8 @@ class EduscreenDashboardIT extends PostgresTestBase {
     MasterPublishingService publishing;
     @Autowired
     TaxonomyService taxonomy;
+    @Autowired
+    PaketService pakets;
     @Autowired
     SubjectRepository subjects;
     @Autowired
@@ -140,7 +143,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());
 
-        taxonomy.createGlobalTopic(subject.getId(), "Asam Basa");
+        pakets.createGlobalTopic(subject.getId(), "Asam Basa");
 
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).doesNotContain(subject.getId());
@@ -154,7 +157,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
 
         // FR-014: Client boleh menggantungkan Topic lokal di bawah Subject GLOBAL. Topic itu tidak
         // terlihat di ruang kerja master, jadi Subject-nya TETAP buntu bagi Eduscreen Admin.
-        taxonomy.createClientTopic(subject.getId(), client.getId(), "Bab lokal sekolah");
+        pakets.createClientTopic(subject.getId(), client.getId(), "Bab lokal sekolah");
 
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).contains(subject.getId());
