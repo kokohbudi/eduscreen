@@ -48,7 +48,7 @@ Catatan izin yang tidak jelas dari tabel:
 
 1. Isi nama Client dan `timezone`.
 2. Isi email Client Admin pertama; sistem mengirim undangan.
-3. Pilih Subject dan Exercise master yang disalin ke Client.
+3. Pilih Paket master yang disalin ke Client. Subject tidak dipilih terpisah — ia ikut sebagai label Paket.
 4. Sistem melakukan copy-on-adopt (ADR-0001): Paket beserta Topic, Question, dan Option di dalamnya disalin ke `clientId` baru. Exercise dan ExerciseItem tidak ikut disalin — Exercise milik alur Guru dan tidak pernah jadi objek adopsi.
 5. Client berstatus `ACTIVE` dengan bank soal terisi.
 
