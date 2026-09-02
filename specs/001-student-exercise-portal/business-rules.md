@@ -393,6 +393,10 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
 - **AC-B06**: Paket yang dibuat dengan nama Subject yang sudah ada menempel ke Subject itu,
   bukan melahirkan Subject kedua bernama sama. Pencocokan mengabaikan besar-kecil huruf dan
   spasi tepi.
+- **AC-B07**: Salinan hasil pinjam membawa seluruh Option soal asal — jumlahnya, mana yang
+  benar, dan urutannya.
+- **AC-B08**: Soal yang masuk ke sebuah Topic mendarat di urutan berikutnya, tidak menumpuk
+  di posisi yang sama dengan soal yang sudah ada.
 
 ### Exercise & Assignment
 

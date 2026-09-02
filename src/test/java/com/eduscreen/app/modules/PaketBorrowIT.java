@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class PaketBorrowIT extends PostgresTestBase {
 
@@ -55,7 +56,7 @@ class PaketBorrowIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B03 (FR-016): salinan membawa seluruh Option asal, lengkap jumlah, jawaban benar, dan urutannya")
+    @DisplayName("AC-B07 (FR-016): salinan membawa seluruh Option asal, lengkap jumlah, jawaban benar, dan urutannya")
     void borrowCopiesOptionsFully() {
         ClientEntity client = data.client("SD Pinjam Opsi");
         PaketEntity sumber = data.paket(client, "IPS Kelas 6 Pinjam", "Sumber");
@@ -160,7 +161,7 @@ class PaketBorrowIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B03: salinan mendarat di position berikutnya, bukan menumpuk di 0")
+    @DisplayName("AC-B08: salinan mendarat di position berikutnya, bukan menumpuk di 0")
     void copiesLandOnNextPosition() {
         ClientEntity client = data.client("SD Pinjam Posisi");
         PaketEntity sumber = data.paket(client, "Kimia Kelas 10 Pinjam", "Sumber");
@@ -198,5 +199,22 @@ class PaketBorrowIT extends PostgresTestBase {
 
         assertThat(borrow.borrowedSourceIds(tujuanA.getId())).contains(asal.getId());
         assertThat(borrow.borrowedSourceIds(tujuanB.getId())).doesNotContain(asal.getId());
+    }
+
+    @Test
+    @DisplayName("AC-B02: Topic tujuan yang bukan milik Paket tujuan ditolak")
+    void borrowingIntoTopicFromAnotherPaketIsRejected() {
+        ClientEntity client = data.client("SD Pinjam Topic Salah");
+        PaketEntity sumber = data.paket(client, "Biologi Kelas 9 Pinjam", "Sumber");
+        PaketEntity tujuan = data.paket(client, "Biologi Kelas 9 Pinjam", "Tujuan");
+        PaketEntity lain = data.paket(client, "Biologi Kelas 9 Pinjam", "Paket Lain");
+        TopicEntity topicSumber = pakets.topicsOf(sumber.getId()).get(0);
+        // Topic ini milik Paket "lain", bukan milik "tujuan" — kombinasi yang harus ditolak.
+        TopicEntity topicPaketLain = pakets.topicsOf(lain.getId()).get(0);
+        QuestionEntity asal = data.mcq(client, topicSumber, "Soal AC-B02", 4);
+
+        assertThatThrownBy(() -> borrow.borrowQuestions(
+                tujuan.getId(), topicPaketLain.getId(), List.of(asal.getId()), client.getId(), null))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 }
