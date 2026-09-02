@@ -11,9 +11,11 @@ import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -38,6 +40,8 @@ import java.util.UUID;
  */
 @Controller
 public class BankSoalController {
+
+    private static final int UKURAN_HALAMAN = 20;
 
     private final PaketService pakets;
     private final PaketRepository paketRepository;
@@ -81,6 +85,32 @@ public class BankSoalController {
                 .forEach(c -> jumlahSoal.put(c.getPaketId(), c.getJumlah()));
         model.addAttribute("jumlahSoal", jumlahSoal);
         return "bank/paket";
+    }
+
+    /**
+     * Pencarian lintas-Paket (FR-019, TC-25): sejajar {@code MasterContentController#cari}, tanpa
+     * penyaring {@code status} karena Question milik Client tidak punya keadaan terbit/draf
+     * (FR-066 hanya berlaku konten master). {@code subjectId} sekadar mempersempit pilihan Topic
+     * di formulir — penyaring sungguhan di query cuma {@code topicId}, sama seperti jalur
+     * {@code GET /soal} lama sebelum dicabut (Task 14).
+     */
+    @GetMapping("/bank-soal/cari")
+    public String cari(@RequestParam(required = false) UUID subjectId,
+                       @RequestParam(required = false) UUID topicId,
+                       @RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "0") int page,
+                       @AuthenticationPrincipal UserPrincipal user,
+                       Model model) {
+        UUID clientId = user.requireClientId();
+        model.addAttribute("hasil", questions.searchForBuilder(
+                clientId, null, topicId, null, List.of(), q, PageRequest.of(page, UKURAN_HALAMAN)));
+        model.addAttribute("subjectId", subjectId);
+        model.addAttribute("topicId", topicId);
+        model.addAttribute("q", q);
+        model.addAttribute("status", null);
+        model.addAttribute("subjects", taxonomy.visibleSubjects(clientId));
+        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, clientId) : List.of());
+        return "bank/cari";
     }
 
     /** Subject sudah ada dipakai ulang, belum ada dibuat — satu kolom nama (AC-B06). */
@@ -191,6 +221,19 @@ public class BankSoalController {
                 clientId, paket.getId());
         isiEditor(paket, soal, soal.getTopicId(), model);
         return "soal/editor :: detail";
+    }
+
+    /**
+     * Soft delete (FR-018, BR-Q04): Question hilang dari pencarian bank soal begitu saja, tapi
+     * Exercise/Assignment/pengerjaan yang sudah memakainya tetap utuh — {@code softDelete} yang
+     * sama persis dipakai {@code MasterContentController#hapusSoal}, cuma {@code clientId}-nya
+     * bukan {@code null}.
+     */
+    @DeleteMapping("/bank-soal/soal/{id}")
+    public String hapusSoal(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user, Model model) {
+        questions.softDelete(id, user.requireClientId());
+        model.addAttribute("pesan", "Soal dihapus dari bank soal.");
+        return "bank/isi :: konfirmasiHapus";
     }
 
     /**

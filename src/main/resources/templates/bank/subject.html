@@ -5,10 +5,11 @@
 <div th:replace="~{layout/base :: page('Bank Soal', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <!-- Pencarian lintas-Paket hanya berlaku di ruang kerja master (FR-064): Bank Soal Client
-         bekerja di dalam satu Paket lewat tier 3, tidak butuh mencari lintas Subject. -->
-    <p th:if="${master ?: false}" class="mb-4 text-sm">
-      <a th:href="@{__${basePath ?: '/bank-soal'}__/cari}" class="text-slate-600 underline">Cari soal master →</a>
+    <!-- Pencarian lintas-Paket (FR-019): dibuka kembali Task 14 untuk Bank Soal Client, bukan
+         cuma ruang kerja master — Client bekerja di dalam satu Paket lewat tier 3, tapi kadang
+         perlu mencari lintas Subject/Paket tanpa tahu dulu ada di Paket yang mana. -->
+    <p class="mb-4 text-sm">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/cari}" class="text-slate-600 underline">Cari soal →</a>
     </p>
 
     <!-- Tingkat pertama: Subject sebagai label, bukan folder yang harus diisi dulu. Yang

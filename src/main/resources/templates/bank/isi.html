@@ -73,12 +73,12 @@
   </select>
 
   <!--
-    Satu baris Question, dipisah jadi fragmen ber-id: penerbitan, penarikan, dan penghapusan
-    Question master (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang
-    seluruh halaman (TC-14). ${nomor} datang sebagai parameter, opsional: perulangan
-    mengirimnya dari ${it.index}, sementara swap baris tunggal (terbit/tarik/hapus) mengirim
-    indeks yang dihitung ulang controller lewat findByTopicIdOrderByPositionAsc, sehingga tetap
-    padat walau posisi tersimpan berlubang.
+    Satu baris Question, dipisah jadi fragmen ber-id: penerbitan dan penarikan (mode ${master}
+    saja) serta penghapusan (Client maupun master, FR-018) menukar baris ini saja lewat HTMX,
+    bukan memuat ulang seluruh halaman (TC-14). ${nomor} datang sebagai parameter, opsional:
+    perulangan mengirimnya dari ${it.index}, sementara swap baris tunggal (terbit/tarik/hapus)
+    mengirim indeks yang dihitung ulang controller lewat findByTopicIdOrderByPositionAsc,
+    sehingga tetap padat walau posisi tersimpan berlubang.
   -->
   <li th:fragment="barisSoal(q, nomor)" th:id="|soal-${q.id}|"
       class="flex flex-wrap items-center gap-2 rounded border border-slate-100 p-2 text-sm">
@@ -111,12 +111,14 @@
             class="shrink-0 rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">
       Tarik
     </button>
-    <!-- Hapus hanya ada di ruang kerja master: Bank Soal Client tidak punya tombol ini sama
-         sekali (BR-Q04 tetap dijaga soft delete-nya, cuma tidak dipaparkan lewat layar ini). -->
-    <button th:if="${master ?: false}"
-            th:attr="hx-delete=@{__${basePath}__/soal/{id}(id=${q.id})},hx-target=|#soal-${q.id}|"
+    <!-- Hapus tersedia di Bank Soal Client maupun ruang kerja master (FR-018, kembali dibuka
+         Task 14 setelah keliru dicatat sudah dicabut): soal hilang dari pencarian, Exercise/
+         Assignment/pengerjaan yang sudah memakainya tetap utuh (BR-Q04). Pesan konfirmasinya saja
+         yang beda, karena hanya konten master yang punya salinan hasil adopsi untuk disebut. -->
+    <button th:attr="hx-delete=@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})},
+                     hx-target=|#soal-${q.id}|,
+                     hx-confirm=${(master ?: false)} ? 'Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh.' : 'Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh.'"
             hx-swap="outerHTML"
-            hx-confirm="Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh."
             class="shrink-0 rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50">
       Hapus
     </button>

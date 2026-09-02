@@ -1,6 +1,7 @@
 package com.eduscreen.app.web;
 
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
+import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.StoredImageEntity;
 import com.eduscreen.app.modules.assessment.service.ImageService;
 import com.eduscreen.app.support.PostgresTestBase;
@@ -10,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
@@ -19,10 +21,15 @@ import java.io.ByteArrayOutputStream;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -36,21 +43,19 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  *
  * <p>{@code QuestionBankController} lama (rute {@code /soal/**}, {@code /subject/**}) sudah
  * dicabut (Task 14, ADR-0018): penggantinya {@link
- * com.eduscreen.app.modules.assessment.controller.BankSoalController} sudah punya cakupan IDOR
- * sendiri di {@code BankSoalRenderTest} (TC-36). Tiga kasus di sini yang tidak punya rute
- * pengganti langsung — pencarian bebas lintas Topic ({@code GET /soal}, kini digantikan
- * penelusuran per-Paket yang sudah tertutup lewat {@code pakets.require}), penghapusan Question
- * oleh Client/Guru (tombol hapus sudah tidak dipaparkan di luar ruang kerja master, lihat
- * {@code bank/isi.html}), dan pemblokiran peran SISWA di jalur detail Question (sudah tercakup
- * satu prefiks lebih atas oleh {@code BankSoalRenderTest#pagarPeranBankSoal}, yang menutup
- * seluruh {@code /bank-soal/**} bagi SISWA lewat SecurityConfig) — sengaja tidak dipindahkan,
- * bukan lupa dihapus.
+ * com.eduscreen.app.modules.assessment.controller.BankSoalController} mengambil alih seluruh
+ * kasus di sini — detail (404 identik), hapus (TC-09), dan pencarian (AC-P02) lewat
+ * {@code /bank-soal/soal/{id}} dan {@code /bank-soal/cari}. Pemblokiran peran SISWA (AC-P04)
+ * diuji di {@code BankSoalRenderTest#pagarPeranBankSoal}, bukan di sini, karena pagarnya berbasis
+ * prefiks {@code /bank-soal/**} di {@code SecurityConfig} — satu 403 di sana sudah membuktikan
+ * seluruh subpath tertutup bagi SISWA.
  */
 @AutoConfigureMockMvc
 class ContentIdorTest extends PostgresTestBase {
 
     @Autowired MockMvc mockMvc;
     @Autowired TestData data;
+    @Autowired QuestionRepository questions;
     @Autowired ImageService images;
 
     @Test
@@ -72,6 +77,43 @@ class ContentIdorTest extends PostgresTestBase {
 
         assertEquals(tidakAda.getResponse().getContentAsString(),
                 milikClientLain.getResponse().getContentAsString());
+    }
+
+    @Test
+    @DisplayName("AC-P02: pencarian bank soal Guru Client A tidak pernah memuat Question Client B")
+    void pencarianBankSoalTidakMemuatSoalClientLain() throws Exception {
+        Tenants tenants = data.twoTenants();
+        String teksSoalClientB = tenants.b().questions().get(0).getBodyText();
+
+        // GET /bank-soal/cari (Task 14): penerus GET /soal lama, sama-sama menyaring clientId di
+        // klausa query lewat QuestionService.searchForBuilder.
+        MvcResult hasil = mockMvc.perform(get("/bank-soal/cari")
+                        .with(user(data.principal(tenants.a().guru()))))
+                .andExpect(status().isOk())
+                .andReturn();
+
+        // Batas Client sudah ditegakkan di klausa query (TC-08); ini pembuktian sisi hitam-kotak
+        // bahwa isinya benar-benar tidak pernah keluar lewat body respons (AC-P02).
+        assertFalse(hasil.getResponse().getContentAsString().contains(teksSoalClientB));
+    }
+
+    @Test
+    @DisplayName("TC-09: menghapus Question Client lain ditolak 404 dan soalnya tetap ada")
+    void hapusSoalClientLainTidakMenghapusApaPun() throws Exception {
+        Tenants tenants = data.twoTenants();
+        QuestionEntity soalClientB = tenants.b().questions().get(0);
+
+        // DELETE /bank-soal/soal/{id} (Task 14): kapasitas hapus sisi Client dibuka kembali
+        // setelah keliru dicatat sudah dicabut permanen (temuan review Task 14).
+        mockMvc.perform(delete("/bank-soal/soal/{id}", soalClientB.getId())
+                        .with(user(data.principal(tenants.a().guru())))
+                        .with(csrf()))
+                .andExpect(status().isNotFound());
+
+        // 404 yang diam-diam tetap menghapus adalah kegagalan yang lebih buruk daripada 403;
+        // @SQLRestriction membuat soal yang terhapus lunak hilang dari query ini juga, jadi
+        // "masih ada" berarti deleted_at benar-benar masih null.
+        assertTrue(questions.findByIdAndClientId(soalClientB.getId(), tenants.b().client().getId()).isPresent());
     }
 
     @Test
@@ -108,6 +150,22 @@ class ContentIdorTest extends PostgresTestBase {
         mockMvc.perform(get("/gambar/{id}", gambar.getId())
                         .with(user(data.principal(tenants.b().guru()))))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("TC-14: POST /gambar mengunggah dan membalas fragmen gambarTerunggah untuk Guru")
+    void unggahGambarMembalasFragmenTerunggah() throws Exception {
+        // POST /gambar pindah dari QuestionBankController ke ImageController (Task 14); jalur ini
+        // tidak punya tes tingkat HTTP sebelum maupun sesudah pindah (temuan review Task 14) —
+        // memastikan pindahnya benar-benar tuntas, bukan cuma lolos kompilasi.
+        Tenants tenants = data.twoTenants();
+        MockMultipartFile berkas = new MockMultipartFile("berkas", "soal.png", "image/png", pngKecil());
+
+        mockMvc.perform(multipart("/gambar").file(berkas)
+                        .with(user(data.principal(tenants.a().guru())))
+                        .with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/gambar/")));
     }
 
     private byte[] pngKecil() throws Exception {

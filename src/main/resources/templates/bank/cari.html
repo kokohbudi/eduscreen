@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="id" xmlns:th="http://www.thymeleaf.org">
-<head th:replace="~{layout/base :: head('Cari Soal Master')}"></head>
+<head th:replace="~{layout/base :: head(${(master ?: false)} ? 'Cari Soal Master' : 'Cari Soal')}"></head>
 <body>
-<div th:replace="~{layout/base :: page('Cari Soal Master', ~{::content})}">
+<div th:replace="~{layout/base :: page(${(master ?: false)} ? 'Cari Soal Master' : 'Cari Soal', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <!-- Hanya ruang kerja master: Bank Soal Client tidak punya pencarian lintas-Paket, ia
-         bekerja di dalam satu Paket lewat tier 3 (bank/isi.html). Question master menyebar
-         lintas Subject dan Paket, jadi butuh jalur pencariannya sendiri (FR-064). -->
+    <!-- Dipakai Bank Soal Client maupun ruang kerja master (FR-019, Task 14): Question menyebar
+         lintas Subject dan Paket, dan bekerja di dalam satu Paket lewat tier 3 (bank/isi.html)
+         tidak selalu cukup kalau belum tahu soalnya ada di Paket yang mana. -->
     <p class="mb-4 text-sm">
       <a th:href="@{__${basePath ?: '/bank-soal'}__}" class="text-slate-600 underline">← Semua Subject</a>
     </p>
@@ -32,7 +32,9 @@
                   th:selected="${topicId != null and topicId == t.id}">Topic</option>
         </select>
       </div>
-      <div>
+      <!-- Status terbit/draf hanya ada pada konten master (FR-066); Question milik Client tidak
+           punya keadaan itu sama sekali. -->
+      <div th:if="${master ?: false}">
         <label for="status" class="block font-medium text-slate-700">Status</label>
         <select id="status" name="status" onchange="this.form.submit()"
                 class="mt-1 rounded border border-slate-300 px-2 py-1.5">

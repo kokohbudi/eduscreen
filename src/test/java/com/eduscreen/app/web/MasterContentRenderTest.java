@@ -427,16 +427,20 @@ class MasterContentRenderTest extends PostgresTestBase {
 
         // GET /soal lama (QuestionBankController) sudah dicabut (Task 14): jalur Client sekarang
         // isi Paket Bank Soal, {@code basePath} jatuh ke bawaan "/bank-soal" lewat fallback
-        // Thymeleaf (bank/isi.html), bukan disuntik jalur master.
+        // Thymeleaf (bank/isi.html), bukan disuntik jalur master. hx-delete diperiksa sebagai
+        // JALUR (assertion review pasca Task 14), bukan ketidakhadirannya: Client memang punya
+        // tombol Hapus (FR-018), tapi harus menunjuk /bank-soal/soal/, bukan
+        // /eduscreen/bank-soal/soal/ — regresi di sini berarti jalur Client ketiban rute master.
         mockMvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(guru))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "href=\"/bank-soal/soal/")))
-                // Tombol Hapus dan Terbit/Tarik hanya dipaparkan di ruang kerja master
-                // (bank/isi.html, ${master ?: false}); Client tidak pernah melihatnya sama
-                // sekali — bukan sekadar disembunyikan lewat CSS.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-delete=\"/bank-soal/soal/")))
+                // Terbit/Tarik tetap hanya di ruang kerja master (${master ?: false}); Client
+                // tidak pernah melihat kedua tombol itu maupun jalur /eduscreen/ mana pun.
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("hx-delete="))))
+                        org.hamcrest.Matchers.containsString("hx-post=\"/bank-soal/soal/"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("/eduscreen/"))));
     }

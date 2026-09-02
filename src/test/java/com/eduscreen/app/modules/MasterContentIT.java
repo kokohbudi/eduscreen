@@ -72,7 +72,7 @@ class MasterContentIT extends PostgresTestBase {
 
     @Test
     @DisplayName("TC-09 (FR-061): Subject milik sebuah Client tidak bisa menampung Paket master; ia diperlakukan seolah tidak ada")
-    void subjectMilikClientTidakBisaMenampungTopicMaster() {
+    void subjectMilikClientTidakBisaMenampungPaketMaster() {
         ClientEntity client = data.client("SD Master1");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
 

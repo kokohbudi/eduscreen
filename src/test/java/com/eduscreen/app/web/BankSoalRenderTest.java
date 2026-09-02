@@ -17,6 +17,8 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
+import java.util.UUID;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.not;
@@ -318,7 +320,7 @@ class BankSoalRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("BR-P03 (BR-P02): Siswa ditolak dari Bank Soal, Guru di Client yang sama diterima")
+    @DisplayName("BR-P03 (BR-P02, AC-P04): Siswa ditolak dari seluruh Bank Soal termasuk detail soal, Guru di Client yang sama diterima")
     void pagarPeranBankSoal() throws Exception {
         ClientEntity client = data.client("SD Bank Peran");
         var siswa = user(data.principal(data.user(client, UserRole.SISWA, "Siswa Bank")));
@@ -326,5 +328,12 @@ class BankSoalRenderTest extends PostgresTestBase {
 
         mvc.perform(get("/bank-soal").with(siswa)).andExpect(status().isForbidden());
         mvc.perform(get("/bank-soal").with(guru)).andExpect(status().isOk());
+
+        // AC-P04: Siswa yang mengetahui id sebuah Question tidak pernah mendapat isinya lewat
+        // rute Bank Soal — SecurityConfig memagari seluruh prefiks /bank-soal/** per peran
+        // sebelum controller sempat dipanggil, jadi id acak sudah cukup membuktikan pagarnya
+        // menutup /bank-soal/soal/{id} juga, bukan cuma akarnya.
+        mvc.perform(get("/bank-soal/soal/{id}", UUID.randomUUID()).with(siswa))
+                .andExpect(status().isForbidden());
     }
 }
