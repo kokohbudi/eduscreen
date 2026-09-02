@@ -225,6 +225,40 @@ class QuestionImportIT extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("AC-Q03 (TC-22): baris yang isinya kosong setelah sanitasi gagal bernomor di pratinjau, tanpa membatalkan baris lain")
+    void ac_q03_barisKosongSetelahSanitasiGagalTanpaMeracuniBarisLain() {
+        ClientEntity client = testData.client("SD Sanitasi Kosong");
+        AppUserEntity author = testData.user(client, UserRole.CLIENT_ADMIN, "Admin Kosong");
+        TopicEntity topic = testData.topic(client, "Matematika Kelas 4", "Aljabar");
+
+        // Baris kedua lolos parser (mentahnya tidak kosong) tapi menjadi kosong setelah
+        // sanitasi. Tanpa penjaga, ia lolos sampai flush, melanggar question_body_not_blank
+        // di database, dan MERACUNI transaksi: seluruh impor batal gara-gara satu baris —
+        // persis yang FR-022 larang.
+        String csv = HEADER + "\n"
+                + "Aljabar,ESSAY,Soal sehat satu,,,,,,\n"
+                + "Aljabar,ESSAY,<script>alert(1)</script>,,,,,,\n"
+                + "Aljabar,ESSAY,Soal sehat dua,,,,,,\n";
+        byte[] bytes = csv.getBytes(StandardCharsets.UTF_8);
+
+        QuestionImportService.Preview preview =
+                importService.preview("kosong.csv", bytes, topic.getPaketId(), client.getId());
+        assertThat(preview.validCount()).isEqualTo(2);
+        assertThat(preview.failures()).hasSize(1);
+        // Baris data kedua = baris berkas ke-3 (header di baris 1) — penomoran manusiawi yang
+        // sama dengan kegagalan parser, supaya pengguna bisa memperbaiki berkas aslinya.
+        assertThat(preview.failures().getFirst().lineNumber()).isEqualTo(3);
+        assertThat(preview.failures().getFirst().reason().toLowerCase()).contains("kosong");
+
+        QuestionImportService.ImportSummary summary = importService.commit(
+                preview.token(), topic.getPaketId(), topic.getId(), client.getId(), author.getId());
+        assertThat(summary.saved()).isEqualTo(2);
+        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topic.getId()))
+                .extracting(QuestionEntity::getBodyText)
+                .containsExactly("Soal sehat satu", "Soal sehat dua");
+    }
+
+    @Test
     @DisplayName("TC-22: konten impor melewati sanitasi yang sama dengan editor — tag script dibuang sebelum tersimpan")
     void tc_22_kontenImporTersanitasi() {
         ClientEntity client = testData.client("SD Sanitasi Impor");

@@ -15,6 +15,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -92,9 +94,31 @@ public class QuestionImportService {
         }
 
         QuestionImportParser.ParseResult result = parser.parse(filename, content);
+
+        // Penjaga bentuk-akhir, ditegakkan di pratinjau dan bukan di commit: parser hanya
+        // menilai baris mentah, jadi body yang seluruhnya markup terlarang (mis. cuma tag
+        // <script>) lolos darinya padahal menjadi kosong setelah sanitasi. Tanpa penjaga ini,
+        // baris itu baru gagal di flush lewat constraint question_body_not_blank — dan karena
+        // commit satu transaksi, SELURUH impor ikut batal gara-gara satu baris, persis yang
+        // FR-022 larang. Ditolak di sini sebagai kegagalan baris bernomor, pengguna melihatnya
+        // sebelum menyimpan, dan commit tetap penulis murni yang menyimpan semua baris pending.
+        List<QuestionImportParser.RawRow> rows = new ArrayList<>();
+        List<QuestionImportParser.RowFailure> failures = new ArrayList<>(result.failures());
+        for (QuestionImportParser.RawRow row : result.valid()) {
+            if (sanitizer.toPlainText(row.body()).isBlank()) {
+                failures.add(new QuestionImportParser.RowFailure(row.lineNumber(),
+                        "Kolom soal menjadi kosong setelah markup terlarang dibuang"));
+            } else {
+                rows.add(row);
+            }
+        }
+        // Kegagalan parser dan kegagalan sanitasi tampil dalam satu tabel; urut nomor baris
+        // supaya pengguna membaca berkasnya dari atas ke bawah, bukan melompat-lompat.
+        failures.sort(Comparator.comparingInt(QuestionImportParser.RowFailure::lineNumber));
+
         String token = UUID.randomUUID().toString();
-        previews.put(token, new PendingPreview(clientId, paketId, result.valid(), clock.now().plus(PREVIEW_TTL)));
-        return new Preview(token, result.valid().size(), result.failures());
+        previews.put(token, new PendingPreview(clientId, paketId, rows, clock.now().plus(PREVIEW_TTL)));
+        return new Preview(token, rows.size(), List.copyOf(failures));
     }
 
     /**
