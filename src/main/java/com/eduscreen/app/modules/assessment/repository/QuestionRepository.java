@@ -168,6 +168,16 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     @Query("select coalesce(max(q.position), -1) + 1 from QuestionEntity q where q.topicId = :topicId")
     int nextPosition(@Param("topicId") UUID topicId);
 
+    /**
+     * Jejak pinjam yang sudah mendarat di Paket ini: {@code sourceQuestionId} tiap salinan yang
+     * hasil pinjam-antar-Paket (AC-B04). Sama seperti {@link #findByPaketIdOrderByPositionAsc},
+     * tidak menyaring Paket yang sudah ter-soft-delete — pemanggil wajib memastikan Paket
+     * tujuannya masih hidup lebih dulu (mis. lewat {@code PaketService.require}).
+     */
+    @Query("select q.sourceQuestionId from QuestionEntity q "
+            + "where q.paketId = :paketId and q.sourceQuestionId is not null")
+    List<UUID> findSourceIdsInPaket(@Param("paketId") UUID paketId);
+
     /** Kartu dashboard: seluruh Question master, draf maupun terbit (FR-060). */
     @Query("select count(q) from QuestionEntity q where q.clientId is null")
     long countMaster();
