@@ -176,12 +176,15 @@ Glosarium menyebut tenant sebagai **Client** (`CONTEXT.md`). Kode dan skema data
 **Aturan:**
 
 - **TC-13** — Tidak ada SPA. **Muat pertama sebuah URL selalu dirender server.** Tidak ada React, Vue, atau kerangka klien lain yang masuk tanpa ADR baru; Alpine adalah satu-satunya alat render klien yang diizinkan (ADR-0019).
-- **TC-14** — Pembaruan parsial memakai salah satu dari dua jalur, dan pilihannya disengaja (ADR-0019):
-  **fragment** bila satu jalur render lebih berharga daripada keadaan klien — auto-save jawaban, halaman
-  pengerjaan Siswa, hitung mundur Timer wajib memakai ini; **JSON** bila pemuatan dipicu tindakan pengguna
-  di halaman yang sudah terbuka dan keadaan klien harus bertahan lintas pemuatan. Endpoint JSON menegakkan
-  otorisasi dan penyaringan tenant yang sama dengan jalur SSR-nya, dan membalas status HTTP yang benar
-  beserta pesan galat yang bisa ditampilkan.
+- **TC-14** — Pembaruan parsial memakai fragment atau JSON, dan pembedanya satu pertanyaan yang bisa
+  dijawab siapa pun tanpa menebak (ADR-0019): **apakah balasannya membawa konten yang harus mendarat di
+  DOM sebagai HTML?** Ya — pembahasan Practice, batang soal, apa pun yang berisi `*_html` tersimpan atau
+  rumus LaTeX yang perlu dirender ulang — maka **fragment**, karena `th:utext` di template server adalah
+  satu-satunya tempat keluaran tanpa escape yang teraudit, dan memindahkannya ke `innerHTML` di klien
+  memindahkan titik itu ke kode yang tidak dijaga tes render. Tidak — balasannya cuma keadaan, hitungan,
+  atau angka seperti auto-save Quiz ("tersimpan, 7 dari 20") dan sisa waktu Timer — maka **JSON**.
+  Endpoint JSON menegakkan otorisasi dan penyaringan tenant yang sama dengan jalur SSR-nya, dan membalas
+  status HTTP yang benar beserta pesan galat yang bisa ditampilkan.
 - **TC-14a** — Permukaan yang memakai jalur JSON wajib membawa **tes kontrak JSON** (bentuk balasan,
   penyaringan tenant, bentuk galat) **dan** tes yang menyentuh halamannya di peramban sungguhan. Selama
   yang kedua belum ada, tes render atas keadaan awal SSR-nya wajib memuat catatan eksplisit bahwa bagian
@@ -322,7 +325,7 @@ Lihat `docs/adr/0013-topologi-satu-instance.md`, `docs/adr/0014-impor-sinkron-be
 | TC-11 | Endpoint Session wajib punya tes lintas-Siswa dan lintas-Client |
 | TC-12 | Batas waktu memakai waktu server |
 | TC-13 | Tanpa SPA |
-| TC-14 | Pembaruan parsial: fragment atau JSON, dipilih sadar |
+| TC-14 | Fragment bila balasannya HTML; JSON bila cuma keadaan |
 | TC-14a | Permukaan JSON wajib punya tes kontrak dan tes peramban |
 | TC-15 | Hitung mundur hanya tampilan |
 | TC-16 | JSONB hanya untuk data yang benar-benar tak tetap |

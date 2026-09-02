@@ -26,9 +26,17 @@ Pemilik produk memutuskan aturannya diubah.
 **Muat pertama sebuah URL tetap dirender server.** Membuka `/bank-soal` menghasilkan HTML lengkap.
 Tidak berubah.
 
-**Pemuatan data yang dipicu tindakan pengguna boleh membalas JSON**, dan dirender di klien. Yang
-dimaksud tindakan pengguna: menekan tombol, mengubah penyaring, mengetik pencarian — interaksi di
-dalam halaman yang sudah terbuka.
+**Pembedanya satu pertanyaan: apakah balasannya membawa konten yang harus mendarat di DOM sebagai
+HTML?**
+
+Kalau ya — pembahasan Practice, batang soal, apa pun yang berisi kolom `*_html` tersimpan atau rumus
+LaTeX yang perlu dirender ulang — balasannya **fragment**. Alasannya bukan selera: `th:utext` di
+template server adalah satu-satunya tempat keluaran tanpa escape yang teraudit di proyek ini.
+Memindahkannya ke `innerHTML` di klien memindahkan titik itu ke kode yang tidak dijaga satu pun tes
+render.
+
+Kalau tidak — balasannya cuma keadaan, hitungan, atau angka — balasannya **JSON**, dan dirender
+Alpine di klien.
 
 Tiga pagar yang tetap berdiri:
 
@@ -70,9 +78,14 @@ Karena itu, tiap permukaan yang memakai jalur ini wajib membawa dua penjaga:
 Tanpa keduanya, permukaan itu berjalan tanpa jaring — dan proyek ini sudah dua kali membuktikan
 kelas kegagalan itu nyata.
 
-**Yang tidak berubah.** Halaman pengerjaan Siswa, hitung mundur Timer, dan auto-save jawaban tetap
-memakai fragmen. Di sana satu jalur render dan kebenaran dari server lebih berharga daripada
-kelincahan klien, dan TC-15 tetap berlaku penuh: jam klien tidak pernah jadi rujukan.
+**Penerapan pada yang sudah ada.** Menjawab soal Practice tetap fragment: balasannya memuat
+`explanationHtml` yang dirender `th:utext` plus render ulang KaTeX. Auto-save jawaban Quiz pindah ke
+JSON — balasannya cuma "tersimpan, sekian dari sekian". Hitung mundur Timer pindah ke JSON, dan itu
+justru lebih jujur terhadap TC-15 yang sudah menyebutnya komponen yang murni menampilkan; sisa waktu
+yang berlaku tetap datang dari server, jam klien tidak pernah jadi rujukan.
+
+Rumusan pertama ADR ini menyebut ketiganya wajib fragment. Itu keliru — ditulis tanpa memeriksa apa
+yang sebenarnya dikembalikan tiap endpoint, dan dua dari tiga contohnya salah.
 
 ## Alternatif yang ditolak
 
