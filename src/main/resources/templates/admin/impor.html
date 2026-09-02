@@ -15,6 +15,7 @@
       <p class="mt-1 text-sm text-slate-600">
         Format Excel (<code>.xlsx</code>) atau CSV, maksimum <strong>500 baris</strong> per berkas.
         Berkas yang lebih besar ditolak sebelum diproses — pecah menjadi beberapa berkas.
+        Seluruh baris valid disimpan ke Paket dan Topic tujuan yang dipilih di bawah.
       </p>
       <p class="mt-2 text-sm">
         <a th:href="@{/templat-impor.csv}" class="text-slate-700 underline" download>
@@ -25,6 +26,28 @@
       <form class="mt-4 flex flex-wrap items-end gap-3"
             hx-post="/admin/impor/pratinjau" hx-encoding="multipart/form-data"
             hx-target="#pratinjau" hx-swap="innerHTML">
+        <!--
+          Tujuan impor dipilih eksplisit (ADR-0018): seluruh baris valid mendarat di satu Paket
+          dan satu Topic — kolom topic pada berkas tidak menentukan tujuan. Daftar Topic dimuat
+          ulang saat Paket berganti, lewat fragmen opsiTopic yang sama dengan perakit Exercise,
+          supaya daftar dan urutannya tidak bisa diam-diam melenceng dari halaman isi Paket.
+        -->
+        <div>
+          <label for="paketIdImpor" class="block text-sm font-medium text-slate-700">Paket tujuan</label>
+          <select id="paketIdImpor" name="paketId" required
+                  onchange="htmx.ajax('GET', '/bank-soal/paket/' + this.value + '/topic-options', {target: '#topicIdImpor', swap: 'innerHTML'})"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">-- Paket --</option>
+            <option th:each="p : ${pakets}" th:value="${p.id}" th:text="${p.title}">Paket</option>
+          </select>
+        </div>
+        <div>
+          <label for="topicIdImpor" class="block text-sm font-medium text-slate-700">Topic tujuan</label>
+          <select id="topicIdImpor" name="topicId" required
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">-- Topic --</option>
+          </select>
+        </div>
         <div>
           <label for="berkas" class="block text-sm font-medium text-slate-700">Berkas</label>
           <input type="file" id="berkas" name="berkas" accept=".csv,.xlsx" required
@@ -68,8 +91,12 @@
           </table>
         </div>
 
+        <!-- Tujuan dibawa ulang dari formulir unggah; layanan memeriksanya lagi saat menyimpan
+             (TC-36, AC-B02) — field tersembunyi bukan gerbang keamanan. -->
         <form class="mt-4" hx-post="/admin/impor/simpan" hx-target="#pratinjau" hx-swap="innerHTML">
           <input type="hidden" name="token" th:value="${pratinjau.token()}">
+          <input type="hidden" name="paketId" th:value="${paketId}">
+          <input type="hidden" name="topicId" th:value="${topicId}">
           <button type="submit"
                   class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
             Simpan baris yang valid

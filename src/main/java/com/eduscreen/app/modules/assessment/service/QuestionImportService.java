@@ -8,6 +8,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
+import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import com.eduscreen.app.shared.web.UnprocessableException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +23,11 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * Impor massal soal dari berkas Excel/CSV, dalam dua langkah: {@link #preview} menguraikan dan
  * memvalidasi tanpa menulis apa pun, {@link #commit} menyimpan hanya baris yang valid.
+ *
+ * <p>Sejak ADR-0018, tujuan impor dipilih EKSPLISIT di layar impor: seluruh baris valid mendarat
+ * di satu Paket dan satu Topic milik Paket itu (AC-B02). Kolom {@code topic} pada berkas tidak
+ * lagi menentukan tujuan — pencocokan nama Topic lintas Paket membuat hasil impor bergantung
+ * pada kebetulan judul, bukan pada niat pengunggah.
  *
  * <p>Diproses sepenuhnya SINKRON, tanpa antrean pekerjaan latar (TC-45, ADR-0014). Batas
  * {@value #MAX_ROWS} baris per berkas ADA justru supaya itu tetap benar: ia menjamin satu
@@ -39,6 +45,7 @@ public class QuestionImportService {
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
     private final TopicRepository topics;
+    private final PaketService pakets;
     private final ContentSanitizer sanitizer;
     private final ClientClock clock;
 
@@ -49,12 +56,14 @@ public class QuestionImportService {
                                  QuestionRepository questions,
                                  QuestionOptionRepository options,
                                  TopicRepository topics,
+                                 PaketService pakets,
                                  ContentSanitizer sanitizer,
                                  ClientClock clock) {
         this.parser = parser;
         this.questions = questions;
         this.options = options;
         this.topics = topics;
+        this.pakets = pakets;
         this.sanitizer = sanitizer;
         this.clock = clock;
     }
@@ -63,14 +72,18 @@ public class QuestionImportService {
 
     public record ImportSummary(int saved) {}
 
-    private record PendingPreview(UUID clientId, List<QuestionImportParser.RawRow> rows, OffsetDateTime expiresAt) {}
+    private record PendingPreview(UUID clientId, UUID paketId, List<QuestionImportParser.RawRow> rows,
+                                  OffsetDateTime expiresAt) {}
 
     /**
-     * Menguraikan dan memvalidasi berkas tanpa menyimpan apa pun. Baris dihitung LEBIH DULU,
-     * sebelum diuraikan isinya, supaya berkas raksasa ditolak murah tanpa membebani parser
-     * (AC-Q06).
+     * Menguraikan dan memvalidasi berkas tanpa menyimpan apa pun. Paket tujuan diperiksa lebih
+     * dulu: milik Client lain dijawab 404, bukan 403 (TC-36), sebelum satu byte pun berkasnya
+     * diproses. Baris dihitung sebelum diuraikan isinya, supaya berkas raksasa ditolak murah
+     * tanpa membebani parser (AC-Q06).
      */
-    public Preview preview(String filename, byte[] content, UUID clientId) {
+    public Preview preview(String filename, byte[] content, UUID paketId, UUID clientId) {
+        pakets.require(paketId, clientId);
+
         int rowCount = parser.countRows(filename, content);
         if (rowCount > MAX_ROWS) {
             throw new UnprocessableException(
@@ -80,19 +93,27 @@ public class QuestionImportService {
 
         QuestionImportParser.ParseResult result = parser.parse(filename, content);
         String token = UUID.randomUUID().toString();
-        previews.put(token, new PendingPreview(clientId, result.valid(), clock.now().plus(PREVIEW_TTL)));
+        previews.put(token, new PendingPreview(clientId, paketId, result.valid(), clock.now().plus(PREVIEW_TTL)));
         return new Preview(token, result.valid().size(), result.failures());
     }
 
     /**
-     * Menyimpan hasil pratinjau. Hanya baris valid yang tersimpan (FR-022): baris yang topic-nya
-     * tak dikenali Client ini dilewati tanpa membatalkan baris lain, dan tidak ikut terhitung di
-     * {@link ImportSummary#saved()}.
+     * Menyimpan hasil pratinjau ke Topic tujuan. Hanya baris valid yang sampai ke sini —
+     * baris gagal sudah tersaring dan dilaporkan saat pratinjau, tanpa membatalkan baris lain
+     * (FR-022, AC-Q03).
+     *
+     * <p>Paket diperiksa ulang lewat {@code PaketService.require} walau pratinjau sudah
+     * memeriksanya: pratinjau hidup 30 menit, cukup lama untuk Paket-nya keburu dihapus atau
+     * URL-nya diutak-atik. Topic tujuan wajib milik Paket tujuan (AC-B02) — tanpa gerbang itu,
+     * Topic dari Paket lain milik Client yang sama bisa lolos dan soal mendarat di luar Paket
+     * tempat pengunggah sedang bekerja.
      */
     @Transactional
-    public ImportSummary commit(String token, UUID clientId, UUID author) {
+    public ImportSummary commit(String token, UUID paketId, UUID topicId, UUID clientId, UUID author) {
+        pakets.require(paketId, clientId);
+
         PendingPreview pending = previews.get(token);
-        if (pending == null || !pending.clientId().equals(clientId)) {
+        if (pending == null || !pending.clientId().equals(clientId) || !pending.paketId().equals(paketId)) {
             throw new IllegalArgumentException("Pratinjau sudah kedaluwarsa, unggah ulang berkasnya");
         }
         if (pending.expiresAt().isBefore(clock.now())) {
@@ -101,28 +122,34 @@ public class QuestionImportService {
         }
         previews.remove(token);
 
+        TopicEntity topic = topics.findWritable(topicId, clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Topic tidak ditemukan"));
+        if (!topic.getPaketId().equals(paketId)) {
+            throw new IllegalArgumentException("Topic bukan milik Paket ini");
+        }
+
+        // Posisi awal dihitung sekali untuk seluruh berkas, lalu berjalan naik per baris:
+        // soal impor mendarat berurutan di ekor Topic, tidak menumpuk di posisi soal yang
+        // sudah ada (AC-B08).
+        int position = questions.nextPosition(topic.getId());
         int saved = 0;
         for (QuestionImportParser.RawRow row : pending.rows()) {
-            TopicEntity topic = findWritableTopicByName(row.topic(), clientId);
-            if (topic == null) {
-                continue;
-            }
-            saveQuestion(row, topic, clientId, author);
+            saveQuestion(row, paketId, topic.getId(), clientId, author, position++);
             saved++;
         }
         return new ImportSummary(saved);
     }
 
-    private void saveQuestion(QuestionImportParser.RawRow row, TopicEntity topic, UUID clientId, UUID author) {
+    private void saveQuestion(QuestionImportParser.RawRow row, UUID paketId, UUID topicId,
+                              UUID clientId, UUID author, int position) {
         QuestionType type = "PG".equals(row.type()) ? QuestionType.MULTIPLE_CHOICE : QuestionType.ESSAY;
 
         // Konten impor melewati sanitasi yang SAMA dengan editor manual (TC-22) — tidak ada
         // jalur pintas untuk berkas. Rumus matematika masuk sebagai LaTeX berdelimiter dan
         // tidak dirender di server (TC-24); sanitasi HTML tidak menyentuhnya.
-        // sementara sampai Task 13: Paket induk diturunkan dari Topic tujuan yang sedang
-        // dicocokkan. Impor yang menyasar satu Paket secara eksplisit ditulis di Task 13.
-        QuestionEntity question = new QuestionEntity(clientId, topic.getPaketId(), topic.getId(), type,
+        QuestionEntity question = new QuestionEntity(clientId, paketId, topicId, type,
                 sanitizer.sanitize(row.body()), sanitizer.toPlainText(row.body()));
+        question.moveTo(position);
         question.setCreatedBy(author);
         if (row.explanation() != null && !row.explanation().isBlank()) {
             question.setExplanationHtml(sanitizer.sanitize(row.explanation()));
@@ -133,7 +160,7 @@ public class QuestionImportService {
         if (type == QuestionType.MULTIPLE_CHOICE) {
             char correctLetter = row.answerKey().charAt(0);
             List<String> raw = row.options();
-            int position = 0;
+            int optionPosition = 0;
             for (int i = 0; i < raw.size(); i++) {
                 String value = raw.get(i);
                 if (value == null || value.isBlank()) {
@@ -141,26 +168,9 @@ public class QuestionImportService {
                 }
                 boolean correct = (char) ('A' + i) == correctLetter;
                 options.save(new QuestionOptionEntity(question.getId(),
-                        sanitizer.sanitize(value), sanitizer.toPlainText(value), correct, position));
-                position++;
+                        sanitizer.sanitize(value), sanitizer.toPlainText(value), correct, optionPosition));
+                optionPosition++;
             }
         }
-    }
-
-    /**
-     * Topic yang boleh DITULISI satu Client = Topic di dalam Paket miliknya sendiri, dicocokkan
-     * berdasarkan judul tanpa peduli huruf besar/kecil (§Impor massal).
-     *
-     * <p>Kolom {@code topic} pada berkas impor tidak membawa Subject maupun Paket, jadi
-     * pencocokannya lintas Paket milik Client itu. Batas tenant (TC-36) ditegakkan di dalam
-     * query, bukan di kode ini. Paket master sengaja tidak ikut dicocokkan: berkas impor yang
-     * kolom topic-nya kebetulan sama dengan judul Topic master jangan sampai menitipkan soal
-     * sekolah ke dalam Paket milik Eduscreen (ADR-0018). Judul yang muncul di lebih dari satu
-     * Paket diambil yang tertua supaya hasil impor tidak berubah-ubah antar unggahan.
-     */
-    private TopicEntity findWritableTopicByName(String name, UUID clientId) {
-        return topics.findWritableByTitle(name, clientId).stream()
-                .findFirst()
-                .orElse(null);
     }
 }
