@@ -78,12 +78,18 @@ Karena itu, tiap permukaan yang memakai jalur ini wajib membawa dua penjaga:
 Tanpa keduanya, permukaan itu berjalan tanpa jaring — dan proyek ini sudah dua kali membuktikan
 kelas kegagalan itu nyata.
 
-**Penerapan pada yang sudah ada.** Menjawab soal Practice **dan** auto-save jawaban Quiz
-sama-sama tetap fragment: `ExamSessionController.saveAnswer` (`PUT /siswa/sesi/{id}/jawaban/{qid}`)
-membalas `siswa/practice :: soal` atau `siswa/pengerjaan :: soal` — fragmen **batang soal utuh**,
-bukan "tersimpan, sekian dari sekian". Keduanya memuat `explanationHtml`/`bodyHtml` yang dirender
-`th:utext` plus render ulang KaTeX, jadi keduanya jatuh ke sisi fragment pertanyaan di atas, apa
-adanya.
+**Penerapan pada yang sudah ada.** Menjawab soal Practice tetap fragment **batang soal utuh**:
+`ExamSessionController.saveAnswer` (`PUT /siswa/sesi/{id}/jawaban/{qid}`) membalas
+`siswa/practice :: soal`, karena jawaban membuka `explanationHtml` yang dirender `th:utext` plus
+render ulang KaTeX — jatuh ke sisi fragment pertanyaan di atas, apa adanya.
+
+Auto-save Quiz juga fragment, tapi **bukan batang soal utuh**: menyimpan jawaban Quiz tidak
+mengubah soalnya, jadi endpoint yang sama membalas `siswa/fragmen-simpan :: tersimpan` — satu
+baris status untuk `#status-simpan` plus satu tombol peta soal yang berubah sebagai swap
+out-of-band. Sebelumnya balasannya batang soal, seluruh opsi, textarea yang sedang diketik, dan
+seluruh peta soal, dan server membaca ulang delapan query untuk merender yang tidak berubah itu.
+Bentuk yang lebih kecil ini masih HTML yang mendarat di DOM, jadi tetap fragment, bukan JSON;
+yang berubah hanya seberapa banyak DOM yang disentuh.
 
 Hitung mundur Timer **tidak dipindah** oleh ADR ini. `SessionTimeController.remaining`
 (`GET /siswa/sesi/{id}/waktu`) membalas `siswa/fragmen-waktu` — sebuah `<span>` berisi `sisaDetik`

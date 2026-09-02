@@ -68,6 +68,11 @@ public class SessionAnswerEntity {
         this.essayScore = essayScore;
     }
 
+    /** Terjawab bila ada pilihan atau esai yang tidak kosong; aturan tunggal untuk peta soal dan rekap. */
+    public boolean isAnswered() {
+        return selectedOptionId != null || (essayText != null && !essayText.isBlank());
+    }
+
     /** Dipakai untuk memutuskan apakah kiriman ulang adalah no-op (TC-20). */
     public boolean sameAs(UUID selectedOptionId, String essayText) {
         return Objects.equals(this.selectedOptionId, selectedOptionId) && Objects.equals(this.essayText, essayText);

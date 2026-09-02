@@ -57,16 +57,10 @@
       <!-- Peta soal: navigasi Quiz bebas ke soal mana pun (berbeda dari Practice). -->
       <div id="peta-soal" hx-swap-oob="true"
            class="mb-6 grid grid-cols-8 gap-1.5 sm:grid-cols-10" role="navigation" aria-label="Peta soal">
-        <button th:each="i : ${#numbers.sequence(0, soal.total() - 1)}"
-                type="button"
-                th:text="${i + 1}"
-                th:attr="hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesi.id},position=${i})},
-                         aria-current=${i == soal.sessionQuestion().position} ? 'true' : null"
-                hx-target="#soal" hx-swap="outerHTML"
-                th:classappend="${terjawab.contains(i)} ? 'border-success/40 bg-success-soft text-success' : 'border-line bg-surface text-ink-2'"
-                class="h-10 rounded-md border text-sm font-medium tabular-nums transition-colors duration-150 hover:border-line-2 hover:text-ink aria-[current]:ring-2 aria-[current]:ring-accent aria-[current]:ring-offset-2 aria-[current]:ring-offset-bg">
-          1
-        </button>
+        <!-- th:each dan th:replace dipisah: th:replace diproses lebih dulu bila di elemen yang sama. -->
+        <th:block th:each="i : ${#numbers.sequence(0, soal.total() - 1)}">
+          <th:block th:replace="~{siswa/fragmen-simpan :: tombolPeta(${sesi.id}, ${i}, ${i == soal.sessionQuestion().position}, ${terjawab.contains(i)}, false)}"/>
+        </th:block>
       </div>
 
       <div id="soal">
@@ -84,24 +78,27 @@
                    name="selectedOptionId" th:value="${opsi.id}"
                    th:checked="${soal.answer() != null and soal.answer().selectedOptionId == opsi.id}"
                    th:attr="hx-put=@{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
-                   hx-trigger="change" hx-target="#soal" hx-swap="outerHTML">
+                   hx-trigger="change" hx-target="#status-simpan" hx-swap="outerHTML">
             <span class="prose min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
           </label>
         </div>
 
         <div th:if="${soal.question().type.name() == 'ESSAY'}">
           <label th:for="|essay-${soal.sessionQuestion().id}|" class="label">Jawaban</label>
-          <!--
-            Auto-save mengembalikan FRAGMEN, bukan JSON, sehingga satu jalur render yang sama
-            melayani muat awal maupun pembaruan parsial ini (TC-14).
-          -->
           <textarea th:id="|essay-${soal.sessionQuestion().id}|" name="essayText" rows="6"
                     th:attr="hx-put=@{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
-                    hx-trigger="keyup changed delay:800ms" hx-target="#soal" hx-swap="outerHTML"
+                    hx-trigger="keyup changed delay:800ms" hx-target="#status-simpan" hx-swap="outerHTML"
                     class="textarea"
                     th:text="${soal.answer() != null ? soal.answer().essayText : ''}"></textarea>
-          <p class="hint">Tersimpan otomatis saat Anda berhenti mengetik.</p>
         </div>
+
+        <!--
+          Sasaran swap auto-save. Menyimpan jawaban Quiz tidak mengubah soalnya, jadi balasannya
+          (fragmen "tersimpan" di bawah) hanya mengganti baris ini dan satu tombol peta lewat
+          swap out-of-band — bukan batang soal, opsi, atau textarea yang sedang diketik (TC-14).
+        -->
+        <p id="status-simpan" role="status" class="hint mt-2"
+           th:text="${soal.question().type.name() == 'ESSAY'} ? 'Tersimpan otomatis saat Anda berhenti mengetik.' : 'Pilihan tersimpan otomatis.'">Tersimpan otomatis.</p>
       </div>
       </th:block>
     </div>

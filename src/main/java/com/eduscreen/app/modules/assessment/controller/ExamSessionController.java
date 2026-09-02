@@ -161,19 +161,27 @@ public class ExamSessionController {
                              @AuthenticationPrincipal UserPrincipal student,
                              Model model) {
         // Isi jawaban tidak pernah masuk log (TC-44); yang dicatat hanya pengenal sesi.
-        answers.save(sessionId, sessionQuestionId, selectedOptionId, essayText, student);
+        AnswerService.Saved saved = answers.save(sessionId, sessionQuestionId, selectedOptionId, essayText, student);
 
+        if (!saved.practice()) {
+            // Menyimpan jawaban Quiz tidak mengubah soalnya. Balasannya hanya baris status dan
+            // satu tombol peta yang berubah (OOB), bukan batang soal utuh: server tidak membaca
+            // ulang soal yang tidak berubah, dan textarea yang sedang diketik tidak diganti.
+            model.addAttribute("sesiId", sessionId);
+            model.addAttribute("posisi", saved.position());
+            model.addAttribute("terjawab", saved.answered());
+            return "siswa/fragmen-simpan :: tersimpan";
+        }
+
+        // Practice membuka pembahasan ber-HTML seketika, jadi batang soal utuh memang harus
+        // dirender ulang (ADR-0019).
         ExamSessionEntity session = sessions.requireOwnSession(sessionId, student);
         AssignmentEntity assignment = sessions.assignmentOf(session);
         model.addAttribute("sesi", session);
         model.addAttribute("sisaDetik", sessions.remainingSeconds(session));
-        model.addAttribute("soal", sessions.view(session,
-                positionOf(session, sessionQuestionId), assignment.isPractice()));
+        model.addAttribute("soal", sessions.view(session, saved.position(), true));
         model.addAttribute("assignment", assignment);
-        model.addAttribute("terjawab", sessions.answeredPositions(sessionId));
-        return assignment.isPractice()
-                ? "siswa/practice :: soal"
-                : "siswa/pengerjaan :: soal";
+        return "siswa/practice :: soal";
     }
 
     @PostMapping("/siswa/sesi/{sessionId}/selesai")
@@ -219,13 +227,5 @@ public class ExamSessionController {
 
     private int jumlahSoal(ExamSessionEntity session) {
         return sessions.snapshotOf(session.getId()).size();
-    }
-
-    private int positionOf(ExamSessionEntity session, UUID sessionQuestionId) {
-        return sessions.snapshotOf(session.getId()).stream()
-                .filter(sessionQuestion -> sessionQuestion.getId().equals(sessionQuestionId))
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"))
-                .getPosition();
     }
 }

@@ -32,8 +32,13 @@ import java.util.UUID;
 @Service
 public class AnswerService {
 
-    /** Hasil satu penyimpanan; {@code revealed} menandai Practice yang membuka pembahasan. */
-    public record Saved(SessionAnswerEntity answer, boolean locked, boolean noop) {
+    /**
+     * Hasil satu penyimpanan. {@code position}, {@code practice}, dan {@code answered} dibawa
+     * supaya balasan auto-save Quiz tidak perlu membaca ulang apa pun: yang dirender hanya baris
+     * status dan satu tombol peta.
+     */
+    public record Saved(SessionAnswerEntity answer, boolean locked, boolean noop,
+                        int position, boolean practice, boolean answered) {
     }
 
     private final SessionQuestionRepository sessionQuestions;
@@ -86,17 +91,23 @@ public class AnswerService {
         SessionAnswerEntity answer = answers.findBySessionQuestionId(sessionQuestionId)
                 .orElseGet(() -> new SessionAnswerEntity(sessionQuestionId));
 
+        AssignmentEntity assignment = assignments
+                .findByIdAndClientId(session.getAssignmentId(), session.getClientId())
+                .orElseThrow(() -> new ResourceNotFoundException("Assignment tidak ditemukan"));
+        int position = sessionQuestion.getPosition();
+        boolean practice = assignment.isPractice();
+
         boolean identical = answer.getAnsweredAt() != null
                 && answer.sameAs(selectedOptionId, essayText);
 
         if (sessionQuestion.isLocked()) {
             if (identical) {
-                return new Saved(answer, true, true);
+                return new Saved(answer, true, true, position, practice, answer.isAnswered());
             }
             throw new IllegalStateException("Jawaban soal ini sudah terkunci dan tidak bisa diubah");
         }
         if (identical) {
-            return new Saved(answer, false, true);
+            return new Saved(answer, false, true, position, practice, answer.isAnswered());
         }
 
         if (selectedOptionId != null) {
@@ -111,17 +122,13 @@ public class AnswerService {
         }
         answers.save(answer);
 
-        AssignmentEntity assignment = assignments
-                .findByIdAndClientId(session.getAssignmentId(), session.getClientId())
-                .orElseThrow(() -> new ResourceNotFoundException("Assignment tidak ditemukan"));
-
         // Pada Practice jawaban terkunci saat dikirim, dan pembahasan terbuka seketika
         // (BR-S07, §9.5).
-        if (assignment.isPractice()) {
+        if (practice) {
             sessionQuestion.lock(clock.now());
             sessionQuestions.save(sessionQuestion);
-            return new Saved(answer, true, false);
+            return new Saved(answer, true, false, position, true, answer.isAnswered());
         }
-        return new Saved(answer, false, false);
+        return new Saved(answer, false, false, position, false, answer.isAnswered());
     }
 }

@@ -300,10 +300,7 @@ public class ExamSessionService {
         List<Integer> positions = new ArrayList<>();
         for (SessionQuestionEntity sessionQuestion : snapshot) {
             SessionAnswerEntity answer = saved.get(sessionQuestion.getId());
-            boolean answered = answer != null
-                    && (answer.getSelectedOptionId() != null
-                        || (answer.getEssayText() != null && !answer.getEssayText().isBlank()));
-            if (answered) {
+            if (answer != null && answer.isAnswered()) {
                 positions.add(sessionQuestion.getPosition());
             }
         }

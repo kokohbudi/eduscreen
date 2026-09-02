@@ -95,6 +95,40 @@ adalah rebutan CPU antar-ketiganya, bukan sifat aplikasinya. Tidak ada latensi j
 Angka ini karena itu **tidak boleh** dipakai sebagai bukti SC-006 terpenuhi; ia hanya menunjukkan
 tidak ada kegagalan struktural pada taraf yang diuji.
 
+### Lari 2 — 2026-09-02, mesin pengembangan, setelah auto-save Quiz dipangkas
+
+Perubahan yang diuji: `PUT .../jawaban` untuk Quiz membalas `siswa/fragmen-simpan :: tersimpan`
+(baris status + satu tombol peta OOB), bukan batang soal utuh + peta lengkap. Delapan query baca
+yang dulu dipakai untuk merender ulang soal yang tidak berubah hilang dari jalur ini.
+
+| Ihwal | Nilai |
+| --- | --- |
+| Perintah | `./scripts/uji-beban.py --base http://localhost:8080 --siswa 300 --jawaban 10 --paralel 100` |
+| Lingkungan | sama dengan Lari 1, peramban Chrome ikut berjalan di mesin yang sama |
+| Beban | 300 Session, 100 permintaan bersamaan, 10 auto-save + 10 polling waktu per Session |
+| Durasi | 14,1 detik total |
+| Galat | **0** — seluruh 6.900 permintaan menjawab `200`/`302` |
+
+| Skenario | Permintaan | p50 (ms) | p95 (ms) | p99 (ms) | maks (ms) | Galat (%) |
+| --- | --- | --- | --- | --- | --- | --- |
+| `POST /siswa/assignment/{id}/mulai` | 300 | 261,0 | 714,4 | 811,8 | 899,1 | 0 |
+| `PUT /siswa/sesi/{id}/jawaban/{sqId}` | 3.000 | 97,0 | 211,4 | 289,1 | 475,8 | 0 |
+| `GET /siswa/sesi/{id}/waktu` | 3.000 | 78,7 | 178,6 | 261,5 | 430,8 | 0 |
+| `POST /siswa/sesi/{id}/selesai` | 300 | 186,8 | 428,9 | 562,5 | 655,0 | 0 |
+
+**Yang bisa dibaca.** Auto-save turun dari p50 236 ms / p95 761 ms (Lari 1) ke p50 97 ms /
+p95 211 ms. Endpoint waktu, yang tidak berubah, justru sedikit lebih lambat dari Lari 1
+(53 → 79 ms) karena mesin lebih sibuk hari ini, jadi selisih auto-save bukan hasil mesin yang
+lebih lega. Rasio auto-save terhadap endpoint waktu turun dari 4,4× ke 1,2×: auto-save kini
+sekelas dengan tulis kecil yang memang diasumsikan TC-42, bukan lagi baca ulang yang menyamar
+sebagai tulis.
+
+**Catatan skrip.** Lari 2 menemukan `uji-beban.py` mengandaikan tepat satu Session per siswa
+uji beban dan assignment yang belum kedaluwarsa; `on conflict do nothing` di `siapkan()` tidak
+memperbarui `expires_at` maupun `max_attempts` dari lari sebelumnya. Sebelum lari ulang, Session
+lama assignment `…09fd` dihapus dan `expires_at` diperpanjang lewat SQL. Belum diperbaiki di
+skrip.
+
 ## Kriteria lulus/gagal
 
 **Lulus** bila, pada beban target (2.000 Session serentak dalam satu Client; sekitar 10.000

@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Balasan auto-save Quiz (ExamSessionController#saveAnswer): baris status untuk #status-simpan,
+  plus tombol peta soal yang barusan dijawab sebagai swap out-of-band. Model: sesiId, posisi,
+  terjawab (boolean).
+-->
+<th:block th:fragment="tersimpan">
+  <th:block th:replace="~{:: tombolPeta(${sesiId}, ${posisi}, true, ${terjawab}, true)}"/>
+  <p id="status-simpan" role="status" class="hint mt-2">Jawaban tersimpan.</p>
+</th:block>
+
+<!--
+  Satu tombol peta soal. Dipakai peta di atas dan balasan "tersimpan", supaya penanda
+  terjawab/aktif hanya ditulis sekali. oob=true menempelkan hx-swap-oob untuk balasan
+  auto-save; pada muat awal atribut itu tidak berarti apa-apa (HTMX hanya membacanya dari
+  balasan).
+-->
+<button th:fragment="tombolPeta(sesiId, i, aktif, terjawab, oob)"
+        type="button"
+        th:id="|peta-${i}|"
+        th:text="${i + 1}"
+        th:attr="hx-swap-oob=${oob} ? 'true' : null,
+                 hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesiId},position=${i})},
+                 aria-current=${aktif} ? 'true' : null"
+        hx-target="#soal" hx-swap="outerHTML"
+        th:classappend="${terjawab} ? 'border-success/40 bg-success-soft text-success' : 'border-line bg-surface text-ink-2'"
+        class="h-10 rounded-md border text-sm font-medium tabular-nums transition-colors duration-150 hover:border-line-2 hover:text-ink aria-[current]:ring-2 aria-[current]:ring-accent aria-[current]:ring-offset-2 aria-[current]:ring-offset-bg">
+  1
+</button>
+
+</body>
+</html>
