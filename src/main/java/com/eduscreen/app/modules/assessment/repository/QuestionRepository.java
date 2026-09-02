@@ -200,6 +200,22 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             + "where q.paketId = :paketId and q.sourceQuestionId is not null")
     List<UUID> findSourceIdsInPaket(@Param("paketId") UUID paketId);
 
+    /**
+     * Jumlah soal per Paket untuk tabel tingkat kedua Bank Soal.
+     *
+     * <p>Satu query beragregasi untuk seluruh Paket satu Client, bukan satu {@code count} per
+     * baris tabel — jumlah query tidak boleh tumbuh sebanding jumlah Paket.
+     */
+    @Query("select q.paketId as paketId, count(q) as jumlah from QuestionEntity q "
+            + "where q.clientId = :clientId group by q.paketId")
+    List<PaketCount> countByPaket(@Param("clientId") UUID clientId);
+
+    interface PaketCount {
+        UUID getPaketId();
+
+        long getJumlah();
+    }
+
     /** Kartu dashboard: seluruh Question master, draf maupun terbit (FR-060). */
     @Query("select count(q) from QuestionEntity q where q.clientId is null")
     long countMaster();

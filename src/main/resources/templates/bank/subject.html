@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Bank Soal')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Bank Soal', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Tingkat pertama: Subject sebagai label, bukan folder yang harus diisi dulu. Yang
+         dihitung adalah Paket, karena Paket-lah yang berisi soal (ADR-0018). -->
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2">Subject</th>
+          <th class="py-2 w-24 text-right">Paket</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="s : ${subjects}" class="border-b border-slate-100">
+          <td class="py-2">
+            <a th:href="@{/bank-soal(subjectId=${s.id})}" th:text="${s.name}"
+               class="text-slate-900 underline">Subject</a>
+            <span th:if="${s.origin.name() == 'GLOBAL'}"
+                  class="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Global</span>
+          </td>
+          <td class="py-2 text-right tabular-nums"
+              th:text="${jumlahPaket.getOrDefault(s.id, 0)}">0</td>
+        </tr>
+      </tbody>
+    </table>
+    <p th:if="${#lists.isEmpty(subjects)}" class="mt-4 text-sm text-slate-500">
+      Belum ada Subject. Subject dibuat saat Anda membuat Paket pertama.
+    </p>
+
+  </div>
+</div>
+</body>
+</html>

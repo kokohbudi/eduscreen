@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head(${paket.title})}"></head>
+<body>
+<div th:replace="~{layout/base :: page(${paket.title}, ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <p class="mb-4 text-sm">
+      <a th:href="@{/bank-soal(subjectId=${paket.subjectId})}" class="text-slate-600 underline">← Semua Paket</a>
+    </p>
+
+    <!-- Topic adalah pengelompokan di dalam halaman ini, bukan tingkat navigasi keempat.
+         Paket 30 soal dengan 3 Topic tidak layak menambah satu klik lagi (ADR-0018). -->
+    <section th:each="t : ${topics}" th:with="soalTopic=${soalPerTopic[t.id]}"
+             class="mb-6 rounded border border-slate-200 bg-white p-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-sm font-semibold" th:text="${t.title}">Topic</h2>
+        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id},topicId=${t.id})}"
+           class="rounded border border-slate-300 px-2 py-1 text-xs font-medium hover:bg-slate-100">
+          + Soal
+        </a>
+      </div>
+      <ol class="space-y-1">
+        <li th:each="q, it : ${soalTopic ?: {}}"
+            class="flex items-start gap-2 rounded border border-slate-100 p-2 text-sm">
+          <span class="mt-0.5 w-6 shrink-0 text-right text-slate-400" th:text="${it.index + 1}">1</span>
+          <!-- Cuplikan dari body_text yang teks polos, bukan body_html: markup dan gambar
+               tidak boleh ikut terpotong ke dalam daftar (TC-25). -->
+          <span class="flex-1" th:text="${#strings.abbreviate(q.bodyText, 110)}">Cuplikan soal</span>
+          <a th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
+             class="shrink-0 text-slate-600 underline">Ubah</a>
+        </li>
+      </ol>
+      <p th:if="${soalTopic == null or soalTopic.isEmpty()}"
+         class="text-sm text-slate-500">Belum ada soal di Topic ini.</p>
+    </section>
+
+    <div class="flex flex-wrap items-end gap-4">
+      <form method="post" class="flex items-end gap-2 text-sm"
+            th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/topic(id=${paket.id})}">
+        <div>
+          <label for="topicBaru" class="block font-medium text-slate-700">Topic baru</label>
+          <input type="text" id="topicBaru" name="title" required
+                 class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+        </div>
+        <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-100">
+          Tambah
+        </button>
+      </form>
+
+      <button type="button"
+              th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
+              hx-target="#panel-pinjam" hx-swap="innerHTML"
+              class="rounded border border-slate-300 px-3 py-1.5 text-sm font-medium hover:bg-slate-100">
+        Pinjam soal dari Paket lain
+      </button>
+    </div>
+
+    <div id="panel-pinjam" class="mt-6"></div>
+
+  </div>
+
+  <!--
+    Panel pinjam. Soal yang salinannya sudah ada di Paket ini tidak dirender sama sekali
+    (AC-B04): menampilkannya lalu menolak saat disimpan hanya memindahkan kekecewaan ke
+    belakang.
+  -->
+  <div th:fragment="panelPinjam" class="rounded border border-slate-200 bg-white p-4">
+    <!-- Ganti sumber lewat hx-get ke panel ini sendiri, bukan submit GET biasa: submit biasa
+         menavigasi seluruh halaman ke URL fragmen telanjang. -->
+    <form th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
+          hx-target="#panel-pinjam" hx-swap="innerHTML"
+          class="mb-4 flex items-end gap-2 text-sm">
+      <div>
+        <label for="sourcePaketId" class="block font-medium text-slate-700">Ambil dari Paket</label>
+        <select id="sourcePaketId" name="sourcePaketId" onchange="this.form.requestSubmit()"
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+          <option value="">-- Paket --</option>
+          <option th:each="p : ${paketLain}" th:value="${p.id}" th:text="${p.title}"
+                  th:selected="${sumber != null and sumber.id == p.id}">Paket</option>
+        </select>
+      </div>
+    </form>
+    <p th:if="${#lists.isEmpty(paketLain)}" class="text-sm text-slate-500">
+      Belum ada Paket lain di Subject ini yang bisa dipinjam.
+    </p>
+
+    <form th:if="${sumber != null}" method="post"
+          th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}">
+      <div class="mb-3">
+        <label for="topicTujuan" class="block text-sm font-medium text-slate-700">Masukkan ke Topic</label>
+        <select id="topicTujuan" name="topicId" required
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+          <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
+        </select>
+      </div>
+
+      <div th:each="t : ${topicSumber}" th:with="soalT=${soalSumber[t.id]}" class="mb-3">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold" th:text="${t.title}">Topic sumber</h3>
+          <button type="submit" name="sourceTopicId" th:value="${t.id}"
+                  class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+            Salin seluruh Topic ini
+          </button>
+        </div>
+        <label th:each="q : ${soalT ?: {}}"
+               th:unless="${sudahDipinjam.contains(q.id)}"
+               class="flex items-center gap-2 py-1 text-sm">
+          <input type="checkbox" name="questionIds" th:value="${q.id}" class="rounded border-slate-300">
+          <span th:text="${#strings.abbreviate(q.bodyText, 100)}">Cuplikan soal</span>
+        </label>
+      </div>
+
+      <button type="submit"
+              class="mt-2 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+        Salin soal terpilih
+      </button>
+    </form>
+  </div>
+
+</div>
+</body>
+</html>

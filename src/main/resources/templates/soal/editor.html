@@ -13,19 +13,31 @@
     -->
     <div id="soal-editor" th:fragment="detail">
 
+      <!-- Mode Bank Soal (${paket} terisi): editor dibuka dari dalam satu Paket, jadi jalan
+           pulangnya ke isi Paket itu, bukan ke daftar pencarian. -->
+      <p th:if="${paket != null}" class="mb-4 text-sm">
+        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}"
+           class="text-slate-600 underline">← <span th:text="${paket.title}">Paket</span></a>
+      </p>
+
       <div th:if="${soal != null}" class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
            id="pesan-simpan" role="status">
         Tersimpan.
       </div>
 
-      <form th:action="@{__${basePath ?: '/soal'}__}" method="post" class="space-y-4"
-            th:attr="hx-put=${soal != null} ? @{__${basePath ?: '/soal'}__/{id}(id=${soal.id})} : null,
+      <!-- Mode Bank Soal menyimpan ke jalur per-Paket: paketId ada di URL, bukan disimpulkan
+           dari Topic (AC-B02). Mode lama tetap ke jalur datar milik alur /soal. -->
+      <form th:action="${paket != null} ? @{__${basePath ?: '/bank-soal'}__/paket/{id}/soal(id=${paket.id})} : @{__${basePath ?: '/soal'}__}"
+            method="post" class="space-y-4"
+            th:attr="hx-put=${soal == null} ? null : (${paket != null} ? @{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${soal.id})} : @{__${basePath ?: '/soal'}__/{id}(id=${soal.id})}),
                      hx-target=${soal != null} ? '#soal-editor' : null,
                      hx-swap=${soal != null} ? 'outerHTML' : null"
             x-data="soalEditor()">
 
         <section class="grid grid-cols-1 gap-3 rounded border border-slate-200 bg-white p-4 sm:grid-cols-3">
-          <div>
+          <!-- Di mode Bank Soal Subject tidak dipilih di sini: ia sudah melekat pada Paket,
+               dan daftar Topic di sampingnya hanya milik Paket itu (ADR-0018). -->
+          <div th:if="${paket == null}">
             <label for="subjectSoal" class="block text-sm font-medium text-slate-700">Subject</label>
             <select id="subjectSoal"
                     onchange="htmx.ajax('GET', '/subject/' + this.value + '/topic', {target: '#topicId', swap: 'innerHTML'})"
@@ -101,7 +113,20 @@
                     class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"></textarea>
         </section>
 
-        <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        <!-- Menulis soal baru di dalam Paket biasanya berderet: "buat lagi" kembali ke
+             formulir Topic yang sama tanpa mampir ke halaman isi tiap satu soal. -->
+        <div th:if="${paket != null and soal == null}" class="flex gap-2">
+          <button type="submit" name="lanjut" value="1"
+                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+            Simpan &amp; buat lagi
+          </button>
+          <button type="submit"
+                  class="rounded border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100">
+            Simpan &amp; selesai
+          </button>
+        </div>
+        <button th:unless="${paket != null and soal == null}" type="submit"
+                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
           Simpan
         </button>
       </form>

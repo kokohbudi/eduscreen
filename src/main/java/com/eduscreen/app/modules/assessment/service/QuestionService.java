@@ -14,9 +14,13 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 /**
  * Bank soal: pembuatan, pengubahan, pencarian, dan penghapusan lunak Question beserta
@@ -98,6 +102,40 @@ public class QuestionService {
             case DRAF -> questions.searchUnpublishedMaster(subjectId, topicId, pattern, pageable);
             case TERBIT -> questions.searchPublishedMaster(subjectId, topicId, pattern, pageable);
         };
+    }
+
+    /**
+     * Soal satu Paket dikelompokkan per Topic, terurut {@code position} — halaman isi Paket.
+     *
+     * <p>Query di baliknya tidak menyaring Paket yang sudah ter-soft-delete, jadi pemanggil
+     * wajib memastikan Paket-nya masih hidup lebih dulu lewat {@code PaketService.require}.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<QuestionEntity>> groupByTopic(UUID paketId) {
+        return questions.findByPaketIdOrderByPositionAsc(paketId).stream()
+                .collect(Collectors.groupingBy(QuestionEntity::getTopicId,
+                        LinkedHashMap::new, Collectors.toList()));
+    }
+
+    /**
+     * Merakit {@link QuestionDraft} dari parameter form editor; satu tempat, dipakai lebih dari
+     * satu controller.
+     *
+     * <p>Tipe soal yang menentukan Option ikut atau tidak, bukan keberadaan parameternya:
+     * editor menyembunyikan kolom pilihan lewat {@code x-show} saat tipenya esai, dan kolom
+     * tersembunyi tetap terkirim oleh peramban.
+     */
+    public static QuestionDraft draftOf(UUID topicId, QuestionType type, String bodyHtml,
+                                        String explanationHtml, List<String> optionBody,
+                                        int correctIndex) {
+        if (type == QuestionType.ESSAY || optionBody == null) {
+            return new QuestionDraft(topicId, type, bodyHtml, explanationHtml, List.of());
+        }
+        List<OptionDraft> opsi = new ArrayList<>();
+        for (int i = 0; i < optionBody.size(); i++) {
+            opsi.add(new OptionDraft(optionBody.get(i), i == correctIndex));
+        }
+        return new QuestionDraft(topicId, type, bodyHtml, explanationHtml, opsi);
     }
 
     @Transactional(readOnly = true)
