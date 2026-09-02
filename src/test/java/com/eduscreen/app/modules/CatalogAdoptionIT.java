@@ -1,17 +1,24 @@
 package com.eduscreen.app.modules;
 
+import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.repository.AppUserEntity;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
+import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
+import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
+import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
-import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
-import com.eduscreen.app.modules.assessment.service.TaxonomyService;
+import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -25,13 +32,15 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Katalog granular dan adopsinya (FR-074 sampai FR-079), plus pembuktian bahwa hasil adopsi
- * berperilaku persis seperti soal buatan sekolah sendiri di tangan Guru (FR-024, SC-018).
+ * Katalog Paket master dan adopsinya (Task 8/11, ADR-0018): Paket adalah satu-satunya satuan
+ * katalog dan adopsi, menggantikan adopsi per Question dan per Exercise (AC-B05).
  *
- * <p>Perakitan paket master (FR-071 sampai FR-073) ikut diuji di sini karena paket adalah satuan
- * yang katalog tawarkan; gerbang penerbitannya sendiri diuji di {@code MasterContentIT}.
+ * <p>Termasuk pembuktian bahwa hasil adopsi berperilaku persis seperti soal buatan sekolah sendiri
+ * di tangan Guru (FR-024, SC-018), dan bahwa aliran konten hanya satu arah dari master ke Client
+ * (TC-09, FR-082).
  */
 class CatalogAdoptionIT extends PostgresTestBase {
 
@@ -44,181 +53,275 @@ class CatalogAdoptionIT extends PostgresTestBase {
     @Autowired
     ContentAdoptionService adoption;
     @Autowired
-    MasterPublishingService publishing;
+    MasterPublishingService masterPublishing;
     @Autowired
-    TaxonomyService taxonomy;
+    PaketService paketService;
+    @Autowired
+    PaketRepository pakets;
+    @Autowired
+    QuestionRepository questions;
+    @Autowired
+    QuestionOptionRepository options;
     @Autowired
     SubjectRepository subjects;
 
-    // -------------------------------------------------------------- paket master
+    // -------------------------------------------------------------- adopsi per Paket
 
     @Test
-    @DisplayName("AC-E02 (FR-071): paket master memuat soal lintas Subject tanpa peringatan apa pun")
-    void paketMasterLintasSubject() {
-        TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        TopicEntity gerak = data.globalTopic("Fisika Kelas 9", "Gerak Lurus");
-        QuestionEntity a = data.masterMcq(pecahan, "Soal pecahan");
-        QuestionEntity b = data.masterMcq(gerak, "Soal gerak");
-        ExerciseEntity paket = data.masterExercise("Paket lintas Subject", List.of());
+    @DisplayName("AC-B05: adopsi menyalin Paket beserta Topic, Question, dan Option")
+    void adoptCopiesWholePaket() {
+        ClientEntity client = data.client("SD Adopsi Paket");
+        PaketEntity master = data.masterPaket("Matematika Kelas 6 Adopsi", "Paket Master");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        data.masterMcq(topicMaster, "Berapa 7 x 8?");
+        masterPublishing.publishPaket(master.getId());
 
-        exerciseService.addQuestion(paket.getId(), a.getId(), null);
-        exerciseService.addQuestion(paket.getId(), b.getId(), null);
+        ContentAdoptionService.AdoptionSummary ringkasan =
+                adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        assertThat(exerciseService.itemsOf(paket.getId())).hasSize(2);
+        assertThat(ringkasan.pakets()).isEqualTo(1);
+        assertThat(ringkasan.questions()).isEqualTo(1);
+
+        PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                client.getId(), master.getSubjectId()).get(0);
+        assertThat(salinan.getSourcePaketId()).isEqualTo(master.getId());
+        List<QuestionEntity> questionSalinan = questions.findByPaketIdOrderByPositionAsc(salinan.getId());
+        assertThat(questionSalinan).hasSize(1);
+
+        // Salinan Option lengkap — jumlahnya dan mana yang benar (FR-016) — bukan sekadar
+        // Question-nya yang tersalin.
+        List<QuestionOptionEntity> opsiSalinan =
+                options.findByQuestionIdOrderByPositionAsc(questionSalinan.get(0).getId());
+        assertThat(opsiSalinan).hasSize(4);
+        assertThat(opsiSalinan).filteredOn(QuestionOptionEntity::isCorrect).hasSize(1);
     }
 
     @Test
-    @DisplayName("BR-E04 (FR-073): paket master tidak pernah terkunci, jadi isinya tetap bisa diubah setelah diadopsi banyak Client")
-    void paketMasterTidakPernahTerkunci() {
-        ClientEntity clientA = data.client("SD Katalog1");
-        ClientEntity clientB = data.client("SD Katalog2");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity terbit = data.publishedMasterMcq(topic, "Soal paket");
-        ExerciseEntity paket = data.masterExercise("Paket dipakai banyak Client", List.of(terbit));
-        publishing.publishExercise(paket.getId());
+    @DisplayName("AC-B05: Paket master yang belum terbit tidak bisa diadopsi")
+    void unpublishedMasterCannotBeAdopted() {
+        ClientEntity client = data.client("SD Adopsi Draf");
+        PaketEntity draf = data.masterPaket("IPS Kelas 6 Adopsi", "Masih Draf");
 
-        adoption.adoptExercises(clientA.getId(), List.of(paket.getId()), null);
-        adoption.adoptExercises(clientB.getId(), List.of(paket.getId()), null);
+        assertThatThrownBy(() -> adoption.adoptPakets(client.getId(), List.of(draf.getId()), null))
+                .isInstanceOf(ResourceNotFoundException.class);
+    }
 
-        QuestionEntity tambahan = data.publishedMasterMcq(topic, "Soal tambahan");
-        exerciseService.addQuestion(paket.getId(), tambahan.getId(), null);
+    @Test
+    @DisplayName("TC-09 (FR-067): Paket master yang sama menjadi bisa diadopsi begitu diterbitkan, pembeda satu-satunya adalah keadaan terbitnya")
+    void draftBecomesAdoptableOncePublished() {
+        ClientEntity client = data.client("SD Adopsi Terbit");
+        PaketEntity master = data.masterPaket("Biologi Kelas 8 Adopsi", "Paket Masih Digarap");
 
-        assertThat(exerciseService.require(paket.getId(), null).isLocked()).isFalse();
-        assertThat(exerciseService.itemsOf(paket.getId())).hasSize(2);
-        // Salinan masing-masing Client tetap berisi satu soal: perubahan master tidak merambat.
+        assertThatThrownBy(() -> adoption.adoptPakets(client.getId(), List.of(master.getId()), null))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        masterPublishing.publishPaket(master.getId());
+        ContentAdoptionService.AdoptionSummary ringkasan =
+                adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+        assertThat(ringkasan.pakets()).isEqualTo(1);
+    }
+
+    @Test
+    @DisplayName("AC-B05 (FR-016): adopsi menyalin seluruh Topic, Question, dan Option dengan jumlah dan urutan yang tepat")
+    void adoptCopiesMultipleTopicsQuestionsAndOptionsExactly() {
+        ClientEntity client = data.client("SD Adopsi Lengkap");
+        PaketEntity master = data.masterPaket("IPA Kelas 5 Adopsi", "Paket IPA Lengkap");
+        TopicEntity topic1 = paketService.topicsOf(master.getId()).get(0);
+        TopicEntity topic2 = paketService.addTopic(master.getId(), "Topik 2", null);
+
+        questionService.create(new QuestionService.QuestionDraft(
+                topic1.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal 1</p>", null,
+                List.of(new QuestionService.OptionDraft("<p>A</p>", true),
+                        new QuestionService.OptionDraft("<p>B</p>", false),
+                        new QuestionService.OptionDraft("<p>C</p>", false))), null, master.getId());
+        questionService.create(new QuestionService.QuestionDraft(
+                topic1.getId(), QuestionType.ESSAY, "<p>Soal 2 esai</p>", "<p>Pembahasan</p>", List.of()),
+                null, master.getId());
+        questionService.create(new QuestionService.QuestionDraft(
+                topic2.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal 3</p>", null,
+                List.of(new QuestionService.OptionDraft("<p>X</p>", false),
+                        new QuestionService.OptionDraft("<p>Y</p>", true))), null, master.getId());
+        masterPublishing.publishPaket(master.getId());
+
+        ContentAdoptionService.AdoptionSummary ringkasan =
+                adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        assertThat(ringkasan.pakets()).isEqualTo(1);
+        assertThat(ringkasan.topics()).isEqualTo(2);
+        assertThat(ringkasan.questions()).isEqualTo(3);
+
+        PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                client.getId(), master.getSubjectId()).get(0);
+        List<TopicEntity> topicSalinan = paketService.topicsOf(salinan.getId());
+        assertThat(topicSalinan).hasSize(2);
+        assertThat(topicSalinan).extracting(TopicEntity::getPosition).containsExactly(0, 1);
+
+        List<QuestionEntity> questionTopic1Salinan =
+                questions.findByTopicIdOrderByPositionAsc(topicSalinan.get(0).getId());
+        assertThat(questionTopic1Salinan).extracting(QuestionEntity::getBodyText)
+                .containsExactly("Soal 1", "Soal 2 esai");
+        assertThat(questionTopic1Salinan).extracting(QuestionEntity::getPosition).containsExactly(0, 1);
+
+        List<QuestionOptionEntity> opsiSoal1 =
+                options.findByQuestionIdOrderByPositionAsc(questionTopic1Salinan.get(0).getId());
+        assertThat(opsiSoal1).extracting(QuestionOptionEntity::getBodyText).containsExactly("A", "B", "C");
+        assertThat(opsiSoal1).filteredOn(QuestionOptionEntity::isCorrect)
+                .extracting(QuestionOptionEntity::getBodyText).containsExactly("A");
+        // Soal esai tidak pernah punya Option.
+        assertThat(options.findByQuestionIdOrderByPositionAsc(questionTopic1Salinan.get(1).getId())).isEmpty();
+
+        List<QuestionEntity> questionTopic2Salinan =
+                questions.findByTopicIdOrderByPositionAsc(topicSalinan.get(1).getId());
+        assertThat(questionTopic2Salinan).extracting(QuestionEntity::getBodyText).containsExactly("Soal 3");
+        List<QuestionOptionEntity> opsiSoal3 =
+                options.findByQuestionIdOrderByPositionAsc(questionTopic2Salinan.get(0).getId());
+        assertThat(opsiSoal3).filteredOn(QuestionOptionEntity::isCorrect)
+                .extracting(QuestionOptionEntity::getBodyText).containsExactly("Y");
+    }
+
+    @Test
+    @DisplayName("AC-B10 (FR-068): menarik Paket master dari peredaran tidak menyentuh satu pun Paket atau Question salinan yang sudah diadopsi")
+    void withdrawMasterDoesNotTouchAdoptedCopies() {
+        ClientEntity clientA = data.client("SD Adopsi Tarik1");
+        ClientEntity clientB = data.client("SD Adopsi Tarik2");
+        PaketEntity master = data.masterPaket("Matematika Kelas 5 Tarik", "Paket Ditarik");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        data.masterMcq(topicMaster, "Soal paket ditarik");
+        masterPublishing.publishPaket(master.getId());
+
+        adoption.adoptPakets(clientA.getId(), List.of(master.getId()), null);
+        adoption.adoptPakets(clientB.getId(), List.of(master.getId()), null);
+
+        masterPublishing.withdrawPaket(master.getId());
+
+        // Ditarik: tidak lagi bisa diadopsi lewat gerbang yang sama...
+        assertThatThrownBy(() -> adoption.adoptPakets(
+                data.client("SD Adopsi Tarik3").getId(), List.of(master.getId()), null))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        // ...tapi kedua salinan yang sudah diadopsi sebelumnya tetap utuh, tidak tersentuh.
         for (ClientEntity client : List.of(clientA, clientB)) {
-            ExerciseEntity salinan = exerciseService.list(client.getId(), null, PageRequest.of(0, 20))
-                    .getContent().get(0);
-            assertThat(exerciseService.itemsOf(salinan.getId())).hasSize(1);
+            List<PaketEntity> paketClient = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                    client.getId(), master.getSubjectId());
+            assertThat(paketClient).hasSize(1);
+            assertThat(questions.findByPaketIdOrderByPositionAsc(paketClient.get(0).getId())).hasSize(1);
         }
     }
 
-    // ------------------------------------------------------------ katalog granular
+    @Test
+    @DisplayName("AC-O01 (FR-070): mengubah Question master setelah diadopsi tidak mengubah salinan milik Client")
+    void editingMasterDoesNotPropagateToCopy() {
+        ClientEntity client = data.client("SD Adopsi Sunting");
+        PaketEntity master = data.masterPaket("Matematika Kelas 5 Sunting", "Paket Disunting");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        QuestionEntity soal = data.masterMcq(topicMaster, "Redaksi lama unikrambat");
+        masterPublishing.publishPaket(master.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        questionService.update(soal.getId(), new QuestionService.QuestionDraft(
+                topicMaster.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Redaksi baru unikrambat</p>", null,
+                List.of(new QuestionService.OptionDraft("<p>A</p>", true),
+                        new QuestionService.OptionDraft("<p>B</p>", false))), null, master.getId());
+
+        Page<QuestionEntity> salinan = questionService.search(
+                client.getId(), null, "unikrambat", PageRequest.of(0, 20));
+        assertThat(salinan.getContent()).hasSize(1);
+        assertThat(salinan.getContent().get(0).getBodyText()).isEqualTo("Redaksi lama unikrambat");
+    }
 
     @Test
-    @DisplayName("AC-O02 (FR-074, FR-075, FR-078): katalog menyaring per Subject dan Topic, dan adopsi terpilih menjadi salinan milik Client tanpa Subject baru")
-    void katalogGranularDanAdopsiTerpilih() {
-        ClientEntity client = data.client("SD Katalog3");
-        TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        TopicEntity gerak = data.globalTopic("Fisika Kelas 9", "Gerak Lurus");
-        for (int i = 0; i < 3; i++) {
-            data.publishedMasterMcq(pecahan, "Pecahan katalogunik " + i);
-        }
-        data.publishedMasterMcq(gerak, "Gerak katalogunik lain");
+    @DisplayName("AC-B09 (FR-065): menghapus Question master menghilangkannya dari katalog master, dan salinan yang sudah diadopsi tetap utuh")
+    void softDeletingMasterDoesNotTouchAdoptedCopy() {
+        ClientEntity client = data.client("SD Adopsi Hapus");
+        PaketEntity master = data.masterPaket("Matematika Kelas 5 Hapus", "Paket Dihapus");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        QuestionEntity soal = data.masterMcq(topicMaster, "Soal dihapus unikhapus");
+        masterPublishing.publishPaket(master.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        Page<QuestionEntity> semua = questionService.searchPublishedMaster(
-                null, null, "katalogunik", PageRequest.of(0, 20));
-        Page<QuestionEntity> perTopic = questionService.searchPublishedMaster(
-                null, pecahan.getId(), "katalogunik", PageRequest.of(0, 20));
-        Page<QuestionEntity> perSubject = questionService.searchPublishedMaster(
-                data.subjectIdOf(gerak), null, "katalogunik", PageRequest.of(0, 20));
+        questionService.softDelete(soal.getId(), null);
 
-        assertThat(semua.getTotalElements()).isEqualTo(4);
-        assertThat(perTopic.getTotalElements()).isEqualTo(3);
-        assertThat(perSubject.getTotalElements()).isEqualTo(1);
+        assertThat(questionService.searchMaster(null, null, "unikhapus", null, PageRequest.of(0, 20))
+                .getTotalElements()).isZero();
+        assertThat(questions.searchPublishedMaster(null, null, "%unikhapus%", PageRequest.of(0, 20))
+                .getTotalElements()).isZero();
 
-        List<UUID> dipilih = perTopic.getContent().stream().map(QuestionEntity::getId).limit(2).toList();
+        Page<QuestionEntity> salinan = questionService.search(
+                client.getId(), null, "unikhapus", PageRequest.of(0, 20));
+        assertThat(salinan.getContent()).hasSize(1);
+    }
+
+    @Test
+    @DisplayName("AC-B10: adopsi kedua atas Paket yang sama tetap diizinkan dan melahirkan salinan kedua yang terpisah")
+    void secondAdoptionCreatesSeparateCopy() {
+        ClientEntity client = data.client("SD Adopsi Ulang");
+        PaketEntity master = data.masterPaket("Matematika Kelas 5 Ulang", "Paket Diadopsi Ulang");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        data.masterMcq(topicMaster, "Soal diadopsi ulang");
+        masterPublishing.publishPaket(master.getId());
+
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        List<PaketEntity> paketClient = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                client.getId(), master.getSubjectId());
+        assertThat(paketClient).hasSize(2);
+        assertThat(paketClient).extracting(PaketEntity::getId).doesNotHaveDuplicates();
+        assertThat(paketClient).allSatisfy(p -> assertThat(p.getSourcePaketId()).isEqualTo(master.getId()));
+
+        // Masing-masing salinan punya Question sendiri, bukan berbagi baris yang sama.
+        List<UUID> questionIdSalinan1 = questions.findByPaketIdOrderByPositionAsc(paketClient.get(0).getId())
+                .stream().map(QuestionEntity::getId).toList();
+        List<UUID> questionIdSalinan2 = questions.findByPaketIdOrderByPositionAsc(paketClient.get(1).getId())
+                .stream().map(QuestionEntity::getId).toList();
+        assertThat(questionIdSalinan1).hasSize(1);
+        assertThat(questionIdSalinan2).hasSize(1);
+        assertThat(questionIdSalinan1).doesNotContainAnyElementsOf(questionIdSalinan2);
+    }
+
+    // ------------------------------------------------------------ katalog: penanda adopsi
+
+    @Test
+    @DisplayName("AC-B11 (FR-076): katalog menandai Paket master yang sudah pernah diadopsi Client")
+    void catalogMarksAdoptedPaket() {
+        ClientEntity client = data.client("SD Katalog Tanda");
+        PaketEntity master = data.masterPaket("Sejarah Kelas 9 Tanda", "Paket Sejarah");
+        masterPublishing.publishPaket(master.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        assertThat(adoption.adoptedSourcePaketIds(client.getId(), List.of(master.getId())))
+                .contains(master.getId());
+    }
+
+    @Test
+    @DisplayName("AC-B11 (FR-076): penanda adopsi hanya berlaku untuk Client yang mengadopsi, bukan Client lain")
+    void adoptionMarkerIsScopedToAdoptingClient() {
+        ClientEntity client = data.client("SD Katalog Tanda Sendiri");
+        ClientEntity clientLain = data.client("SD Katalog Tanda Lain");
+        PaketEntity master = data.masterPaket("Sejarah Kelas 9 Tanda Sendiri", "Paket Sejarah Sendiri");
+        masterPublishing.publishPaket(master.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        Set<UUID> penanda = adoption.adoptedSourcePaketIds(clientLain.getId(), List.of(master.getId()));
+        assertThat(penanda).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC-O02 (BR-O02): Paket hasil adopsi menunjuk Subject global yang sama, tanpa melahirkan Subject baru")
+    void adoptedCopyPointsToSameGlobalSubject() {
+        ClientEntity client = data.client("SD Adopsi Subject");
+        PaketEntity master = data.masterPaket("Kimia Kelas 10 Adopsi Subject", "Paket Kimia");
+        masterPublishing.publishPaket(master.getId());
         long subjectSebelum = subjects.count();
 
-        ContentAdoptionService.AdoptionSummary ringkasan =
-                adoption.adoptQuestions(client.getId(), dipilih, null);
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        // Ringkasan menyebut apa yang tersalin (FR-079).
-        assertThat(ringkasan.questions()).isEqualTo(2);
-        assertThat(ringkasan.topics()).isEqualTo(1);
-        assertThat(ringkasan.exercises()).isZero();
-
-        Page<QuestionEntity> bank = questionService.search(
-                client.getId(), null, "katalogunik", PageRequest.of(0, 20));
-        assertThat(bank.getTotalElements()).isEqualTo(2);
-        assertThat(bank.getContent()).allSatisfy(q ->
-                assertThat(q.getClientId()).isEqualTo(client.getId()));
-
-        // Subject GLOBAL tidak pernah disalin; yang disalin Topic, Question, dan Exercise
-        // (BR-O02, AC-O02).
+        // Subject GLOBAL tidak pernah disalin (BR-O02): salinan Paket menunjuk baris Subject
+        // yang persis sama dengan master-nya.
         assertThat(subjects.count()).isEqualTo(subjectSebelum);
-    }
-
-    @Test
-    @DisplayName("BR-Q04 (FR-076, FR-077): Topic hasil adopsi membawa jejak asalnya, dan adopsi kedua diperingatkan tapi tetap boleh melahirkan Topic baru")
-    void jejakAsalTopicDanPeringatanAdopsiBerulang() {
-        ClientEntity client = data.client("SD Katalog9");
-        ClientEntity lain = data.client("SD Katalog10");
-        TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity senin = data.publishedMasterMcq(pecahan, "Pecahan jejakunik 1");
-        QuestionEntity jumat = data.publishedMasterMcq(pecahan, "Pecahan jejakunik 2");
-
-        // Belum pernah mengambil: tidak ada yang perlu diperingatkan.
-        assertThat(adoption.hasAdoptedTopic(client.getId(), pecahan.getId())).isFalse();
-
-        adoption.adoptQuestions(client.getId(), List.of(senin.getId()), null);
-
-        // Jejak asal tercatat, dan Topic salinan tetap punya id sendiri (ADR-0001).
-        List<TopicEntity> setelahPertama = milikClient(pecahan, client);
-        assertThat(setelahPertama).hasSize(1);
-        assertThat(setelahPertama.getFirst().getId()).isNotEqualTo(pecahan.getId());
-        assertThat(data.paketOf(setelahPertama.getFirst()).getSourcePaketId())
-                .isEqualTo(data.paketOf(pecahan).getId());
-
-        // Peringatan menyala untuk sekolah yang sudah mengambil, dan hanya untuk sekolah itu.
-        assertThat(adoption.hasAdoptedTopic(client.getId(), pecahan.getId())).isTrue();
-        assertThat(adoption.hasAdoptedTopic(lain.getId(), pecahan.getId())).isFalse();
-
-        // Peringatan, bukan gerbang: adopsi kedua tetap jalan dan melahirkan Topic baru (FR-077).
-        var adopsiKedua = adoption.adoptQuestions(client.getId(), List.of(jumat.getId()), null);
-        assertThat(adopsiKedua.topics()).isEqualTo(1);
-        assertThat(milikClient(pecahan, client))
-                .hasSize(2)
-                .allSatisfy(t -> assertThat(data.paketOf(t).getSourcePaketId())
-                        .isEqualTo(data.paketOf(pecahan).getId()));
-    }
-
-    /** Penyaring pemilik tidak perlu lagi: {@code topicsOwnedBy} sudah menyaringnya di query. */
-    private List<TopicEntity> milikClient(TopicEntity master, ClientEntity client) {
-        return taxonomy.topicsOwnedBy(data.subjectIdOf(master), client.getId());
-    }
-
-    @Test
-    @DisplayName("BR-Q04 (FR-076, FR-077): katalog menandai konten yang sudah pernah diadopsi Client yang sedang melihatnya")
-    void penandaSudahDiadopsi() {
-        ClientEntity client = data.client("SD Katalog4");
-        ClientEntity clientLain = data.client("SD Katalog5");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity diadopsi = data.publishedMasterMcq(topic, "Soal diadopsi");
-        QuestionEntity belum = data.publishedMasterMcq(topic, "Soal belum diadopsi");
-
-        adoption.adoptQuestions(client.getId(), List.of(diadopsi.getId()), null);
-
-        Set<UUID> penanda = adoption.adoptedSourceIds(
-                client.getId(), List.of(diadopsi.getId(), belum.getId()));
-        assertThat(penanda).containsExactly(diadopsi.getId());
-
-        // Penandanya milik satu Client saja; adopsi sekolah lain tidak boleh ikut terlihat.
-        assertThat(adoption.adoptedSourceIds(
-                clientLain.getId(), List.of(diadopsi.getId(), belum.getId()))).isEmpty();
-    }
-
-    @Test
-    @DisplayName("AC-O01 (FR-078): adopsi paket terbit menyalin Exercise beserta seluruh soalnya menjadi milik Client")
-    void adopsiPaketMenyalinSeluruhIsinya() {
-        ClientEntity client = data.client("SD Katalog6");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        List<QuestionEntity> isi = List.of(
-                data.publishedMasterMcq(topic, "Isi paket 1"),
-                data.publishedMasterMcq(topic, "Isi paket 2"));
-        ExerciseEntity paket = data.masterExercise("Paket adopsi utuh", isi);
-        publishing.publishExercise(paket.getId());
-
-        ContentAdoptionService.AdoptionSummary ringkasan =
-                adoption.adoptExercises(client.getId(), List.of(paket.getId()), null);
-
-        assertThat(ringkasan.exercises()).isEqualTo(1);
-        assertThat(ringkasan.questions()).isEqualTo(2);
-        ExerciseEntity salinan = exerciseService.list(client.getId(), null, PageRequest.of(0, 20))
-                .getContent().get(0);
-        assertThat(salinan.getClientId()).isEqualTo(client.getId());
-        assertThat(salinan.isLocked()).isFalse();
-        assertThat(exerciseService.itemsOf(salinan.getId())).hasSize(2);
+        PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                client.getId(), master.getSubjectId()).get(0);
+        assertThat(salinan.getSubjectId()).isEqualTo(master.getSubjectId());
     }
 
     // ------------------------------------------------ hasil adopsi di tangan Guru
@@ -228,11 +331,13 @@ class CatalogAdoptionIT extends PostgresTestBase {
     void guruMerakitDariHasilAdopsi() {
         ClientEntity client = data.client("SD Katalog7");
         AppUserEntity guru = data.user(client, UserRole.GURU, "Guru");
-        TopicEntity topicMaster = data.globalTopic("Matematika Kelas 4", "Pecahan");
+        PaketEntity master = data.masterPaket("Matematika Kelas 4 Rakit", "Paket Rakit");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        data.masterMcq(topicMaster, "Soal dari Eduscreen");
+        masterPublishing.publishPaket(master.getId());
         TopicEntity topicSekolah = data.topic(client, "Muatan Lokal", "Aksara Jawa");
 
-        QuestionEntity master = data.publishedMasterMcq(topicMaster, "Soal dari Eduscreen");
-        adoption.adoptQuestions(client.getId(), List.of(master.getId()), guru.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), guru.getId());
         QuestionEntity buatanSendiri = data.mcq(client, topicSekolah, "Soal buatan sekolah", 4);
 
         // Keduanya terlihat di bank soal Client tanpa sekat apa pun (BR-P02).
@@ -256,20 +361,24 @@ class CatalogAdoptionIT extends PostgresTestBase {
     @DisplayName("TC-09 (FR-082): konten master tidak pernah lahir dari adopsi, dan salinan Client tidak pernah menjadi konten master")
     void aliranHanyaSatuArah() {
         ClientEntity client = data.client("SD Katalog8");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity master = data.publishedMasterMcq(topic, "Soal satu arah");
-        adoption.adoptQuestions(client.getId(), List.of(master.getId()), null);
+        PaketEntity master = data.masterPaket("Matematika Kelas 4 Arah", "Paket Arah");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        // Question sendiri juga wajib terbit di sini: searchPublishedMaster menyaring
+        // q.publishedAt, terpisah dari gerbang adopsi yang kini di tingkat Paket.
+        QuestionEntity soal = data.publishedMasterMcq(topicMaster, "Soal satu arah");
+        masterPublishing.publishPaket(master.getId());
+        adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
         QuestionEntity salinan = questionService.search(
                 client.getId(), null, "Soal satu arah", PageRequest.of(0, 20)).getContent().get(0);
 
         // Salinan membawa jejak asal, master tidak; tidak ada jalur yang membalik arah itu.
-        assertThat(salinan.getSourceQuestionId()).isEqualTo(master.getId());
+        assertThat(salinan.getSourceQuestionId()).isEqualTo(soal.getId());
         assertThat(salinan.getClientId()).isEqualTo(client.getId());
-        assertThat(master.getSourceQuestionId()).isNull();
+        assertThat(soal.getSourceQuestionId()).isNull();
 
         // Salinan milik Client tidak terbaca sebagai konten master, dan tidak muncul di katalog.
         assertThat(questionService.searchPublishedMaster(null, null, "Soal satu arah", PageRequest.of(0, 20))
-                .getContent()).extracting(QuestionEntity::getId).containsExactly(master.getId());
+                .getContent()).extracting(QuestionEntity::getId).containsExactly(soal.getId());
     }
 }

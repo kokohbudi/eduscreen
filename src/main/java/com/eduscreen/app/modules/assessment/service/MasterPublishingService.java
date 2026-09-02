@@ -3,6 +3,8 @@ package com.eduscreen.app.modules.assessment.service;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
 import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
@@ -38,15 +40,18 @@ public class MasterPublishingService {
     private final QuestionRepository questions;
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository exerciseItems;
+    private final PaketRepository pakets;
     private final ClientClock clock;
 
     public MasterPublishingService(QuestionRepository questions,
                                    ExerciseRepository exercises,
                                    ExerciseItemRepository exerciseItems,
+                                   PaketRepository pakets,
                                    ClientClock clock) {
         this.questions = questions;
         this.exercises = exercises;
         this.exerciseItems = exerciseItems;
+        this.pakets = pakets;
         this.clock = clock;
     }
 
@@ -101,6 +106,29 @@ public class MasterPublishingService {
         return exercises.save(exercise);
     }
 
+    /**
+     * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067).
+     *
+     * <p>Sengaja tanpa gerbang isi seperti {@link #publishExercise}: Paket menyalin seluruh
+     * Question Topic-nya apa adanya saat diadopsi ({@code ContentAdoptionService}), terlepas dari
+     * keadaan terbit masing-masing Question — jadi tidak ada kombinasi "Paket terbit tapi
+     * sebagian isinya tersembunyi" yang perlu dicegah di sini.
+     */
+    @Transactional
+    public PaketEntity publishPaket(UUID id) {
+        PaketEntity paket = requireMasterPaket(id);
+        paket.publish(clock.now());
+        return pakets.save(paket);
+    }
+
+    /** Menarik Paket master dari peredaran; salinan yang sudah diadopsi tidak tersentuh (FR-068). */
+    @Transactional
+    public PaketEntity withdrawPaket(UUID id) {
+        PaketEntity paket = requireMasterPaket(id);
+        paket.withdraw();
+        return pakets.save(paket);
+    }
+
     /** Konten milik sebuah Client dan konten yang tidak ada sama-sama 404 (TC-09). */
     private QuestionEntity requireMasterQuestion(UUID id) {
         return questions.findByIdAndClientId(id, null)
@@ -109,6 +137,11 @@ public class MasterPublishingService {
 
     private ExerciseEntity requireMasterExercise(UUID id) {
         return exercises.findByIdAndClientId(id, null)
+                .orElseThrow(() -> new ResourceNotFoundException("Paket master tidak ditemukan"));
+    }
+
+    private PaketEntity requireMasterPaket(UUID id) {
+        return pakets.findByIdAndClientIdIsNull(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Paket master tidak ditemukan"));
     }
 

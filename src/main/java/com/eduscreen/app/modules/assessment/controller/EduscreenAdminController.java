@@ -1,10 +1,9 @@
 package com.eduscreen.app.modules.assessment.controller;
 
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.service.ClientDirectoryService;
 import com.eduscreen.app.modules.assessment.service.ClientOnboardingService;
 import com.eduscreen.app.modules.assessment.service.ClientOnboardingService.OnboardingRequest;
-import com.eduscreen.app.modules.assessment.service.ExerciseService;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,24 +25,23 @@ public class EduscreenAdminController {
 
     private final ClientOnboardingService onboarding;
     private final ClientDirectoryService clients;
-    private final ExerciseService exercises;
+    private final PaketRepository pakets;
 
     public EduscreenAdminController(ClientOnboardingService onboarding,
                                     ClientDirectoryService clients,
-                                    ExerciseService exercises) {
+                                    PaketRepository pakets) {
         this.onboarding = onboarding;
         this.clients = clients;
-        this.exercises = exercises;
+        this.pakets = pakets;
     }
 
     @GetMapping("/eduscreen/client")
     public String clients(Model model) {
         model.addAttribute("clients", clients.all());
-        // Paket master yang bisa disalin saat onboarding: Exercise milik Eduscreen (clientId
-        // null) yang sudah TERBIT. Paket yang masih digarap tidak boleh ikut mendarat di
-        // sekolah baru lewat pintu belakang onboarding (FR-067).
-        model.addAttribute("paket",
-                exercises.listPublishedMaster(null, PageRequest.of(0, 100)).getContent());
+        // Paket master yang bisa disalin saat onboarding, lintas Subject (ADR-0018): hanya yang
+        // sudah TERBIT. Paket yang masih digarap tidak boleh ikut mendarat di sekolah baru lewat
+        // pintu belakang onboarding (FR-067).
+        model.addAttribute("paket", pakets.findAllMasterPublished());
         model.addAttribute("menuAktif", "client");
         return "eduscreen/client";
     }

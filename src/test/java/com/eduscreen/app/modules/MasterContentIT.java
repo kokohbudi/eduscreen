@@ -9,7 +9,6 @@ import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
-import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
@@ -52,8 +51,6 @@ class MasterContentIT extends PostgresTestBase {
     SubjectRepository subjects;
     @Autowired
     MasterPublishingService publishing;
-    @Autowired
-    ContentAdoptionService adoption;
 
     @Test
     @DisplayName("BR-O02 (FR-061): Topic yang dibuat Eduscreen Admin lahir GLOBAL tanpa pemilik Client")
@@ -137,6 +134,30 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("TC-25 (FR-067, FR-074): katalog Client menyaring Question master terbit per Subject dan Topic, dan tidak pernah memuat yang masih digarap")
+    void katalogMenyaringPerSubjectDanTopic() {
+        TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
+        TopicEntity gerak = data.globalTopic("Fisika Kelas 9", "Gerak Lurus");
+        for (int i = 0; i < 3; i++) {
+            data.publishedMasterMcq(pecahan, "Pecahan katalogunik " + i);
+        }
+        data.publishedMasterMcq(gerak, "Gerak katalogunik lain");
+        data.masterMcq(pecahan, "Pecahan katalogunik masih digarap");
+
+        Page<QuestionEntity> semua = questionService.searchPublishedMaster(
+                null, null, "katalogunik", PageRequest.of(0, 20));
+        Page<QuestionEntity> perTopic = questionService.searchPublishedMaster(
+                null, pecahan.getId(), "katalogunik", PageRequest.of(0, 20));
+        Page<QuestionEntity> perSubject = questionService.searchPublishedMaster(
+                data.subjectIdOf(gerak), null, "katalogunik", PageRequest.of(0, 20));
+
+        // Yang masih digarap tidak pernah bocor ke katalog (FR-067, SC-013): totalnya 4, bukan 5.
+        assertThat(semua.getTotalElements()).isEqualTo(4);
+        assertThat(perTopic.getTotalElements()).isEqualTo(3);
+        assertThat(perSubject.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
     @DisplayName("BR-P04 (FR-080): pencarian ruang kerja master tidak pernah memuat Question milik sebuah Client")
     void pencarianMasterTidakMemuatKontenClient() {
         ClientEntity client = data.client("SD Master3");
@@ -160,69 +181,12 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     // ------------------------------------------------------------- keadaan terbit
-
-    @Test
-    @DisplayName("TC-09 (FR-067): Question master yang belum terbit tidak bisa diadopsi meski pengenalnya ditebak")
-    void draftTidakBisaDiadopsi() {
-        ClientEntity client = data.client("SD Terbit1");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity draft = data.masterMcq(topic, "Masih digarap");
-
-        assertThatThrownBy(() -> adoption.adoptQuestions(
-                client.getId(), List.of(draft.getId()), null))
-                .isInstanceOf(ResourceNotFoundException.class);
-
-        // Setelah terbit, Question yang sama bisa diadopsi — pembeda satu-satunya adalah
-        // keadaan terbitnya, bukan hal lain yang kebetulan berubah.
-        publishing.publishQuestion(draft.getId());
-        ContentAdoptionService.AdoptionSummary ringkasan = adoption.adoptQuestions(
-                client.getId(), List.of(draft.getId()), null);
-        assertThat(ringkasan.questions()).isEqualTo(1);
-    }
-
-    @Test
-    @DisplayName("BR-P04 (FR-068): menarik Question master dari peredaran tidak mengubah satu pun salinan yang sudah diadopsi")
-    void penarikanTidakMenyentuhSalinanClient() {
-        ClientEntity clientA = data.client("SD Terbit2");
-        ClientEntity clientB = data.client("SD Terbit3");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity master = data.publishedMasterMcq(topic, "Soal master terbit");
-
-        adoption.adoptQuestions(clientA.getId(), List.of(master.getId()), null);
-        adoption.adoptQuestions(clientB.getId(), List.of(master.getId()), null);
-
-        publishing.unpublishQuestion(master.getId());
-
-        for (ClientEntity client : List.of(clientA, clientB)) {
-            Page<QuestionEntity> bank = questionService.search(
-                    client.getId(), null, "Soal master terbit", PageRequest.of(0, 20));
-            assertThat(bank.getContent()).hasSize(1);
-            assertThat(bank.getContent().get(0).getBodyText()).isEqualTo("Soal master terbit");
-            assertThat(bank.getContent().get(0).getSourceQuestionId()).isEqualTo(master.getId());
-        }
-        // Dan katalog memang sudah tidak menampilkannya lagi.
-        assertThat(questions.searchPublishedMaster(null, null, "%soal master terbit%", PageRequest.of(0, 20))
-                .getTotalElements()).isZero();
-    }
-
-    @Test
-    @DisplayName("AC-O01 (FR-070): mengubah Question master setelah diadopsi tidak mengubah salinan milik Client")
-    void perubahanMasterTidakMerambat() {
-        ClientEntity client = data.client("SD Terbit4");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity master = data.publishedMasterMcq(topic, "Redaksi lama unikrambat");
-        adoption.adoptQuestions(client.getId(), List.of(master.getId()), null);
-
-        questionService.update(master.getId(), new QuestionService.QuestionDraft(
-                topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Redaksi baru unikrambat</p>", null,
-                List.of(new QuestionService.OptionDraft("<p>A</p>", true),
-                        new QuestionService.OptionDraft("<p>B</p>", false))), null, topic.getPaketId());
-
-        Page<QuestionEntity> salinan = questionService.search(
-                client.getId(), null, "unikrambat", PageRequest.of(0, 20));
-        assertThat(salinan.getContent()).hasSize(1);
-        assertThat(salinan.getContent().get(0).getBodyText()).isEqualTo("Redaksi lama unikrambat");
-    }
+    //
+    // Tiga invarian master/salinan yang semula diuji di sini lewat adoptQuestions
+    // (Question belum terbit tidak bisa diadopsi; menarik master tidak menyentuh salinan;
+    // mengubah master tidak merambat ke salinan) pindah ke CatalogAdoptionIT lewat adoptPakets
+    // sejak Task 8/ADR-0018 — satuan adopsinya berganti dari Question ke Paket, tapi aturannya
+    // sendiri tidak berubah.
 
     @Test
     @DisplayName("BR-E03 (FR-069, FR-072): paket master ditolak terbit bila kosong, atau bila masih memuat soal yang belum terbit")
@@ -246,25 +210,8 @@ class MasterContentIT extends PostgresTestBase {
         assertThat(publishing.publishExercise(campuran.getId()).isPublished()).isTrue();
     }
 
-    @Test
-    @DisplayName("AC-Q02 (FR-065): menghapus Question master menghilangkannya dari katalog, dan salinan yang sudah diadopsi tetap utuh")
-    void hapusMasterTidakMenyentuhSalinan() {
-        ClientEntity client = data.client("SD Terbit5");
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity master = data.publishedMasterMcq(topic, "Soal dihapus unikhapus");
-        adoption.adoptQuestions(client.getId(), List.of(master.getId()), null);
-
-        questionService.softDelete(master.getId(), null);
-
-        assertThat(questionService.searchMaster(null, null, "unikhapus", null, PageRequest.of(0, 20))
-                .getTotalElements()).isZero();
-        assertThat(questions.searchPublishedMaster(null, null, "%unikhapus%", PageRequest.of(0, 20))
-                .getTotalElements()).isZero();
-
-        Page<QuestionEntity> salinan = questionService.search(
-                client.getId(), null, "unikhapus", PageRequest.of(0, 20));
-        assertThat(salinan.getContent()).hasSize(1);
-    }
+    // hapusMasterTidakMenyentuhSalinan pindah ke CatalogAdoptionIT (AC-B09), memakai adoptPakets
+    // menggantikan adoptQuestions — lihat catatan di atas gerbangPenerbitanPaket.
 
     @Test
     @DisplayName("TC-10 (FR-066): keadaan terbit ditolak database pada konten milik sebuah Client")

@@ -33,6 +33,14 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
             + "and p.publishedAt is not null")
     Optional<PaketEntity> findPublishedMasterById(@Param("id") UUID id);
 
+    /**
+     * Seluruh Paket master terbit, lintas Subject — daftar pilihan onboarding Client baru
+     * (FR-020, FR-067), yang tidak punya penyaring Subject seperti katalog Client.
+     */
+    @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is not null "
+            + "order by p.title asc")
+    List<PaketEntity> findAllMasterPublished();
+
     /** Jumlah Paket per Subject untuk tabel tingkat pertama Bank Soal. */
     @Query("select p.subjectId as subjectId, count(p) as jumlah from PaketEntity p "
             + "where p.clientId = :clientId group by p.subjectId")

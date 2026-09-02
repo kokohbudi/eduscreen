@@ -32,6 +32,16 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      */
     List<QuestionEntity> findByPaketIdOrderByPositionAsc(UUID paketId);
 
+    /**
+     * Seluruh Question sebuah Topic, terurut posisi — dipakai adopsi per Paket
+     * ({@code ContentAdoptionService}) untuk menyalin isi tiap Topic master apa adanya, terlepas
+     * dari keadaan terbit masing-masing Question (gerbang adopsi ada di tingkat Paket, FR-067).
+     *
+     * <p>Sama seperti {@link #findByPaketIdOrderByPositionAsc}, tidak menyaring Topic yang sudah
+     * ter-soft-delete — pemanggil wajib memastikan Topic-nya masih hidup lebih dulu.
+     */
+    List<QuestionEntity> findByTopicIdOrderByPositionAsc(UUID topicId);
+
     List<QuestionEntity> findByClientIdAndTopicIdOrderByCreatedAtDesc(UUID clientId, UUID topicId);
 
     /**

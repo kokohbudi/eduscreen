@@ -2,9 +2,12 @@ package com.eduscreen.app.web;
 
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.domain.UserRole;
+import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
+import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -36,6 +39,8 @@ class MasterContentRenderTest extends PostgresTestBase {
 
     @Autowired MockMvc mockMvc;
     @Autowired TestData data;
+    @Autowired MasterPublishingService masterPublishing;
+    @Autowired ContentAdoptionService adoption;
 
     @Test
     @DisplayName("TC-13 (FR-064): ruang kerja Question master dirender utuh, halaman penuh maupun fragmen HTMX")
@@ -159,23 +164,33 @@ class MasterContentRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-13 (FR-074, FR-076): katalog dirender per Question lengkap dengan penanda adopsi")
-    void katalogGranularDirender() throws Exception {
+    @DisplayName("TC-14 (AC-B11, FR-074): katalog Paket dirender per Subject, lengkap dengan penanda adopsi")
+    void katalogPaketDirender() throws Exception {
         ClientEntity client = data.client("SD Render");
         var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        data.publishedMasterMcq(topic, "Soal katalog render");
-        data.masterMcq(topic, "Soal katalog masih digarap");
+        PaketEntity terbit = data.masterPaket("Matematika Kelas 4 Render", "Paket katalog render");
+        PaketEntity draf = data.masterPaket("Matematika Kelas 4 Render", "Paket katalog masih digarap");
+        masterPublishing.publishPaket(terbit.getId());
 
+        // Tanpa Subject dipilih: daftar Subject terlihat, tapi belum ada Paket yang dimuat.
         mockMvc.perform(get("/katalog").with(clientAdmin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal katalog render")))
-                // Yang masih digarap tidak pernah bocor ke katalog (FR-067, SC-013).
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Matematika Kelas 4 Render")))
                 .andExpect(content().string(
-                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Soal katalog masih digarap"))));
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Paket katalog render"))));
 
-        mockMvc.perform(get("/katalog/soal").with(clientAdmin))
-                .andExpect(status().isOk());
+        // Subject dipilih: Paket TERBIT muncul, yang masih digarap tidak pernah bocor (FR-067, SC-013).
+        mockMvc.perform(get("/katalog").param("subjectId", terbit.getSubjectId().toString()).with(clientAdmin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket katalog render")))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Paket katalog masih digarap"))));
+
+        // Setelah diadopsi, penanda "Sudah diadopsi" muncul (AC-B11).
+        adoption.adoptPakets(client.getId(), List.of(terbit.getId()), null);
+        mockMvc.perform(get("/katalog").param("subjectId", terbit.getSubjectId().toString()).with(clientAdmin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Sudah diadopsi")));
     }
 
     @Test

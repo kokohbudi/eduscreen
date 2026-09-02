@@ -39,7 +39,7 @@ public class ClientOnboardingService {
     }
 
     public record OnboardingRequest(String name, String timezone, String adminEmail,
-                                    String adminFullName, List<UUID> exerciseIds) {}
+                                    String adminFullName, List<UUID> paketIds) {}
 
     /**
      * BR-O01: onboarding sengaja TIDAK membuat Ruangan maupun akun Siswa. Itu keputusan desain,
@@ -60,10 +60,11 @@ public class ClientOnboardingService {
         AppUserEntity admin = userManagement.create(
                 client.getId(), request.adminEmail(), request.adminFullName(), UserRole.CLIENT_ADMIN);
 
-        if (request.exerciseIds() != null && !request.exerciseIds().isEmpty()) {
-            // Salinan paket master lahir milik Client Admin yang baru dibuat: dialah yang akan
-            // menyusun dan menerbitkannya lebih lanjut.
-            adoption.adoptExercises(client.getId(), request.exerciseIds(), admin.getId());
+        if (request.paketIds() != null && !request.paketIds().isEmpty()) {
+            // Salinan Paket master lahir milik Client Admin yang baru dibuat: dialah yang akan
+            // menyusun dan menerbitkannya lebih lanjut. Paket, bukan lagi Exercise, adalah
+            // satuan adopsi sejak ADR-0018 — Exercise tidak pernah jadi objek adopsi.
+            adoption.adoptPakets(client.getId(), request.paketIds(), admin.getId());
         }
 
         return client;

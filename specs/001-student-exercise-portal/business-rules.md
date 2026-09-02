@@ -336,9 +336,9 @@ Then permintaan ditolak; Question hanya terbaca lewat SessionQuestion di Session
 ### Onboarding & konten
 
 **AC-O01** (BR-O01, ADR-0001)
-Given Eduscreen Admin melakukan onboarding Client baru dan memilih satu Exercise master berisi 20 Question
+Given Eduscreen Admin melakukan onboarding Client baru dan memilih satu Paket master berisi 1 Topic dan 20 Question
 When onboarding selesai
-Then Client punya 20 Question dan 1 Exercise dengan `clientId` miliknya, dan mengedit Question master setelahnya tidak mengubah salinan Client.
+Then Client punya 1 Paket, 1 Topic, dan 20 Question dengan `clientId` miliknya, dan mengedit Question master setelahnya tidak mengubah salinan Client.
 
 **AC-Q01** (BR-Q01)
 Given Guru menyusun Question `MULTIPLE_CHOICE` dengan dua Option ditandai benar
@@ -397,6 +397,14 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
   benar, dan urutannya.
 - **AC-B08**: Soal yang masuk ke sebuah Topic mendarat di urutan berikutnya, tidak menumpuk
   di posisi yang sama dengan soal yang sudah ada.
+- **AC-B09**: Menghapus lunak Question master menghilangkannya dari ruang kerja dan katalog
+  master, tapi tidak menyentuh satu pun Question salinan yang sudah diadopsi Client.
+- **AC-B10**: Menarik Paket master dari peredaran tidak menyentuh satu pun Paket atau Question
+  salinan yang sudah diadopsi Client; adopsi kedua atas Paket master yang sama tetap diizinkan
+  dan melahirkan salinan kedua yang terpisah dari salinan pertama.
+- **AC-B11**: Katalog menandai Paket master yang sudah pernah diadopsi Client yang sedang
+  melihatnya, dan penanda itu berlaku per Client — Client lain yang belum mengadopsi Paket yang
+  sama tidak melihat penanda itu.
 
 ### Exercise & Assignment
 
