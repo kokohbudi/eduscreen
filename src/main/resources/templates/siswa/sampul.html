@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head(${assignment.title})}"></head>
+<body>
+<div th:replace="~{layout/base :: page(${assignment.title}, ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <section class="rounded border border-slate-200 bg-white p-6">
+      <div class="mb-4 flex flex-wrap items-center gap-2 text-xs">
+        <span class="rounded bg-slate-100 px-2 py-0.5 font-medium"
+              th:text="${assignment.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</span>
+        <span class="text-slate-500"
+              th:text="|Batas akhir: ${#temporals.format(assignment.expiresAt, 'dd MMM yyyy HH:mm')}|">
+          Batas akhir
+        </span>
+      </div>
+
+      <dl class="mb-6 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-slate-500">Durasi Timer</dt>
+          <dd th:if="${assignment.timerDurationMinutes != null}"
+              th:text="|${assignment.timerDurationMinutes} menit|">60 menit</dd>
+          <!-- BR-T05/AC-T07: Practice boleh tanpa Timer; hanya batas akhir Assignment yang berlaku. -->
+          <dd th:if="${assignment.timerDurationMinutes == null}">Tanpa batas waktu pengerjaan</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Pengerjaan</dt>
+          <dd th:if="${assignment.isPractice()}">Pengerjaan tidak dibatasi</dd>
+          <dd th:unless="${assignment.isPractice()}"
+              th:text="|${#lists.size(pengerjaan)} dari ${assignment.maxAttempts} pengerjaan terpakai|">
+            0 dari 1 pengerjaan terpakai
+          </dd>
+        </div>
+      </dl>
+
+      <form th:if="${assignment.isPractice() or #lists.size(pengerjaan) &lt; assignment.maxAttempts}"
+            th:action="@{/siswa/assignment/{id}/mulai(id=${assignment.id})}" method="post">
+        <button type="submit"
+                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Mulai
+        </button>
+      </form>
+      <p th:unless="${assignment.isPractice() or #lists.size(pengerjaan) &lt; assignment.maxAttempts}"
+         role="status"
+         class="rounded border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+        Batas pengerjaan sudah habis untuk Quiz ini. Hubungi Guru bila perlu pengulangan tambahan.
+      </p>
+    </section>
+
+    <section th:if="${not #lists.isEmpty(pengerjaan)}" class="mt-8">
+      <h2 class="mb-3 text-lg font-semibold">Pengerjaan sebelumnya</h2>
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th class="py-2">Attempt</th>
+            <th class="py-2">Status</th>
+            <th class="py-2">Skor</th>
+            <th class="py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="sesi : ${pengerjaan}" class="border-b border-slate-100">
+            <td class="py-2" th:text="|Attempt ${sesi.attemptNumber}|">Attempt 1</td>
+            <td class="py-2" th:text="${sesi.status.name()}">Status</td>
+            <td class="py-2">
+              <span th:if="${hasil.get(sesi.id) == null}" class="text-slate-400">Belum dinilai</span>
+              <span th:if="${hasil.get(sesi.id) != null}" th:text="${hasil.get(sesi.id).score}">0.0000</span>
+            </td>
+            <td class="py-2">
+              <a th:if="${sesi.isInProgress()}" th:href="@{/siswa/sesi/{id}(id=${sesi.id})}"
+                 class="text-slate-600 underline">Lanjutkan</a>
+              <a th:unless="${sesi.isInProgress()}" th:href="@{/siswa/sesi/{id}/hasil(id=${sesi.id})}"
+                 class="text-slate-600 underline">Lihat hasil</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

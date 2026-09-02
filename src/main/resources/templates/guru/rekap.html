@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Rekap Nilai')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Rekap Nilai', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <h2 class="mb-1 text-lg font-semibold" th:text="${assignment.title}">Judul Assignment</h2>
+    <p class="mb-6 text-sm text-slate-500">
+      <a th:href="@{/guru/assignment/{id}(id=${assignment.id})}" class="underline">Kembali ke detail Assignment</a>
+    </p>
+
+    <!--
+      Membuka halaman ini BUKAN sekadar pembacaan: ia memfinalisasi setiap sesi Assignment ini
+      yang sudah lewat batas waktunya sebelum baris di bawah dihitung (BR-L02, ADR-0002). Siswa
+      yang menutup browser dan tidak pernah kembali baru mendapat Result begitu Guru membuka
+      halaman ini.
+    -->
+    <p role="status" class="mb-4 text-xs text-slate-400">
+      Sesi yang sudah lewat batas waktu difinalisasi otomatis setiap kali halaman ini dibuka.
+    </p>
+
+    <div class="overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th scope="col" class="py-2">Siswa</th>
+            <th scope="col" class="py-2">Status</th>
+            <th scope="col" class="py-2">Pengerjaan</th>
+            <th scope="col" class="py-2">Skor resmi</th>
+            <th scope="col" class="py-2">Penilaian</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!--
+            Barisnya sebanyak anggota Ruangan, bukan sebanyak sesi (BR-L01, AC-L01): Siswa yang
+            tidak pernah menekan Mulai tampil NOT_STARTED di sini tanpa satu baris sesi pun
+            dibuat untuknya — baris ini murni tampilan, bukan bukti bahwa Siswa itu pernah membuka
+            Assignment.
+          -->
+          <tr th:each="b : ${baris}"
+              th:class="${b.status() == 'NOT_STARTED'} ? 'border-b border-slate-100 text-slate-400' : 'border-b border-slate-100'">
+            <td class="py-2">
+              <a th:href="@{/guru/assignment/{id}/rekap/siswa/{studentId}(id=${assignment.id},studentId=${b.student().id})}"
+                 class="text-slate-900 underline-offset-2 hover:underline"
+                 th:text="${b.student().fullName}">Nama Siswa</a>
+            </td>
+            <td class="py-2" th:text="${b.status()}">STATUS</td>
+            <td class="py-2" th:text="${b.attempts()}">0</td>
+            <td class="py-2"
+                th:text="|${#numbers.formatDecimal(b.officialScore() * 100, 1, 2)}%|">0.00%</td>
+            <td class="py-2">
+              <span th:if="${b.gradingStatus().name() == 'PENDING_REVIEW'}" role="status"
+                    class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Sementara (PENDING_REVIEW)
+              </span>
+              <span th:unless="${b.gradingStatus().name() == 'PENDING_REVIEW'}"
+                    th:text="${b.gradingStatus()}">FINAL</span>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(baris)}">
+            <td colspan="5" class="py-6 text-center text-sm text-slate-500">
+              Ruangan ini belum memiliki anggota Siswa.
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

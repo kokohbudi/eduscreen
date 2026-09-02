@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Terbitkan Assignment')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Terbitkan Assignment', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      x-data hanya mengatur mode radio yang mana sedang dipilih supaya field khusus Quiz
+      (Timer, maxAttempts, revealAnswersAt) bisa disembunyikan untuk Practice (BR-M03, BR-M06).
+      Ini SEMATA kosmetik: penyembunyian di antarmuka bukan penegakan. Gerbang validasi
+      sesungguhnya berjalan di server saat penerbitan, bukan di sini (ADR-0003) — mengirim
+      permintaan langsung tanpa Timer untuk mode QUIZ tetap ditolak oleh service.
+    -->
+    <form method="post" th:action="@{/guru/assignment}" x-data="{ mode: 'QUIZ' }"
+          class="max-w-2xl space-y-6 rounded border border-slate-200 bg-white p-6">
+
+      <div>
+        <label for="exerciseId" class="block text-sm font-medium text-slate-700">Exercise</label>
+        <select id="exerciseId" name="exerciseId" required
+                class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <option value="">Pilih Exercise</option>
+          <option th:each="e : ${exercises}" th:value="${e.id}" th:text="${e.title}"
+                   th:selected="${exerciseId != null and exerciseId == e.id}">Judul Exercise</option>
+        </select>
+      </div>
+
+      <div>
+        <span class="block text-sm font-medium text-slate-700">Ruangan tujuan</span>
+        <!--
+          Memilih beberapa Ruangan sekaligus menghasilkan Assignment TERPISAH untuk masing-masing
+          — bukan satu Assignment yang dibagi ke semuanya (BR-M02, AC-M02). Waktu, penutupan, dan
+          rekap tiap Ruangan berdiri sendiri sejak saat ini.
+        -->
+        <div class="mt-1 grid grid-cols-1 gap-1 rounded border border-slate-300 p-3 sm:grid-cols-2">
+          <label th:each="r : ${ruangan}" class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="ruanganIds" th:value="${r.id}" class="rounded border-slate-300">
+            <span th:text="${r.name}">Nama Ruangan</span>
+          </label>
+          <p th:if="${#lists.isEmpty(ruangan)}" class="text-sm text-slate-400 sm:col-span-2">
+            Anda belum ditugaskan ke Ruangan mana pun.
+          </p>
+        </div>
+      </div>
+
+      <div>
+        <label for="title" class="block text-sm font-medium text-slate-700">Judul Assignment</label>
+        <input type="text" id="title" name="title" required
+               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+      </div>
+
+      <div>
+        <span class="block text-sm font-medium text-slate-700">Mode</span>
+        <div class="mt-1 flex gap-4 text-sm">
+          <label class="flex items-center gap-2">
+            <input type="radio" name="mode" value="QUIZ" x-model="mode" checked>
+            Quiz
+          </label>
+          <label class="flex items-center gap-2">
+            <input type="radio" name="mode" value="PRACTICE" x-model="mode">
+            Latihan
+          </label>
+        </div>
+      </div>
+
+      <div x-show="mode === 'QUIZ'" class="space-y-4">
+        <div>
+          <label for="timerDurationMinutes" class="block text-sm font-medium text-slate-700">
+            Durasi Timer (menit)
+          </label>
+          <input type="number" id="timerDurationMinutes" name="timerDurationMinutes" min="1"
+                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        </div>
+        <div>
+          <label for="maxAttempts" class="block text-sm font-medium text-slate-700">Maksimum percobaan</label>
+          <input type="number" id="maxAttempts" name="maxAttempts" min="1" value="1"
+                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        </div>
+        <div>
+          <label for="revealAnswersAt" class="block text-sm font-medium text-slate-700">
+            Pembahasan terbuka
+          </label>
+          <select id="revealAnswersAt" name="revealAnswersAt"
+                  class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+            <option value="AFTER_SUBMIT">Setelah Siswa mengumpulkan</option>
+            <option value="AFTER_EXPIRATION">Setelah batas akhir lewat</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="flex gap-6 text-sm">
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="shuffleQuestions" class="rounded border-slate-300">
+          Acak urutan soal
+        </label>
+        <label class="flex items-center gap-2">
+          <input type="checkbox" name="shuffleOptions" class="rounded border-slate-300">
+          Acak urutan opsi jawaban
+        </label>
+      </div>
+
+      <div>
+        <label for="expiresAt" class="block text-sm font-medium text-slate-700">Batas akhir</label>
+        <!--
+          Waktu yang diketik di sini ditafsirkan dalam zona waktu CLIENT (sekolah), bukan zona
+          perangkat yang kebetulan dipakai Guru saat mengisi formulir (BR-T02, AC-T06).
+        -->
+        <input type="datetime-local" id="expiresAt" name="expiresAt" required
+               class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+      </div>
+
+      <button type="submit"
+              class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+        Terbitkan
+      </button>
+    </form>
+
+  </div>
+</div>
+</body>
+</html>

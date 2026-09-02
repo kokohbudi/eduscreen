@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Detail Assignment')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Detail Assignment', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Kartu ringkas: dipakai baik saat halaman ini dimuat penuh maupun sebagai fragment yang
+      dikembalikan setelah perpanjang/tutup, karena keduanya memakai model "assignment" yang sama.
+    -->
+    <div th:fragment="ringkas" id="ringkas-assignment"
+         class="rounded border border-slate-200 bg-white p-4">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 class="text-lg font-semibold" th:text="${assignment.title}">Judul Assignment</h2>
+        <span class="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium"
+              th:text="${assignment.status}">STATUS</span>
+      </div>
+      <dl class="mt-3 grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
+        <div>
+          <dt class="text-slate-500">Mode</dt>
+          <dd th:text="${assignment.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Timer</dt>
+          <dd th:text="${assignment.timerDurationMinutes != null ? assignment.timerDurationMinutes + ' menit' : '—'}">
+            Timer
+          </dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Batas akhir</dt>
+          <dd th:text="${#temporals.format(assignment.expiresAt, 'dd MMM yyyy HH:mm')}">Batas akhir</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Maksimum percobaan</dt>
+          <dd th:text="${assignment.maxAttempts}">1</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Acak urutan soal</dt>
+          <dd th:text="${assignment.shuffleQuestions ? 'Ya' : 'Tidak'}">Ya</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Acak urutan opsi</dt>
+          <dd th:text="${assignment.shuffleOptions ? 'Ya' : 'Tidak'}">Ya</dd>
+        </div>
+        <div>
+          <dt class="text-slate-500">Pembahasan terbuka</dt>
+          <dd th:text="${assignment.revealAnswersAt != null ? assignment.revealAnswersAt : '—'}">Pembahasan</dd>
+        </div>
+      </dl>
+    </div>
+
+    <!--
+      Mode, Exercise, Timer, maxAttempts, dan kedua sakelar pengacakan terkunci begitu terbit
+      (BR-A03): kartu ringkas di atas menampilkannya sebagai teks, bukan input, karena tidak ada
+      lagi jalur formulir untuk mengubahnya di sini.
+    -->
+
+    <section class="mt-6 rounded border border-slate-200 bg-white p-4">
+      <h2 class="mb-3 text-lg font-semibold">Perpanjang batas akhir</h2>
+      <!--
+        Hanya diperpanjang, tidak pernah dimajukan (BR-A02, AC-A01): memajukan batas akhir akan
+        memotong ujian Siswa yang sedang berjalan tanpa peringatan. Server menolak nilai yang lebih
+        awal dari expiresAt sekarang; formulir ini tidak mencoba menegakkannya di klien.
+      -->
+      <form class="flex flex-wrap items-end gap-3"
+            th:attr="hx-patch=@{/guru/assignment/{id}/perpanjang(id=${assignment.id})}"
+            hx-target="#ringkas-assignment" hx-swap="outerHTML">
+        <div>
+          <label for="expiresAt" class="block text-sm font-medium text-slate-700">Batas akhir baru</label>
+          <input type="datetime-local" id="expiresAt" name="expiresAt" required
+                 class="mt-1 rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        </div>
+        <button type="submit"
+                class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Perpanjang
+        </button>
+      </form>
+    </section>
+
+    <section class="mt-6 flex flex-wrap gap-3">
+      <!--
+        Menutup lebih awal memfinalisasi seluruh sesi yang masih berjalan di Assignment ini
+        (BR-A05) — bukan sekadar mengubah status tampilan.
+      -->
+      <button th:if="${assignment.status.name() == 'PUBLISHED'}"
+              th:attr="hx-post=@{/guru/assignment/{id}/tutup(id=${assignment.id})}"
+              hx-target="#ringkas-assignment" hx-swap="outerHTML"
+              hx-confirm="Tutup Assignment ini lebih awal? Seluruh pengerjaan yang masih berjalan akan difinalisasi sekarang."
+              class="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+        Tutup lebih awal
+      </button>
+
+      <!--
+        Assignment yang sudah terbit tidak bisa dihapus, hanya ditutup (BR-A04); tombol ini hanya
+        muncul selagi masih DRAFT.
+      -->
+      <button th:if="${assignment.draft}"
+              th:attr="hx-delete=@{/guru/assignment/{id}(id=${assignment.id})}"
+              hx-target="body" hx-swap="outerHTML"
+              hx-confirm="Hapus draf Assignment ini? Tindakan ini tidak bisa dibatalkan."
+              class="rounded border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+        Hapus draf
+      </button>
+    </section>
+
+    <div class="mt-6 flex gap-4 text-sm">
+      <a th:href="@{/guru/assignment/{id}/rekap(id=${assignment.id})}" class="text-slate-600 underline">
+        Lihat rekap
+      </a>
+      <a th:href="@{/guru/assignment/{id}/penilaian(id=${assignment.id})}" class="text-slate-600 underline">
+        Antrean penilaian
+      </a>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

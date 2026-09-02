@@ -23,6 +23,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <archunit.version>1.4.1</archunit.version>
     <owasp-sanitizer.version>20260313.1</owasp-sanitizer.version>
+    <poi.version>5.4.1</poi.version>
     <frontend-plugin.version>1.15.1</frontend-plugin.version>
     <node.version>v22.20.0</node.version>
   </properties>
@@ -89,6 +90,19 @@
       <version>${owasp-sanitizer.version}</version>
     </dependency>
 
+    <!-- Validasi muatan formulir; jalur penerbitan dan penulisan soal bergantung padanya. -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-validation</artifactId>
+    </dependency>
+
+    <!-- TC-45: impor Excel/CSV diproses sinkron, maksimum 500 baris per berkas. -->
+    <dependency>
+      <groupId>org.apache.poi</groupId>
+      <artifactId>poi-ooxml</artifactId>
+      <version>${poi.version}</version>
+    </dependency>
+
     <!-- ===== Tes ===== -->
     <!-- TC-38: PostgreSQL sungguhan lewat Testcontainers. H2 dilarang. -->
     <dependency>
@@ -144,6 +158,21 @@
           <environmentVariables>
             <EDUSCREEN_ENV>local</EDUSCREEN_ENV>
           </environmentVariables>
+          <!--
+            Kelas berakhiran *IT ikut dijalankan di fase yang sama. Surefire bawaan hanya
+            mengenali *Test, dan tes integrasi terpenting proyek ini — IDOR, waktu, balapan
+            finalisasi — semuanya bernama *IT. Tes yang tidak pernah dijalankan lebih buruk
+            daripada tes yang tidak ada: ia memberi rasa aman tanpa memeriksa apa pun.
+
+            Failsafe sengaja tidak dipakai: memisahkan fase hanya bermanfaat bila tes integrasi
+            butuh artefak yang sudah dikemas, dan di sini tidak — Testcontainers menyalakan
+            PostgreSQL-nya sendiri (TC-38).
+          -->
+          <includes>
+            <include>**/*Test.java</include>
+            <include>**/*Tests.java</include>
+            <include>**/*IT.java</include>
+          </includes>
         </configuration>
       </plugin>
 

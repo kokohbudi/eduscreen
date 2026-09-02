@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Impor Soal')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Impor Soal', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Impor diproses SINKRON, tanpa antrean pekerjaan latar (TC-45, ADR-0014). Batas 500 baris
+      per berkas adalah yang membuat itu mungkin, dan ia ada supaya tidak ada yang
+      "memperbaikinya" dengan memasukkan kembali infrastruktur yang sengaja dihindari di v1.
+    -->
+    <section class="rounded-lg border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold">Unggah berkas</h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Format Excel (<code>.xlsx</code>) atau CSV, maksimum <strong>500 baris</strong> per berkas.
+        Berkas yang lebih besar ditolak sebelum diproses — pecah menjadi beberapa berkas.
+      </p>
+      <p class="mt-2 text-sm">
+        <a th:href="@{/templat-impor.csv}" class="text-slate-700 underline" download>
+          Unduh templat kolom
+        </a>
+      </p>
+
+      <form class="mt-4 flex flex-wrap items-end gap-3"
+            hx-post="/admin/impor/pratinjau" hx-encoding="multipart/form-data"
+            hx-target="#pratinjau" hx-swap="innerHTML">
+        <div>
+          <label for="berkas" class="block text-sm font-medium text-slate-700">Berkas</label>
+          <input type="file" id="berkas" name="berkas" accept=".csv,.xlsx" required
+                 class="mt-1 block text-sm">
+        </div>
+        <button type="submit"
+                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Pratinjau
+        </button>
+      </form>
+    </section>
+
+    <div id="pratinjau" class="mt-6">
+      <!--
+        Kegagalan satu baris tidak membatalkan baris lain (BR-Q05). Nomor barisnya ditampilkan
+        supaya pengguna bisa memperbaiki berkas aslinya, bukan menebak-nebak baris mana yang
+        salah (AC-Q03).
+      -->
+      <section th:fragment="pratinjau" th:if="${pratinjau}"
+               class="rounded-lg border border-slate-200 bg-white p-6">
+        <h2 class="text-lg font-semibold">Hasil pembacaan</h2>
+        <p class="mt-1 text-sm text-slate-700">
+          <span th:text="${pratinjau.validCount()}">0</span> baris valid,
+          <span th:text="${#lists.size(pratinjau.failures())}">0</span> baris gagal.
+        </p>
+
+        <div th:if="${!#lists.isEmpty(pratinjau.failures())}" class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-slate-500">
+              <tr>
+                <th scope="col" class="py-2">Baris</th>
+                <th scope="col" class="py-2">Alasan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="g : ${pratinjau.failures()}" class="border-b border-slate-100">
+                <td class="py-2" th:text="${g.lineNumber()}">0</td>
+                <td class="py-2 text-red-700" th:text="${g.reason()}">Alasan</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <form class="mt-4" hx-post="/admin/impor/simpan" hx-target="#pratinjau" hx-swap="innerHTML">
+          <input type="hidden" name="token" th:value="${pratinjau.token()}">
+          <button type="submit"
+                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+            Simpan baris yang valid
+          </button>
+        </form>
+      </section>
+
+      <div th:fragment="ringkasan" th:if="${ringkasan}" role="status"
+           class="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <span th:text="${ringkasan.saved()}">0</span> soal tersimpan ke bank soal.
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

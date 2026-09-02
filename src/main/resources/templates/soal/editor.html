@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head(${soal != null} ? 'Ubah Soal' : 'Soal Baru')}"></head>
+<body>
+<div th:replace="~{layout/base :: page(${soal != null} ? 'Ubah Soal' : 'Soal Baru', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Formulir yang sama dipakai untuk membuat dan mengubah soal (TC-14). Membuat memakai POST
+      biasa yang berakhir redirect ke halaman detail (kontrak: 302), mengubah memakai HTMX PUT
+      yang membalas fragmen "detail" di tempat — makanya hx-put/hx-target/hx-swap hanya terisi
+      saat ${soal} sudah ada; Thymeleaf membuang atribut yang nilainya null.
+    -->
+    <div id="soal-editor" th:fragment="detail">
+
+      <div th:if="${soal != null}" class="mb-4 rounded border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800"
+           id="pesan-simpan" role="status">
+        Tersimpan.
+      </div>
+
+      <form th:action="@{__${basePath ?: '/soal'}__}" method="post" class="space-y-4"
+            th:attr="hx-put=${soal != null} ? @{__${basePath ?: '/soal'}__/{id}(id=${soal.id})} : null,
+                     hx-target=${soal != null} ? '#soal-editor' : null,
+                     hx-swap=${soal != null} ? 'outerHTML' : null"
+            x-data="soalEditor()">
+
+        <section class="grid grid-cols-1 gap-3 rounded border border-slate-200 bg-white p-4 sm:grid-cols-3">
+          <div>
+            <label for="subjectSoal" class="block text-sm font-medium text-slate-700">Subject</label>
+            <select id="subjectSoal"
+                    onchange="htmx.ajax('GET', '/subject/' + this.value + '/topic', {target: '#topicId', swap: 'innerHTML'})"
+                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="" th:selected="${subjectId == null}">-- Subject --</option>
+              <option th:each="s : ${subjects}" th:value="${s.id}"
+                      th:text="|${s.name} (${s.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|"
+                      th:selected="${subjectId != null and subjectId == s.id}">Subject</option>
+            </select>
+          </div>
+          <div>
+            <label for="topicId" class="block text-sm font-medium text-slate-700">Topic</label>
+            <!-- Cascading Subject->Topic mengganti innerHTML select ini saja: name/required
+                 milik <select> tetap utuh, hanya daftar <option> di dalamnya yang berganti. -->
+            <select id="topicId" name="topicId" required
+                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="" th:selected="${topicId == null}">-- Topic --</option>
+              <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+                      th:selected="${topicId != null and topicId == t.id}">Topic</option>
+            </select>
+          </div>
+          <div>
+            <label for="type" class="block text-sm font-medium text-slate-700">Tipe soal</label>
+            <select id="type" name="type" x-model="tipe"
+                    class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5 text-sm">
+              <option value="MULTIPLE_CHOICE"
+                      th:selected="${soal == null or soal.type.name() == 'MULTIPLE_CHOICE'}">Pilihan Ganda</option>
+              <option value="ESSAY" th:selected="${soal != null and soal.type.name() == 'ESSAY'}">Esai</option>
+            </select>
+          </div>
+        </section>
+
+        <section class="rounded border border-slate-200 bg-white p-4">
+          <label for="bodyHtml" class="block text-sm font-medium text-slate-700">Isi soal</label>
+          <!-- Rumus dirender di sisi peramban, tidak pernah disimpan sebagai HTML hasil
+               render (TC-24); itu keputusan internal, tidak perlu dibaca Guru. -->
+          <p class="mb-1 text-xs text-slate-500">
+            Rumus ditulis LaTeX di antara <code>$...$</code> (sebaris) atau <code>$$...$$</code> (blok).
+          </p>
+          <textarea id="bodyHtml" name="bodyHtml" required rows="5"
+                    th:text="${soal != null ? soal.bodyHtml : ''}"
+                    class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"></textarea>
+        </section>
+
+        <section x-show="tipe === 'MULTIPLE_CHOICE'" class="rounded border border-slate-200 bg-white p-4">
+          <div class="mb-2 flex items-center justify-between">
+            <label class="block text-sm font-medium text-slate-700">Pilihan jawaban</label>
+            <button type="button" @click="tambahOpsi()"
+                    class="rounded border border-slate-300 px-2 py-1 text-xs hover:bg-slate-100">
+              + Tambah pilihan
+            </button>
+          </div>
+          <template x-for="(o, idx) in opsi" :key="idx">
+            <div class="mb-2 flex items-start gap-2">
+              <input type="radio" name="correctIndex" :value="idx" x-model.number="correctIndex"
+                     class="mt-2" required>
+              <textarea name="optionBody" x-model="o.body" rows="2" required
+                        class="flex-1 rounded border border-slate-300 px-2 py-1 font-mono text-sm"></textarea>
+              <button type="button" @click="hapusOpsi(idx)"
+                      class="rounded border border-red-200 px-2 py-1 text-xs text-red-700 hover:bg-red-50">
+                Hapus
+              </button>
+            </div>
+          </template>
+          <!-- Tepat satu Option benar (FR-016). -->
+          <p class="text-xs text-slate-500">Tandai bulatan di sisi kiri pilihan yang benar. Tepat satu pilihan boleh ditandai.</p>
+        </section>
+
+        <section class="rounded border border-slate-200 bg-white p-4">
+          <label for="explanationHtml" class="block text-sm font-medium text-slate-700">Pembahasan (opsional)</label>
+          <textarea id="explanationHtml" name="explanationHtml" rows="3"
+                    th:text="${soal != null ? soal.explanationHtml : ''}"
+                    class="w-full rounded border border-slate-300 px-3 py-2 font-mono text-sm"></textarea>
+        </section>
+
+        <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Simpan
+        </button>
+      </form>
+
+      <!-- Panel unggah gambar, terpisah dari form utama: hasil unggahnya berupa tautan yang
+           disalin manual ke textarea Isi soal / Pembahasan (editor sederhana, tanpa pustaka
+           rich-text apa pun). -->
+      <section class="mt-6 rounded border border-slate-200 bg-white p-4">
+        <h2 class="mb-2 text-sm font-medium text-slate-700">Sisipkan gambar</h2>
+        <form th:attr="hx-post=@{/gambar}" hx-encoding="multipart/form-data" hx-target="#gambar-hasil" hx-swap="innerHTML"
+              class="flex items-end gap-3 text-sm">
+          <input type="file" name="berkas" accept="image/png,image/jpeg" required>
+          <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Unggah</button>
+        </form>
+        <div id="gambar-hasil" class="mt-3"></div>
+      </section>
+
+      <!-- Pratinjau: bodyHtml/explanationHtml yang tersimpan SUDAH disanitasi allowlist saat
+           ditulis (QuestionService, TC-22/TC-23), jadi th:utext di sini aman — bukan input
+           mentah pengguna. -->
+      <section th:if="${soal != null}" class="mt-6 rounded border border-slate-200 bg-white p-4">
+        <h2 class="mb-2 text-sm font-medium text-slate-700">Pratinjau</h2>
+        <div class="pratinjau-konten prose prose-sm max-w-none" th:utext="${soal.bodyHtml}">Pratinjau isi soal</div>
+        <div th:if="${soal.explanationHtml != null}" class="pratinjau-konten prose prose-sm mt-3 max-w-none border-t border-slate-100 pt-3"
+             th:utext="${soal.explanationHtml}">Pratinjau pembahasan</div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- Fragmen hasil unggah gambar (POST /gambar): menampilkan pratinjau + tautan yang bisa
+     disalin ke textarea, karena editor di sini sengaja textarea polos, bukan rich-text (TC-27,
+     TC-28 -- penyimpanan lewat ImageService/FileStoragePort, bukan direktori statis). -->
+<div th:fragment="gambarTerunggah" th:remove="tag" class="space-y-2">
+  <img th:src="@{/gambar/{id}(id=${imageId})}" alt="Gambar terunggah" class="max-h-40 rounded border border-slate-200">
+  <input type="text" readonly onclick="this.select()"
+         th:value="|&lt;img src=&quot;/gambar/${imageId}&quot;&gt;|"
+         class="w-full rounded border border-slate-300 px-2 py-1 font-mono text-xs">
+</div>
+
+<script th:src="@{/vendor/katex/katex.min.js}" defer></script>
+<script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
+<script th:inline="javascript">
+  document.addEventListener('alpine:init', function () {
+    Alpine.data('soalEditor', function () {
+      return {
+        tipe: /*[[${soal != null ? soal.type.name() : 'MULTIPLE_CHOICE'}]]*/ 'MULTIPLE_CHOICE',
+        correctIndex: 0,
+        opsi: [
+          /*[# th:each="o, it : ${opsi}"]*/
+          {body: /*[[${o.bodyHtml}]]*/ '', benar: /*[[${o.correct}]]*/ false},
+          /*[/]*/
+        ],
+        init: function () {
+          this.opsi.forEach(function (o, idx) {
+            if (o.benar) {
+              this.correctIndex = idx;
+            }
+          }.bind(this));
+          if (this.opsi.length === 0) {
+            this.opsi = [{body: '', benar: true}, {body: '', benar: false}];
+          }
+        },
+        tambahOpsi: function () {
+          this.opsi.push({body: '', benar: false});
+        },
+        hapusOpsi: function (idx) {
+          this.opsi.splice(idx, 1);
+          if (this.correctIndex >= this.opsi.length) {
+            this.correctIndex = 0;
+          }
+        }
+      };
+    });
+  });
+
+  // KaTeX dirender di klien saja; rumus tidak pernah disimpan sebagai HTML hasil render (TC-24).
+  function renderPratinjauLatex() {
+    var delimiter = [
+      {left: '$$', right: '$$', display: true},
+      {left: '$', right: '$', display: false}
+    ];
+    document.querySelectorAll('.pratinjau-konten').forEach(function (el) {
+      if (window.renderMathInElement) {
+        renderMathInElement(el, {delimiters: delimiter});
+      } else if (window.katex) {
+        // auto-render.min.js tidak tersedia: render manual elemen ber-data-latex.
+        el.querySelectorAll('[data-latex]').forEach(function (latex) {
+          katex.render(latex.getAttribute('data-latex'), latex, {throwOnError: false});
+        });
+      }
+    });
+  }
+  document.addEventListener('DOMContentLoaded', renderPratinjauLatex);
+  document.body.addEventListener('htmx:afterSwap', renderPratinjauLatex);
+</script>
+
+</body>
+</html>

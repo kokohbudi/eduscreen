@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Katalog Master')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Katalog Master', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Adopsi membuat SALINAN penuh milik Client (ADR-0001, FR-021, FR-078). Perubahan Eduscreen
+      atas soal master setelahnya tidak merambat — sekolah yang sudah menyesuaikan sebuah soal
+      tidak boleh mendapatinya berubah di tengah semester.
+
+      Yang tampil di sini hanya konten master yang sudah TERBIT; yang masih digarap Eduscreen
+      tidak pernah terlihat dari sini (FR-067).
+    -->
+    <p class="mb-6 rounded border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      Soal dan paket yang diadopsi disalin ke bank soal Anda. Setelah disalin, salinan itu milik
+      Anda sepenuhnya: menyuntingnya tidak mengubah katalog, dan perubahan katalog tidak
+      mengubahnya.
+    </p>
+
+    <div id="ringkasan-adopsi" class="mb-6"></div>
+
+    <!--
+      Adopsi per Question. Inilah granularitas yang dituntut FR-074 dan FR-075: sekolah jarang
+      mau seluruh isi paket, dan tanpa ini adopsi menjadi ambil-semua-atau-tidak-sama-sekali.
+    -->
+    <section class="mb-8 rounded-lg border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold">Soal master</h2>
+
+      <form th:attr="hx-get=@{/katalog/soal}" hx-target="#hasil-katalog" hx-swap="outerHTML"
+            hx-trigger="submit, change from:#topicIdKatalog"
+            class="mt-4 flex flex-wrap items-end gap-3 text-sm">
+        <div>
+          <label for="subjectIdKatalog" class="block font-medium text-slate-700">Subject</label>
+          <select id="subjectIdKatalog" name="subjectId"
+                  onchange="htmx.ajax('GET', '/subject/' + this.value + '/topic', {target: '#topicIdKatalog', swap: 'innerHTML'})"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+            <option value="">Semua Subject</option>
+            <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"
+                    th:selected="${s.id == subjectId}">Subject</option>
+          </select>
+        </div>
+        <div>
+          <label for="topicIdKatalog" class="block font-medium text-slate-700">Topic</label>
+          <select id="topicIdKatalog" name="topicId" class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+            <option value="">Semua Topic</option>
+            <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.name}"
+                    th:selected="${t.id == topicId}">Topic</option>
+          </select>
+        </div>
+        <div class="flex-1">
+          <label for="qKatalog" class="block font-medium text-slate-700">Cari</label>
+          <input type="text" id="qKatalog" name="q" th:value="${q}" placeholder="Kata kunci isi soal..."
+                 class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+        </div>
+        <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Cari</button>
+      </form>
+
+      <form th:attr="hx-post=@{/katalog/adopsi}" hx-target="#ringkasan-adopsi" hx-swap="innerHTML"
+            class="mt-4">
+        <div id="hasil-katalog" th:replace="~{::hasilSoal}"></div>
+        <button type="submit"
+                class="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Salin soal terpilih ke bank soal saya
+        </button>
+      </form>
+    </section>
+
+    <!-- Adopsi per paket, berdampingan dengan adopsi per Question (FR-074). -->
+    <section class="rounded-lg border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold">Paket master</h2>
+      <form th:attr="hx-post=@{/katalog/adopsi}" hx-target="#ringkasan-adopsi" hx-swap="innerHTML"
+            class="mt-4">
+        <div class="space-y-2">
+          <label th:each="p : ${paket}" class="flex items-center gap-2 text-sm">
+            <input type="checkbox" name="exerciseIds" th:value="${p.id}" class="rounded border-slate-300">
+            <span th:text="${p.title}">Judul paket</span>
+          </label>
+          <p th:if="${#lists.isEmpty(paket)}" class="text-sm text-slate-500">
+            Belum ada paket master yang tersedia.
+          </p>
+        </div>
+        <button type="submit" th:unless="${#lists.isEmpty(paket)}"
+                class="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Salin paket terpilih ke bank soal saya
+        </button>
+      </form>
+    </section>
+
+  </div>
+
+  <!--
+    Hasil penelusuran per Question, berhalaman. Tiap baris menandai apakah sekolah ini sudah
+    pernah mengadopsinya (FR-076), dibaca dari jejak asal salinan yang sudah ada — bukan dari
+    tabel jejak tersendiri (ADR-0001).
+  -->
+  <div th:fragment="hasilSoal" id="hasil-katalog" class="mt-4">
+
+    <!-- Peringatan setingkat Topic (FR-077). Sengaja peringatan, bukan gerbang: sekolah yang
+         memang ingin salinan kedua tetap boleh mengambilnya, sama seperti aturan per Question
+         di bawah. Dibaca dari source_topic_id, bukan dari kesamaan nama. -->
+    <p th:if="${topicSudahDiadopsi}"
+       class="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+      Sekolah Anda sudah pernah mengadopsi Topic ini. Mengadopsinya lagi menambah Topic baru di
+      bank soal Anda, berdampingan dengan yang lama — bukan menggantinya.
+    </p>
+
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2 w-8"></th>
+          <th class="py-2">Isi</th>
+          <th class="py-2">Tipe</th>
+          <th class="py-2">Status di sekolah Anda</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr th:each="pertanyaan : ${hasil}" class="border-b border-slate-100 align-top">
+          <td class="py-2">
+            <!-- Adopsi berulang tetap diizinkan, tapi didahului peringatan (FR-077): centang
+                 soal yang sudah pernah diadopsi memunculkan konfirmasi sebelum dikirim. -->
+            <input type="checkbox" name="questionIds" th:value="${pertanyaan.id}"
+                   class="rounded border-slate-300"
+                   th:attr="onchange=${sudahDiadopsi.contains(pertanyaan.id)}
+                       ? 'if (this.checked &amp;&amp; !confirm(\'Soal ini sudah pernah diadopsi sekolah Anda. Mengadopsinya lagi membuat salinan tambahan. Lanjutkan?\')) { this.checked = false; }'
+                       : null">
+          </td>
+          <td class="py-2" th:text="${#strings.abbreviate(pertanyaan.bodyText, 120)}">Cuplikan isi soal</td>
+          <td class="py-2" th:text="${pertanyaan.type.name() == 'ESSAY' ? 'Esai' : 'Pilihan Ganda'}">Tipe</td>
+          <td class="py-2">
+            <span th:if="${sudahDiadopsi.contains(pertanyaan.id)}"
+                  class="rounded bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800">Sudah diadopsi</span>
+            <span th:unless="${sudahDiadopsi.contains(pertanyaan.id)}" class="text-xs text-slate-400">&mdash;</span>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${hasil.totalPages > 0}">
+      <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${hasil.hasPrevious()}"
+           th:href="@{/katalog(subjectId=${subjectId}, topicId=${topicId}, q=${q}, page=${hasil.number - 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${hasil.hasNext()}"
+           th:href="@{/katalog(subjectId=${subjectId}, topicId=${topicId}, q=${q}, page=${hasil.number + 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
+    <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">
+      Belum ada soal master terbit yang cocok.
+    </p>
+  </div>
+
+  <div th:fragment="ringkasan" th:if="${ringkasan}" role="status"
+       class="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+    Tersalin:
+    <span th:text="${ringkasan.exercises()}">0</span> Exercise,
+    <span th:text="${ringkasan.questions()}">0</span> soal,
+    <span th:text="${ringkasan.topics()}">0</span> Topic.
+  </div>
+
+</div>
+</body>
+</html>

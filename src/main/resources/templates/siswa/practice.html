@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head(${assignment.title})}"></head>
+<body>
+<div th:replace="~{layout/base :: page(${assignment.title}, ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Heartbeat menjaga sesi login tetap hidup; ia BUKAN memperpanjang batas waktu (TC-32). -->
+    <div th:attr="hx-post=@{/siswa/sesi/{id}/heartbeat(id=${sesi.id})}" hx-trigger="every 60s" hx-swap="none">
+
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded border border-slate-200 bg-white px-4 py-3">
+        <!--
+          BR-T05/AC-T07: Practice boleh berjalan tanpa Timer. Hitung mundur hanya ditampilkan
+          bila Assignment punya durasi Timer; kalau tidak, cukup batas akhir Assignment yang
+          ditunjukkan karena itulah satu-satunya batas yang berlaku.
+        -->
+        <div th:if="${assignment.timerDurationMinutes != null}"
+             th:with="sesiUrl='/siswa/sesi/' + ${sesi.id}"
+             th:attr="x-data=|countdown(${sisaDetik}, '${sesiUrl}')|">
+          <span class="block text-xs text-slate-500">Sisa waktu</span>
+          <!-- Angkanya selalu dari server (TC-15, BR-T03); komponen ini hanya menampilkan. -->
+          <span class="font-mono text-2xl font-bold" x-text="tampil">00:00</span>
+        </div>
+        <div th:unless="${assignment.timerDurationMinutes != null}">
+          <span class="block text-xs text-slate-500">Batas akhir</span>
+          <span class="text-sm font-medium"
+                th:text="${#temporals.format(assignment.expiresAt, 'dd MMM yyyy HH:mm')}">Batas akhir</span>
+        </div>
+      </div>
+
+      <!--
+        Navigasi Practice adalah MAJU SATU ARAH: tidak ada peta soal yang bisa melompat, hanya
+        tombol "Soal berikutnya" ke position + 1. Server menolak lompatan dengan 409 (lihat
+        ExamSessionController#question) — tombol ini konsisten dengan aturan itu, bukan
+        menggantikannya; membuka DevTools dan memanggil posisi lain tetap ditolak server.
+      -->
+      <div th:fragment="soal" id="soal">
+        <!-- th:utext dipakai karena question.bodyHtml sudah tersanitasi saat ditulis (TC-22). -->
+        <div class="prose prose-slate mb-4 max-w-none rounded border border-slate-200 bg-white p-4"
+             th:utext="${soal.question().bodyHtml}">Batang soal</div>
+
+        <div th:if="${soal.question().type.name() == 'MULTIPLE_CHOICE'}" class="space-y-2">
+          <!-- Urutan Option TIDAK diurutkan ulang — urutan snapshot sesi ini yang dibekukan (BR-S02). -->
+          <div th:each="opsi, iter : ${soal.options()}"
+               class="flex items-start gap-2 rounded border p-3"
+               th:classappend="${soal.reveal() and opsi.isCorrect()} ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200'">
+            <input type="radio" th:id="|opsi-${soal.sessionQuestion().id}-${iter.index}|"
+                   name="selectedOptionId" th:value="${opsi.id}"
+                   th:checked="${soal.answer() != null and soal.answer().selectedOptionId == opsi.id}"
+                   th:disabled="${soal.reveal()}"
+                   th:attr="hx-put=${soal.reveal()} ? null : @{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
+                   hx-trigger="change" hx-target="#soal" hx-swap="outerHTML"
+                   class="mt-1">
+            <label th:for="|opsi-${soal.sessionQuestion().id}-${iter.index}|"
+                   th:utext="${opsi.bodyHtml}">Pilihan</label>
+          </div>
+        </div>
+
+        <div th:if="${soal.question().type.name() == 'ESSAY'}">
+          <label th:for="|essay-${soal.sessionQuestion().id}|" class="mb-1 block text-sm font-medium text-slate-700">
+            Jawaban
+          </label>
+          <!-- Auto-save mengembalikan FRAGMEN, bukan JSON: satu jalur render untuk muat awal dan pembaruan (TC-14). -->
+          <textarea th:id="|essay-${soal.sessionQuestion().id}|" name="essayText" rows="6"
+                    th:disabled="${soal.reveal()}"
+                    th:attr="hx-put=${soal.reveal()} ? null : @{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
+                    hx-trigger="keyup changed delay:800ms" hx-target="#soal" hx-swap="outerHTML"
+                    class="w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none disabled:bg-slate-50 disabled:text-slate-500"
+                    th:text="${soal.answer() != null ? soal.answer().essayText : ''}"></textarea>
+        </div>
+
+        <!--
+          BR-S07/AC-S04: begitu jawaban tersimpan, soal.reveal() menjadi true — benar/salah dan
+          pembahasan tampil SEKETIKA, dan input di atas dikunci (disabled) karena jawaban Practice
+          tidak bisa diubah lagi setelah terkirim.
+        -->
+        <div th:if="${soal.reveal()}" class="mt-4 rounded border p-4"
+             th:classappend="${soal.answer() != null and soal.answer().isCorrect} ? 'border-emerald-300 bg-emerald-50' : 'border-red-300 bg-red-50'">
+          <p role="status" class="mb-2 font-semibold"
+             th:if="${soal.answer() != null and soal.answer().isCorrect != null}"
+             th:text="${soal.answer().isCorrect ? 'Jawaban benar.' : 'Jawaban salah.'}">Jawaban</p>
+          <div class="prose prose-slate max-w-none text-sm" th:if="${soal.question().explanationHtml != null}"
+               th:utext="${soal.question().explanationHtml}">Pembahasan</div>
+        </div>
+
+        <!-- Navigasi maju satu arah: hanya "Soal berikutnya", tidak ada peta soal yang melompat. -->
+        <div class="mt-6" th:if="${soal.sessionQuestion().position + 1 < soal.total()}">
+          <button type="button"
+                  th:attr="hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesi.id},position=${soal.sessionQuestion().position + 1})}"
+                  hx-target="#soal" hx-swap="innerHTML"
+                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+            Soal berikutnya
+          </button>
+        </div>
+      </div>
+
+      <form class="mt-6" th:action="@{/siswa/sesi/{id}/selesai(id=${sesi.id})}" method="post"
+            onsubmit="return confirm('Selesaikan sesi latihan ini sekarang?');">
+        <button type="submit"
+                class="rounded border border-slate-300 px-4 py-2 font-medium hover:bg-slate-100">
+          Selesai
+        </button>
+      </form>
+    </div>
+
+    <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
+    <script>
+      // Render KaTeX untuk rumus LaTeX di batang soal/opsi/pembahasan, dipanggil ulang setelah
+      // tiap swap HTMX karena navigasi soal dan auto-save mengganti markup tanpa muat ulang halaman.
+      function eduscreenRenderMath(root) {
+        if (window.renderMathInElement) {
+          window.renderMathInElement(root, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false }
+            ]
+          });
+        }
+      }
+      document.addEventListener('DOMContentLoaded', function () { eduscreenRenderMath(document.body); });
+      document.body.addEventListener('htmx:afterSwap', function (e) { eduscreenRenderMath(e.detail.target); });
+    </script>
+  </div>
+</div>
+</body>
+</html>

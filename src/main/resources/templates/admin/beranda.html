@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Beranda Admin')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Beranda Admin', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <section class="grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <div class="rounded border border-slate-200 bg-white p-4">
+        <p class="text-sm text-slate-500">Ruangan aktif</p>
+        <p class="mt-1 text-2xl font-bold" th:text="${jumlahRuanganAktif}">0</p>
+        <a th:href="@{/admin/ruangan}" class="mt-1 block text-xs text-slate-500 underline">Kelola Ruangan</a>
+      </div>
+      <div class="rounded border border-slate-200 bg-white p-4">
+        <p class="text-sm text-slate-500">Client Admin</p>
+        <p class="mt-1 text-2xl font-bold"
+           th:text="${jumlahPerPeran.get(T(com.eduscreen.app.modules.assessment.domain.UserRole).CLIENT_ADMIN)}">0</p>
+      </div>
+      <div class="rounded border border-slate-200 bg-white p-4">
+        <p class="text-sm text-slate-500">Guru</p>
+        <p class="mt-1 text-2xl font-bold"
+           th:text="${jumlahPerPeran.get(T(com.eduscreen.app.modules.assessment.domain.UserRole).GURU)}">0</p>
+      </div>
+      <div class="rounded border border-slate-200 bg-white p-4">
+        <p class="text-sm text-slate-500">Siswa</p>
+        <p class="mt-1 text-2xl font-bold"
+           th:text="${jumlahPerPeran.get(T(com.eduscreen.app.modules.assessment.domain.UserRole).SISWA)}">0</p>
+        <a th:href="@{/admin/pengguna}" class="mt-1 block text-xs text-slate-500 underline">Kelola pengguna</a>
+      </div>
+    </section>
+
+    <section class="mt-8">
+      <h2 class="mb-3 text-lg font-semibold">Akses dukungan Eduscreen</h2>
+      <!--
+        Baca-saja, dinyalakan Client Admin sendiri, padam otomatis sesudah 4 jam, dan setiap
+        pembacaan Eduscreen Admin selama jendela itu tercatat lalu bisa ditinjau di bawah
+        (BR-P05, ADR-0015).
+      -->
+      <div th:fragment="aksesDukungan" id="akses-dukungan">
+        <div th:if="${aksesDukungan}" class="rounded border border-emerald-200 bg-emerald-50 p-4">
+          <p class="text-sm text-emerald-900">
+            Akses dukungan aktif sampai
+            <strong th:text="${#temporals.format(aksesDukungan.expiresAt, 'dd MMM yyyy HH:mm')}">-</strong>.
+            Selama jendela ini Eduscreen Admin hanya bisa <strong>membaca</strong> data Client Anda;
+            setiap pembacaan tercatat dan bisa Anda tinjau di jejak akses di bawah.
+          </p>
+          <button th:attr="hx-delete=@{/admin/akses-dukungan}" hx-target="#akses-dukungan" hx-swap="outerHTML"
+                  class="mt-3 rounded border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-100">
+            Cabut akses sekarang
+          </button>
+        </div>
+        <div th:unless="${aksesDukungan}" class="rounded border border-slate-200 bg-white p-4">
+          <p class="text-sm text-slate-600">
+            Akses dukungan sedang <strong>nonaktif</strong>. Menyalakannya memberi Eduscreen Admin
+            hak <strong>baca-saja</strong> atas data Client ini selama 4 jam; jendela ini padam
+            sendiri, dan setiap pembacaan yang terjadi selama jendela aktif tercatat serta bisa
+            Anda tinjau kapan saja.
+          </p>
+          <button th:attr="hx-post=@{/admin/akses-dukungan}" hx-target="#akses-dukungan" hx-swap="outerHTML"
+                  class="mt-3 rounded bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800">
+            Nyalakan akses dukungan
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section class="mt-8">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-lg font-semibold">Jejak pembacaan dukungan</h2>
+        <a th:href="@{/admin/akses-dukungan/jejak}" class="text-sm text-slate-600 underline">Muat jejak</a>
+      </div>
+      <table class="w-full border-collapse text-sm" th:if="${jejak}">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th class="py-2">Waktu</th>
+            <th class="py-2">Data yang dibaca</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="baca : ${jejak}" class="border-b border-slate-100">
+            <td class="py-2" th:text="${#temporals.format(baca.readAt, 'dd MMM yyyy HH:mm')}">-</td>
+            <td class="py-2" th:text="${baca.resource}">-</td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(jejak)}">
+            <td colspan="2" class="py-2 text-slate-400">Belum ada pembacaan tercatat.</td>
+          </tr>
+        </tbody>
+      </table>
+      <p th:unless="${jejak}" class="text-sm text-slate-400">
+        Klik "Muat jejak" untuk melihat setiap pembacaan Eduscreen Admin atas data Client ini.
+      </p>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

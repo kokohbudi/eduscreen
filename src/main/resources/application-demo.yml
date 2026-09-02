@@ -1,7 +1,8 @@
 # Profil peragaan. Adapter identity dummy boleh hidup di sini, tetapi TC-34
 # melarang environment ini memuat data siswa sungguhan. TC-47 mewajibkan
-# spanduk permanen; TC-49 mematikan email keluar. Keduanya menyusul di T026
-# dan T022.
+# spanduk permanen; TC-49 mematikan email keluar; TC-48 melarang pemulihan dari
+# cadangan produksi. Prosedur lengkap dan daftar periksanya ada di
+# docs/runbook-demo.md.
 spring:
   datasource:
     url: ${DEMO_DB_URL}

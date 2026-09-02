@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Exercise')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Exercise', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Buat Exercise memakai POST biasa (bukan HTMX): kontraknya membalas 302 ke perakit
+         (BR-E, FR-024), bukan fragmen (TC-14 hanya berlaku untuk endpoint HTMX). -->
+    <section class="mb-6 rounded border border-slate-200 bg-white p-4">
+      <h2 class="mb-3 text-lg font-semibold">Buat Exercise</h2>
+      <form th:action="@{/exercise}" method="post" class="flex items-end gap-3">
+        <div class="flex-1">
+          <label for="title" class="block text-sm font-medium text-slate-700">Judul</label>
+          <input type="text" id="title" name="title" required placeholder="mis. Latihan Pecahan Bab 3"
+                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+        </div>
+        <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Buat &amp; rakit
+        </button>
+      </form>
+    </section>
+
+    <!-- Cari se-Client (FR-004): navigasi biasa supaya tautan hasil pencarian tetap bisa disalin. -->
+    <form method="get" th:action="@{/exercise}" class="mb-4 flex items-end gap-3 text-sm">
+      <div class="flex-1">
+        <label for="q" class="block font-medium text-slate-700">Cari judul</label>
+        <input type="text" id="q" name="q" th:value="${q}" placeholder="Kata kunci judul Exercise..."
+               class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+      </div>
+      <button type="submit" class="rounded border border-slate-300 px-4 py-2 hover:bg-slate-100">Cari</button>
+    </form>
+
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2">Judul</th>
+          <th class="py-2">Status</th>
+          <th class="py-2">Aksi</th>
+        </tr>
+      </thead>
+      <tbody th:each="exercise : ${daftar}" class="border-b border-slate-100 align-top">
+        <tr>
+          <td class="py-2" th:text="${exercise.title}">Judul Exercise</td>
+          <td class="py-2">
+            <span th:if="${exercise.locked}"
+                  class="rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">Terkunci</span>
+            <span th:unless="${exercise.locked}"
+                  class="rounded bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">Draf</span>
+          </td>
+          <td class="py-2">
+            <a th:href="@{/exercise/{id}(id=${exercise.id})}" class="text-slate-600 underline">Buka</a>
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    <p th:if="${daftar.totalElements == 0}" class="text-sm text-slate-500">Belum ada Exercise.</p>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${daftar.totalPages > 0}">
+      <span th:text="|Halaman ${daftar.number + 1} dari ${daftar.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${daftar.hasPrevious()}" th:href="@{/exercise(q=${q}, page=${daftar.number - 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${daftar.hasNext()}" th:href="@{/exercise(q=${q}, page=${daftar.number + 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

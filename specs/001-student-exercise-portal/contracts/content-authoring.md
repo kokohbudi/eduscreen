@@ -8,7 +8,8 @@
 | --- | --- | --- | --- | --- | --- |
 | GET | `/subject` | Client Admin, Guru | — | `fragment` daftar gabungan `GLOBAL` + lokal, asal ditandai (FR-013) | — |
 | POST | `/admin/subject` | Client Admin | `name` | `fragment` baris; `origin = CLIENT` | `400` |
-| POST | `/eduscreen/subject` | Eduscreen Admin | `name` | `fragment` baris; `origin = GLOBAL` | `400` |
+| POST | `/eduscreen/subject` | Eduscreen Admin | `name` | `fragment` `<option>`; `origin = GLOBAL` | `400` bila kosong atau nama sudah dipakai Subject `GLOBAL` lain |
+| POST | `/eduscreen/subject/{id}/nama` | Eduscreen Admin | `name` | `302` ke `/eduscreen/soal?subjectId={id}` | `404` bila Subject bukan `GLOBAL`, `400` bila kosong atau bentrok |
 | GET | `/subject/{id}/topic` | Client Admin, Guru | — | `fragment` daftar Topic | `404` |
 | POST | `/subject/{id}/topic` | Client Admin, Guru | `name` | `fragment` baris Topic lokal (FR-014) | `404`, `400` |
 
@@ -16,7 +17,7 @@
 
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/soal` | Client Admin, Guru | `subjectId`, `topicId`, `q`, `page` | `fragment` hasil berhalaman | — |
+| GET | `/soal` | Client Admin, Guru | `subjectId`, `topicId`, `q`, `page`, `exerciseId`, `type`, `sembunyikanTerpasang` | `fragment` hasil berhalaman | — |
 | GET | `/soal/baru` | Client Admin, Guru | `topicId` | `page` editor | — |
 | POST | `/soal` | Client Admin, Guru | `topicId`, `type`, `bodyHtml`, `explanationHtml`, `options[]` | `302` ke detail | `400` fragmen validasi |
 | GET | `/soal/{id}` | Client Admin, Guru | — | `page` detail | `404` bila di luar Client |
@@ -58,6 +59,8 @@
 | POST | `/exercise` | Guru | `title` | `302` ke perakit | `400` |
 | GET | `/exercise/{id}` | Client Admin, Guru | — | `page` perakit | `404` |
 | POST | `/exercise/{id}/item` | Guru | `questionId` | `fragment` daftar item | `404`; `409` bila terkunci |
+| POST | `/exercise/{id}/item/topik` | Guru | `topicId` | `fragment` daftar item | `404`; `409` bila terkunci |
+| POST | `/exercise/{id}/item/terpilih` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
 | DELETE | `/exercise/{id}/item/{questionId}` | Guru | — | `fragment` daftar item | `404`; `409` bila terkunci |
 | PUT | `/exercise/{id}/urutan` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
 | POST | `/exercise/{id}/duplikat` | Guru | — | `302` ke Exercise baru | `404` |
@@ -66,6 +69,14 @@
 
 - Perakit MUST membolehkan penambahan Question dari Subject dan Topic mana pun di dalam Client,
   berpindah bebas dalam satu sesi perakitan (FR-024).
+- Perakit MUST membolehkan penambahan beberapa Question terpilih maupun seluruh Question satu
+  Topic dalam satu tindakan (BR-E01). Urutan yang masuk MUST mengikuti urutan yang dikirim.
+- Panel penelusuran perakit MUST bisa disaring per tipe soal dan MUST bisa menyembunyikan
+  Question yang sudah terpasang di Exercise itu. Saringan MUST ikut terbawa antar-halaman
+  hasil; penyaringan MUST NOT mengubah aturan penerbitan Practice, yang tetap ditegakkan
+  di jalur penerbitan (BR-M04).
+  Soal yang sudah terpasang MUST dilewati, dan Topic yang bukan milik Client pemanggil MUST
+  menghasilkan 0 soal, bukan kebocoran maupun galat yang membedakannya dari Topic kosong (TC-36).
 - Setiap perubahan pada Exercise ber-`locked_at` MUST dijawab `409` disertai tawaran duplikasi
   (FR-026).
 - Exercise kosong MUST NOT bisa diterbitkan; divalidasi di jalur penerbitan (FR-025).

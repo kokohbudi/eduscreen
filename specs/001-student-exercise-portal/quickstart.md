@@ -65,6 +65,12 @@ Migrasi Flyway khusus `local` menyiapkan satu tenant yang bisa langsung dipakai:
 
 Tiap skenario memetakan langsung ke cerita pengguna di [spec.md](./spec.md).
 
+Ketujuhnya beserta tabel kasus tepi di bawah juga dijalankan otomatis lewat
+[`scripts/validasi-quickstart.sh`](../../scripts/validasi-quickstart.sh), yang memanggil aplikasi
+lewat HTTP persis seperti yang dilakukan manusia. Skrip itu melengkapi `./mvnw test`, bukan
+menggantikannya: tes otomatis memeriksa aturan satu per satu, skrip ini memeriksa apakah
+rangkaian penuhnya benar-benar bisa dijalani dari awal sampai nilai keluar.
+
 ### V1 — Ruangan dan penggunanya (US1)
 
 1. Masuk sebagai `admin@contoh.sch.id`, buat Ruangan baru, tambahkan tiga Siswa.

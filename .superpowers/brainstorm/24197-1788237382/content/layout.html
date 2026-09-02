@@ -1,0 +1,139 @@
+<h2>Susunan dashboard Eduscreen Admin</h2>
+<p class="subtitle">Isinya sudah terkunci: nav tetap di header, tiga kartu berangka, dan antrean empat baris. Yang belum: bagaimana ketiganya disusun. Klik yang menurutmu paling terbaca.</p>
+
+<style>
+  .es { font-family: ui-sans-serif, system-ui, sans-serif; color: #0f172a; }
+  .es-shell { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden; }
+  .es-top { background: #fff; border-bottom: 1px solid #e2e8f0; padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; }
+  .es-brand { font-weight: 800; font-size: 13px; letter-spacing: -0.01em; }
+  .es-nav { display: flex; gap: 14px; font-size: 11px; color: #475569; }
+  .es-nav .on { color: #0f172a; font-weight: 700; border-bottom: 2px solid #0f172a; padding-bottom: 2px; }
+  .es-who { font-size: 10px; color: #94a3b8; }
+  .es-main { padding: 14px; }
+  .es-h1 { font-size: 16px; font-weight: 800; margin: 0 0 12px; }
+  .es-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .es-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .es-card .lbl { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; color: #64748b; font-weight: 700; }
+  .es-card .num { font-size: 26px; font-weight: 800; line-height: 1.1; margin: 6px 0 2px; }
+  .es-card .sub { font-size: 11px; color: #64748b; }
+  .es-card .go { font-size: 11px; color: #0f172a; font-weight: 600; margin-top: 9px; display: block; }
+  .es-queue { background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; }
+  .es-queue h4 { margin: 0 0 9px; font-size: 12px; font-weight: 700; }
+  .es-row { display: flex; align-items: center; justify-content: space-between; padding: 7px 0; border-top: 1px solid #f1f5f9; font-size: 11px; }
+  .es-row:first-of-type { border-top: 0; }
+  .es-row .t { color: #334155; }
+  .es-pill { font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+  .amber { background: #fef3c7; color: #92400e; }
+  .rose { background: #ffe4e6; color: #9f1239; }
+  .emerald { background: #d1fae5; color: #065f46; }
+  .slate { background: #f1f5f9; color: #475569; }
+  .es-stack { display: grid; grid-template-columns: 1.35fr 1fr; gap: 10px; }
+  .es-mini { display: flex; gap: 10px; }
+  .es-mini .es-card { flex: 1; }
+  .cap { font-size: 11px; color: #64748b; margin-top: 8px; }
+</style>
+
+<div class="options">
+
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Kartu memimpin, antrean mengekor</h3>
+      <p>Tiga kartu sejajar di atas, blok "Butuh perhatian" selebar halaman di bawahnya.</p>
+      <div class="es" style="margin-top:10px">
+        <div class="es-shell">
+          <div class="es-top">
+            <div class="es-brand">Eduscreen</div>
+            <div class="es-nav"><span class="on">Dashboard</span><span>Client</span><span>Konten master</span><span>Paket</span></div>
+            <div class="es-who">Eduscreen Admin</div>
+          </div>
+          <div class="es-main">
+            <div class="es-h1">Dashboard</div>
+            <div class="es-cards">
+              <div class="es-card"><div class="lbl">Client</div><div class="num">3</div><div class="sub">sekolah aktif</div><span class="go">Kelola &rarr;</span></div>
+              <div class="es-card"><div class="lbl">Konten master</div><div class="num">12</div><div class="sub">Question &middot; 2 masih draf</div><span class="go">Buka ruang kerja &rarr;</span></div>
+              <div class="es-card"><div class="lbl">Paket</div><div class="num">2</div><div class="sub">terbit &middot; 1 digarap</div><span class="go">Rakit paket &rarr;</span></div>
+            </div>
+            <div class="es-queue" style="margin-top:10px">
+              <h4>Butuh perhatian</h4>
+              <div class="es-row"><span class="t">2 Question master masih draf</span><span class="es-pill amber">draf</span></div>
+              <div class="es-row"><span class="t">Paket IPA Kelas 5 memuat soal belum terbit</span><span class="es-pill rose">macet</span></div>
+              <div class="es-row"><span class="t">Paket Latihan Pecahan siap diterbitkan</span><span class="es-pill emerald">siap</span></div>
+              <div class="es-row"><span class="t">Subject "Kimia Kelas 11" belum punya Topic</span><span class="es-pill slate">buntu</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="cap">Pola paling lazim. Mata jatuh ke angka dulu, pekerjaan menyusul.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Dua kolom &mdash; antrean menempel di kanan</h3>
+      <p>Kartu bertumpuk di kiri, "Butuh perhatian" berdiri sendiri sebagai kolom kanan.</p>
+      <div class="es" style="margin-top:10px">
+        <div class="es-shell">
+          <div class="es-top">
+            <div class="es-brand">Eduscreen</div>
+            <div class="es-nav"><span class="on">Dashboard</span><span>Client</span><span>Konten master</span><span>Paket</span></div>
+            <div class="es-who">Eduscreen Admin</div>
+          </div>
+          <div class="es-main">
+            <div class="es-h1">Dashboard</div>
+            <div class="es-stack">
+              <div>
+                <div class="es-card" style="margin-bottom:8px"><div class="lbl">Client</div><div class="num">3</div><div class="sub">sekolah aktif</div><span class="go">Kelola &rarr;</span></div>
+                <div class="es-card" style="margin-bottom:8px"><div class="lbl">Konten master</div><div class="num">12</div><div class="sub">Question &middot; 2 masih draf</div><span class="go">Buka ruang kerja &rarr;</span></div>
+                <div class="es-card"><div class="lbl">Paket</div><div class="num">2</div><div class="sub">terbit &middot; 1 digarap</div><span class="go">Rakit paket &rarr;</span></div>
+              </div>
+              <div class="es-queue">
+                <h4>Butuh perhatian</h4>
+                <div class="es-row"><span class="t">2 Question draf</span><span class="es-pill amber">draf</span></div>
+                <div class="es-row"><span class="t">Paket IPA macet</span><span class="es-pill rose">macet</span></div>
+                <div class="es-row"><span class="t">Paket Pecahan siap terbit</span><span class="es-pill emerald">siap</span></div>
+                <div class="es-row"><span class="t">Kimia Kelas 11 tanpa Topic</span><span class="es-pill slate">buntu</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="cap">Antrean selalu terlihat tanpa menggulir. Tapi kartunya menyempit dan angkanya kehilangan bobot.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Pekerjaan dulu, menu belakangan</h3>
+      <p>"Butuh perhatian" jadi blok utama di atas; tiga kartu menu mengecil jadi baris pintasan.</p>
+      <div class="es" style="margin-top:10px">
+        <div class="es-shell">
+          <div class="es-top">
+            <div class="es-brand">Eduscreen</div>
+            <div class="es-nav"><span class="on">Dashboard</span><span>Client</span><span>Konten master</span><span>Paket</span></div>
+            <div class="es-who">Eduscreen Admin</div>
+          </div>
+          <div class="es-main">
+            <div class="es-h1">Dashboard</div>
+            <div class="es-queue">
+              <h4>Butuh perhatian &mdash; 4 hal</h4>
+              <div class="es-row"><span class="t">2 Question master masih draf</span><span class="es-pill amber">draf</span></div>
+              <div class="es-row"><span class="t">Paket IPA Kelas 5 memuat soal belum terbit</span><span class="es-pill rose">macet</span></div>
+              <div class="es-row"><span class="t">Paket Latihan Pecahan siap diterbitkan</span><span class="es-pill emerald">siap</span></div>
+              <div class="es-row"><span class="t">Subject "Kimia Kelas 11" belum punya Topic</span><span class="es-pill slate">buntu</span></div>
+            </div>
+            <div class="es-mini" style="margin-top:10px">
+              <div class="es-card"><div class="lbl">Client</div><div class="sub" style="margin-top:4px">3 sekolah &rarr;</div></div>
+              <div class="es-card"><div class="lbl">Konten master</div><div class="sub" style="margin-top:4px">12 Question &rarr;</div></div>
+              <div class="es-card"><div class="lbl">Paket</div><div class="sub" style="margin-top:4px">2 terbit &rarr;</div></div>
+            </div>
+          </div>
+        </div>
+        <p class="cap">Paling berguna kalau kamu membuka ini tiap pagi. Tapi kamu bilang tugas dashboard ini menavigasi &mdash; dan di sini menu justru mengalah.</p>
+      </div>
+    </div>
+  </div>
+
+</div>

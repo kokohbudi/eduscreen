@@ -3,6 +3,12 @@ spring:
     # Data awal HANYA dimuat di profil local. Ia tidak pernah ikut ke environment lain,
     # sehingga tidak ada jalan data karangan tersasar ke sistem yang memuat data nyata.
     locations: classpath:db/migration,classpath:db/seed-local
+    # Seed lokal menempati band V900+, sehingga SETIAP migrasi produksi baru mendarat di bawah
+    # nomor yang sudah terpasang dan dibaca Flyway sebagai out-of-order. Tanpa ini, database
+    # pengembangan yang sudah pernah di-seed menolak start begitu ada migrasi baru — dan jalan
+    # keluar satu-satunya adalah menghapus volume-nya. Hanya berlaku di profil local; environment
+    # lain tidak memuat seed sama sekali, jadi urutannya di sana selalu lurus.
+    out-of-order: true
   datasource:
     url: jdbc:postgresql://localhost:5433/eduscreen
     username: eduscreen

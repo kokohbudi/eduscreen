@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Portal Siswa')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Portal Siswa', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Tugas aktif MENGGABUNGKAN Assignment dari SELURUH Ruangan yang diikuti Siswa (FR-058,
+      AC-U01). Penggabungan ini disengaja, bukan kebetulan model: Siswa yang terdaftar di kelas
+      reguler sekaligus grup bimbel tidak boleh harus berpindah konteks untuk tahu apa yang harus
+      dikerjakan malam ini.
+    -->
+    <section class="mb-10">
+      <h2 class="mb-3 text-lg font-semibold">Tugas aktif</h2>
+
+      <div th:if="${#lists.isEmpty(assignments)}"
+           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Belum ada tugas aktif. Begitu Guru menerbitkan sesuatu di Ruangan Anda, tugasnya akan
+        muncul di sini.
+      </div>
+
+      <ul th:unless="${#lists.isEmpty(assignments)}" class="space-y-2">
+        <li th:each="tugas : ${assignments}"
+            class="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-200 bg-white px-4 py-3">
+          <div>
+            <a th:href="@{/siswa/assignment/{id}(id=${tugas.id})}"
+               class="font-medium text-slate-900 underline-offset-2 hover:underline"
+               th:text="${tugas.title}">Judul tugas</a>
+            <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span class="rounded bg-slate-100 px-2 py-0.5 font-medium"
+                    th:text="${tugas.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</span>
+              <!-- ponytail: penanda Ruangan masih id; ganti ke nama saat model rekap dipakai bersama -->
+              <span th:text="|Ruangan: ${tugas.ruanganId}|">Ruangan</span>
+              <span th:text="|Batas akhir: ${#temporals.format(tugas.expiresAt, 'dd MMM yyyy HH:mm')}|">Batas akhir</span>
+            </div>
+          </div>
+          <a th:href="@{/siswa/assignment/{id}(id=${tugas.id})}"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
+            Buka
+          </a>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">Riwayat pengerjaan</h2>
+
+      <div th:if="${#lists.isEmpty(riwayat)}"
+           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Belum ada pengerjaan tercatat.
+      </div>
+
+      <table th:unless="${#lists.isEmpty(riwayat)}" class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th class="py-2">Attempt</th>
+            <th class="py-2">Status</th>
+            <th class="py-2">Skor</th>
+            <th class="py-2"></th>
+          </tr>
+        </thead>
+        <tbody>
+          <!--
+            BR-L03 (nilai terbaik per Assignment): skor tertingginya dihitung di controller dan
+            dikirim sebagai peta, jadi baris ini cukup membandingkan dirinya dengan angka itu.
+          -->
+          <tr th:each="sesi : ${riwayat}"
+              th:with="skor=${hasil.get(sesi.id)},
+                       terbaik=${skor != null and skor.kind.name() == 'GRADED'
+                                 and terbaikPerAssignment.get(sesi.assignmentId) != null
+                                 and skor.score.compareTo(terbaikPerAssignment.get(sesi.assignmentId)) == 0}"
+              class="border-b border-slate-100">
+            <td class="py-2" th:text="|Attempt ${sesi.attemptNumber}|">Attempt 1</td>
+            <td class="py-2" th:text="${sesi.status.name()}">Status</td>
+            <td class="py-2">
+              <span th:if="${skor == null}" class="text-slate-400">Belum dinilai</span>
+              <span th:if="${skor != null}" th:text="${skor.score}">0.0000</span>
+              <!--
+                Skor PENDING_REVIEW ditandai sementara (BR-C10, FR-051): essay pada sesi ini
+                belum selesai dinilai Guru, jadi angka ini masih bisa berubah.
+              -->
+              <span th:if="${skor != null and skor.status.name() == 'PENDING_REVIEW'}"
+                    role="status"
+                    class="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Sementara
+              </span>
+              <span th:if="${terbaik}"
+                    class="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                Nilai terbaik
+              </span>
+            </td>
+            <td class="py-2">
+              <a th:if="${sesi.isInProgress()}" th:href="@{/siswa/sesi/{id}(id=${sesi.id})}"
+                 class="text-slate-600 underline">Lanjutkan</a>
+              <a th:unless="${sesi.isInProgress()}" th:href="@{/siswa/sesi/{id}/hasil(id=${sesi.id})}"
+                 class="text-slate-600 underline">Lihat hasil</a>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>
