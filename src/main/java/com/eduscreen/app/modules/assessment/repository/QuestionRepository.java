@@ -23,6 +23,9 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
 
     List<QuestionEntity> findByClientIdAndIdIn(UUID clientId, Collection<UUID> ids);
 
+    /** Seluruh Question sebuah Paket, terurut posisi — halaman isi Paket (bukan pencarian). */
+    List<QuestionEntity> findByPaketIdOrderByPositionAsc(UUID paketId);
+
     List<QuestionEntity> findByClientIdAndTopicIdOrderByCreatedAtDesc(UUID clientId, UUID topicId);
 
     /**

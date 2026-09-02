@@ -163,10 +163,13 @@ public class MasterContentController {
                          @RequestParam(required = false) String explanationHtml,
                          @RequestParam(required = false) List<String> optionBody,
                          @RequestParam(defaultValue = "-1") int correctIndex) {
+        // sementara sampai Task 10: ruang kerja master belum dibuka dari dalam satu Paket, jadi
+        // paketId diturunkan dari Topic tujuan (ADR-0018).
+        UUID paketId = taxonomy.requireWritableTopic(topicId, MASTER).getPaketId();
         QuestionEntity soal = questions.create(
                 new QuestionService.QuestionDraft(topicId, type, bodyHtml, explanationHtml,
                         buildOptions(type, optionBody, correctIndex)),
-                MASTER);
+                MASTER, paketId);
         return "redirect:/eduscreen/soal/" + soal.getId();
     }
 
@@ -190,10 +193,12 @@ public class MasterContentController {
                          @RequestParam(required = false) List<String> optionBody,
                          @RequestParam(defaultValue = "-1") int correctIndex,
                          Model model) {
+        // sementara sampai Task 10: lihat catatan yang sama di create().
+        UUID paketId = taxonomy.requireWritableTopic(topicId, MASTER).getPaketId();
         QuestionEntity soal = questions.update(id,
                 new QuestionService.QuestionDraft(topicId, type, bodyHtml, explanationHtml,
                         buildOptions(type, optionBody, correctIndex)),
-                MASTER);
+                MASTER, paketId);
         model.addAttribute("soal", soal);
         model.addAttribute("opsi", questions.optionsOf(id));
         model.addAttribute("topicId", soal.getTopicId());

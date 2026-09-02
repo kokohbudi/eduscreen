@@ -30,6 +30,7 @@ import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.shared.security.UserPrincipal;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -77,6 +78,7 @@ public class TestData {
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository exerciseItems;
     private final AssignmentRepository assignments;
+    private final PaketService paketService;
 
     public TestData(ClientRepository clients,
                     AppUserRepository users,
@@ -89,7 +91,8 @@ public class TestData {
                     QuestionOptionRepository options,
                     ExerciseRepository exercises,
                     ExerciseItemRepository exerciseItems,
-                    AssignmentRepository assignments) {
+                    AssignmentRepository assignments,
+                    PaketService paketService) {
         this.clients = clients;
         this.users = users;
         this.ruangan = ruangan;
@@ -102,6 +105,7 @@ public class TestData {
         this.exercises = exercises;
         this.exerciseItems = exerciseItems;
         this.assignments = assignments;
+        this.paketService = paketService;
     }
 
     /** Email unik per pemanggilan; keunikan email bersifat global (V1). */
@@ -132,6 +136,27 @@ public class TestData {
     @Transactional
     public void join(RuanganEntity room, AppUserEntity user, MemberRole role) {
         members.save(new RuanganMemberEntity(room.getClientId(), room.getId(), user.getId(), role));
+    }
+
+    /**
+     * Paket milik Client, beserta Subject-nya, dengan Topic bawaan {@code Topik 1}.
+     *
+     * <p>Lewat {@link PaketService#create} yang sesungguhnya, bukan dirakit manual: itu satu-
+     * satunya jalan mendapat Topic bawaan yang sama seperti yang dilihat pengguna (AC-B01), dan
+     * tes yang butuh dua Paket sewadah beda (mis. pengujian AC-B02) memakainya lewat helper ini.
+     */
+    @Transactional
+    public PaketEntity paket(ClientEntity client, String subjectName, String paketTitle) {
+        return paketService.create(
+                new PaketService.PaketDraft(paketTitle, null, subjectName),
+                client.getId(), null);
+    }
+
+    /** Paket master Eduscreen yang belum terbit. */
+    @Transactional
+    public PaketEntity masterPaket(String subjectName, String paketTitle) {
+        return paketService.create(
+                new PaketService.PaketDraft(paketTitle, null, subjectName), null, null);
     }
 
     /**

@@ -150,10 +150,15 @@ public class QuestionBankController {
                          @RequestParam(required = false) List<String> optionBody,
                          @RequestParam(defaultValue = "-1") int correctIndex,
                          @AuthenticationPrincipal UserPrincipal user) {
+        UUID clientId = user.requireClientId();
+        // sementara sampai Task 9: formulir ini belum dibuka dari dalam satu Paket, jadi
+        // paketId diturunkan dari Topic tujuan. Ruang kerja per-Paket yang mengirim paketId
+        // eksplisit menggantikan jalur ini (ADR-0018).
+        UUID paketId = taxonomy.requireWritableTopic(topicId, clientId).getPaketId();
         QuestionEntity soal = questions.create(
                 new QuestionService.QuestionDraft(topicId, type, bodyHtml, explanationHtml,
                         buildOptions(type, optionBody, correctIndex)),
-                user.requireClientId());
+                clientId, paketId);
         return "redirect:/soal/" + soal.getId();
     }
 
@@ -179,10 +184,12 @@ public class QuestionBankController {
                          @AuthenticationPrincipal UserPrincipal user,
                          Model model) {
         UUID clientId = user.requireClientId();
+        // sementara sampai Task 9: lihat catatan yang sama di create().
+        UUID paketId = taxonomy.requireWritableTopic(topicId, clientId).getPaketId();
         QuestionEntity soal = questions.update(id,
                 new QuestionService.QuestionDraft(topicId, type, bodyHtml, explanationHtml,
                         buildOptions(type, optionBody, correctIndex)),
-                clientId);
+                clientId, paketId);
         model.addAttribute("soal", soal);
         model.addAttribute("opsi", questions.optionsOf(id));
         model.addAttribute("topicId", soal.getTopicId());

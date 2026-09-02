@@ -9,6 +9,7 @@ import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.ExamSessionEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.ResultEntity;
 import com.eduscreen.app.modules.assessment.repository.RuanganEntity;
@@ -16,6 +17,7 @@ import com.eduscreen.app.modules.assessment.repository.SessionQuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.ExamSessionService;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.SessionFinalizer;
 import com.eduscreen.app.shared.security.UserPrincipal;
@@ -51,6 +53,8 @@ class QuestionBankIT extends PostgresTestBase {
     ExamSessionService examSessionService;
     @Autowired
     SessionFinalizer finalizer;
+    @Autowired
+    PaketService paketService;
 
     @Test
     @DisplayName("BR-M04 (BR-E01): panel perakit menyaring tipe soal dan menyembunyikan soal yang sudah terpasang")
@@ -164,7 +168,7 @@ class QuestionBankIT extends PostgresTestBase {
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>1/2 + 1/2 = ?</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>1</p>", true),
                         new QuestionService.OptionDraft("<p>2</p>", true)));
-        assertThatThrownBy(() -> questionService.create(duaOpsiBenar, guruPrincipal.clientId()))
+        assertThatThrownBy(() -> questionService.create(duaOpsiBenar, guruPrincipal.clientId(), topic.getPaketId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("tepat 1");
 
@@ -173,7 +177,7 @@ class QuestionBankIT extends PostgresTestBase {
         QuestionService.QuestionDraft satuOpsi = new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>1/2 + 1/2 = ?</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>1</p>", true)));
-        assertThatThrownBy(() -> questionService.create(satuOpsi, guruPrincipal.clientId()))
+        assertThatThrownBy(() -> questionService.create(satuOpsi, guruPrincipal.clientId(), topic.getPaketId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("minimal 2");
 
@@ -183,7 +187,7 @@ class QuestionBankIT extends PostgresTestBase {
                 List.of(new QuestionService.OptionDraft("<p>1</p>", true),
                         new QuestionService.OptionDraft("<p>2</p>", false),
                         new QuestionService.OptionDraft("<p>3</p>", false)));
-        QuestionEntity saved = questionService.create(sah, guruPrincipal.clientId());
+        QuestionEntity saved = questionService.create(sah, guruPrincipal.clientId(), topic.getPaketId());
         assertThat(saved.getId()).isNotNull();
         assertThat(questionService.optionsOf(saved.getId())).hasSize(3);
     }
@@ -201,7 +205,9 @@ class QuestionBankIT extends PostgresTestBase {
                 null, QuestionType.MULTIPLE_CHOICE, "<p>Soal tanpa topic</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false)));
-        assertThatThrownBy(() -> questionService.create(tanpaTopic, guruXPrincipal.clientId()))
+        // Belum ada Topic tujuan, jadi belum ada Paket tujuan yang bisa diturunkan — nil dipakai
+        // sekadar mengisi parameter; requireWritableTopic sudah menolak topicId null lebih dulu.
+        assertThatThrownBy(() -> questionService.create(tanpaTopic, guruXPrincipal.clientId(), null))
                 .isInstanceOf(IllegalArgumentException.class);
 
         // Topic milik Client Y — bukan GLOBAL — harus diperlakukan seolah tidak ada bagi
@@ -213,7 +219,9 @@ class QuestionBankIT extends PostgresTestBase {
                 topicMilikY.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal topic asing</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false)));
-        assertThatThrownBy(() -> questionService.create(topicAsing, guruXPrincipal.clientId()))
+        // paketId nil di sini juga: Topic milik Client Y sudah ditolak sebelum paketId sempat
+        // dibandingkan, sama seperti kasus topicId null di atas.
+        assertThatThrownBy(() -> questionService.create(topicAsing, guruXPrincipal.clientId(), null))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -294,7 +302,7 @@ class QuestionBankIT extends PostgresTestBase {
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal tulisan Guru A</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>Benar</p>", true),
                         new QuestionService.OptionDraft("<p>Salah</p>", false)));
-        QuestionEntity soalGuruA = questionService.create(draft, guruA.getClientId());
+        QuestionEntity soalGuruA = questionService.create(draft, guruA.getClientId(), topic.getPaketId());
 
         // Bank soal adalah milik Client, bukan milik Guru perorangan — tidak ada sekat konten
         // privat per Guru di dalam satu Client (BR-P02); Guru B mencari tanpa menyaring topic.
@@ -315,6 +323,9 @@ class QuestionBankIT extends PostgresTestBase {
     @DisplayName("TC-36 (AC-B02): Client tidak bisa menulis soal ke dalam Topic milik Paket master")
     void clientTidakBisaMenulisKeDalamPaketMaster() {
         ClientEntity client = data.client("SD Batas1");
+        // Client sedang menulis di Paket-nya SENDIRI, tapi draft-nya menunjuk Topic milik Paket
+        // master — skenario yang sebenarnya diadang: bukan sekadar paketId yang tidak diisi.
+        PaketEntity paketSendiri = data.paket(client, "Matematika Kelas 4", "Paket milik sekolah");
         TopicEntity topicMaster = data.globalTopic("Matematika Kelas 4", "Pecahan");
 
         QuestionService.QuestionDraft titipan = new QuestionService.QuestionDraft(
@@ -324,8 +335,26 @@ class QuestionBankIT extends PostgresTestBase {
         // Paket master boleh DIBACA Client lewat katalog, tidak boleh ditulisi (ADR-0018).
         // Kalau lolos, adopsi per Paket akan menyalin soal sekolah ini ke sekolah ketiga.
         // Ketiadaan dan "bukan milikmu" sengaja sama-sama 404 (TC-09).
-        assertThatThrownBy(() -> questionService.create(titipan, client.getId()))
+        assertThatThrownBy(() -> questionService.create(titipan, client.getId(), paketSendiri.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
+    }
+
+    @Test
+    @DisplayName("AC-B02: Question menolak Topic yang bukan milik Paket-nya")
+    void questionRejectsTopicFromAnotherPaket() {
+        ClientEntity client = data.client("SD Silang Topic");
+        PaketEntity paketA = data.paket(client, "Matematika Kelas 4 Silang", "Paket A");
+        PaketEntity paketB = data.paket(client, "Matematika Kelas 4 Silang", "Paket B");
+        TopicEntity topicB = paketService.topicsOf(paketB.getId()).get(0);
+
+        // Topic-nya sah dan milik Client yang sama, hanya saja bukan Topic milik Paket A —
+        // soal ini mau ditulis ke Paket A tapi ditunjukkan ke Topic Paket B (AC-B02).
+        assertThatThrownBy(() -> questionService.create(
+                new QuestionService.QuestionDraft(
+                        topicB.getId(), QuestionType.ESSAY, "Soal", null, List.of()),
+                client.getId(), paketA.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Topic");
     }
 
     @Test
@@ -336,10 +365,10 @@ class QuestionBankIT extends PostgresTestBase {
 
         QuestionEntity pertama = questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.ESSAY, "<p>Soal pertama</p>", null, List.of()),
-                client.getId());
+                client.getId(), topic.getPaketId());
         QuestionEntity kedua = questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.ESSAY, "<p>Soal kedua</p>", null, List.of()),
-                client.getId());
+                client.getId(), topic.getPaketId());
 
         assertThat(pertama.getPaketId()).isEqualTo(topic.getPaketId());
         assertThat(kedua.getPaketId()).isEqualTo(topic.getPaketId());

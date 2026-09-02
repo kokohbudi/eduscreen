@@ -121,17 +121,21 @@ public class QuestionService {
     }
 
     /**
-     * Pemilik datang sebagai parameter, bukan disimpulkan dari principal: {@code clientId} null
-     * berarti konten master milik Eduscreen (FR-060). Controller-lah yang memutuskan nilainya —
-     * bank soal Client mengirim {@code requireClientId()}, ruang kerja master mengirim null —
-     * sehingga kepemilikan terlihat di tanda tangan, sejalan dengan TC-36.
+     * Menulis soal ke dalam satu Paket.
+     *
+     * <p>Pemilik ({@code clientId}) datang sebagai parameter, bukan disimpulkan dari principal:
+     * null berarti konten master milik Eduscreen (FR-060). Controller-lah yang memutuskan
+     * nilainya — bank soal Client mengirim {@code requireClientId()}, ruang kerja master mengirim
+     * null — sehingga kepemilikan terlihat di tanda tangan, sejalan dengan TC-36.
+     *
+     * <p>{@code paketId} adalah Paket TUJUAN, dan Topic yang ditunjuk draft wajib berada di dalam
+     * Paket yang sama (AC-B02). Tanpa pemeriksaan ini, Topic dari Paket lain milik Client yang
+     * sama bisa lolos — soal itu lalu tersimpan sewadah dengan Topic-nya tapi bukan di Paket
+     * tempat penulis sedang bekerja, dan urutannya di dalam Paket kehilangan makna.
      */
     @Transactional
-    public QuestionEntity create(QuestionDraft draft, UUID clientId) {
-        // Topic wajib berada di dalam Paket milik pemilik ini: Paket master untuk konten
-        // Eduscreen, Paket milik sendiri untuk konten Client (FR-061, AC-Q04, ADR-0018).
-        // Selain itu diperlakukan seolah tidak ada.
-        TopicEntity topic = taxonomy.requireWritableTopic(draft.topicId(), clientId);
+    public QuestionEntity create(QuestionDraft draft, UUID clientId, UUID paketId) {
+        TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -139,13 +143,12 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        // Paket induk diturunkan dari Topic tujuan: keduanya wajib sewadah (AC-B02).
         QuestionEntity question = new QuestionEntity(
-                clientId, topic.getPaketId(), draft.topicId(), draft.type(),
+                clientId, paketId, topic.getId(), draft.type(),
                 bodyHtml, sanitizer.toPlainText(bodyHtml));
         // Soal baru mendarat di ekor Topic-nya. Tanpa ini setiap soal lahir di posisi 0 dan
         // urutan yang dilihat penulis ditentukan kebetulan.
-        question.moveTo(questions.nextPosition(draft.topicId()));
+        question.moveTo(questions.nextPosition(topic.getId()));
         applyExplanation(question, draft.explanationHtml());
         question = questions.save(question);
 
@@ -153,10 +156,11 @@ public class QuestionService {
         return question;
     }
 
+    /** Mengubah soal yang sudah ada; validasi Paket/Topic sama seperti {@link #create} (AC-B02). */
     @Transactional
-    public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId) {
+    public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId, UUID paketId) {
         QuestionEntity question = require(id, clientId);
-        TopicEntity topic = taxonomy.requireWritableTopic(draft.topicId(), clientId);
+        TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -164,7 +168,7 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        question.reparent(topic.getPaketId(), draft.topicId());
+        question.reparent(paketId, topic.getId());
         // Sanitasi dan turunan teks polos ditulis dalam operasi yang sama dengan bodyHtml,
         // supaya keduanya tidak pernah sempat tidak sinkron (TC-25).
         question.setBodyHtml(bodyHtml);
@@ -183,6 +187,24 @@ public class QuestionService {
         options.flush();
         saveOptions(question.getId(), draft.options());
         return question;
+    }
+
+    /**
+     * Topic yang boleh ditulisi DAN sewadah dengan Paket tujuan (AC-B02).
+     *
+     * <p>{@link TaxonomyService#requireWritableTopic} sudah menjamin kepemilikannya: Topic
+     * berada di dalam Paket master untuk konten Eduscreen, atau di dalam Paket milik Client ini
+     * (ADR-0018) — selain itu diperlakukan seolah tidak ada (TC-09). Yang belum ditegakkannya
+     * adalah Topic itu berada di Paket yang SAMA dengan {@code paketId}: satu Client bisa punya
+     * banyak Paket, dan Topic dari Paket lain yang sama-sama miliknya tetap lolos pemeriksaan
+     * kepemilikan itu sendiri.
+     */
+    private TopicEntity requireTopicOf(UUID topicId, UUID paketId, UUID clientId) {
+        TopicEntity topic = taxonomy.requireWritableTopic(topicId, clientId);
+        if (!topic.getPaketId().equals(paketId)) {
+            throw new IllegalArgumentException("Topic bukan milik Paket ini");
+        }
+        return topic;
     }
 
     @Transactional

@@ -87,10 +87,10 @@ class MasterContentIT extends PostgresTestBase {
         QuestionEntity pilihanGanda = questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Berapa hasil 1/2 + 1/4?</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>3/4</p>", true),
-                        new QuestionService.OptionDraft("<p>2/6</p>", false))), null);
+                        new QuestionService.OptionDraft("<p>2/6</p>", false))), null, topic.getPaketId());
         QuestionEntity esai = questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.ESSAY, "<p>Jelaskan pecahan senilai.</p>",
-                "<p>Pembahasan</p>", List.of()), null);
+                "<p>Pembahasan</p>", List.of()), null, topic.getPaketId());
 
         assertThat(pilihanGanda.getClientId()).isNull();
         assertThat(pilihanGanda.getSourceQuestionId()).isNull();
@@ -102,7 +102,7 @@ class MasterContentIT extends PostgresTestBase {
         assertThatThrownBy(() -> questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Dua kunci</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
-                        new QuestionService.OptionDraft("<p>B</p>", true))), null))
+                        new QuestionService.OptionDraft("<p>B</p>", true))), null, topic.getPaketId()))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -111,9 +111,11 @@ class MasterContentIT extends PostgresTestBase {
     void questionMasterMenolakTopicMilikClient() {
         ClientEntity client = data.client("SD Master2");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
+        PaketEntity paketMaster = data.masterPaket("Matematika Kelas 4", "Paket master sasaran");
 
         assertThatThrownBy(() -> questionService.create(new QuestionService.QuestionDraft(
-                topicClient.getId(), QuestionType.ESSAY, "<p>Soal</p>", null, List.of()), null))
+                topicClient.getId(), QuestionType.ESSAY, "<p>Soal</p>", null, List.of()),
+                null, paketMaster.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 
@@ -214,7 +216,7 @@ class MasterContentIT extends PostgresTestBase {
         questionService.update(master.getId(), new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Redaksi baru unikrambat</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
-                        new QuestionService.OptionDraft("<p>B</p>", false))), null);
+                        new QuestionService.OptionDraft("<p>B</p>", false))), null, topic.getPaketId());
 
         Page<QuestionEntity> salinan = questionService.search(
                 client.getId(), null, "unikrambat", PageRequest.of(0, 20));
