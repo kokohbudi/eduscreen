@@ -1,74 +1,202 @@
 <!DOCTYPE html>
-<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<html lang="id" xmlns:th="http://www.thymeleaf.org"
+      xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
 <head th:fragment="head(pageTitle)">
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
   <meta name="_csrf" th:content="${_csrf?.token}">
   <meta name="_csrf_header" th:content="${_csrf?.headerName}">
   <title th:text="|${pageTitle} · Eduscreen|">Eduscreen</title>
   <link rel="stylesheet" th:href="@{/css/output.css}">
   <link rel="stylesheet" th:href="@{/vendor/katex/katex.min.css}">
   <script th:src="@{/vendor/htmx/htmx.min.js}" defer></script>
+  <!--/* countdown.js mendaftar ke alpine:init, jadi harus dieksekusi SEBELUM Alpine. */-->
+  <script th:src="@{/js/countdown.js}" defer></script>
   <script th:src="@{/vendor/alpine/cdn.min.js}" defer></script>
+  <script>
+    /*
+     * Keadaan shell: sidebar diciutkan (rail) diingat per peramban. localStorage bisa
+     * melempar di mode privat tertentu, jadi setiap akses dibungkus try.
+     */
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('shell', () => ({
+        rail: false,
+        buka: false,
+        init() {
+          try { this.rail = localStorage.getItem('sidebar') === 'rail'; } catch (e) { /* abaikan */ }
+          this.$watch('rail', v => { try { localStorage.setItem('sidebar', v ? 'rail' : ''); } catch (e) { /* abaikan */ } });
+        }
+      }));
+    });
+  </script>
 </head>
 <body>
 
-<!--
+<!--/*
   Tata letak dasar seluruh halaman.
+
+  Satu shell untuk semua peran, cabangnya diputuskan sec:authorize, bukan ekspresi peran —
+  halaman auth memakai fragmen ini tanpa login, dan membaca principal di sana akan meledak.
+  Eduscreen Admin, Client Admin, dan Guru mendapat sidebar; Siswa dan pengunjung anonim hanya
+  mendapat topbar. Tata letak grid-nya dipilih CSS lewat :has(> .sidebar), jadi templat tidak
+  perlu tahu peran apa pun.
+
+  Templat bukan pagar keamanan — SecurityConfig yang menjaga rute di back end — tapi menampilkan
+  pintu yang tidak boleh dibuka adalah cacat tersendiri, jadi sec:authorize menutupnya di lapis
+  tampilan (BR-P04).
 
   Spanduk demo (TC-47) permanen dan tidak bisa ditutup pengguna. Ia ada supaya tidak ada yang
   keliru menganggap lingkungan peragaan sebagai sistem sungguhan: di sana autentikasi palsu —
   satu password berlaku untuk semua akun.
--->
-<!-- Token CSRF dipasang sekali di sini, bukan per-halaman: HTMX mewarisi hx-headers dari
-     elemen leluhur, jadi fragmen yang di-swap ke dalam halaman ikut terlindungi tanpa harus
-     membawa tokennya sendiri. Sebelumnya tiap templat memasangnya pada elemen ber-th:remove="tag",
-     yang membuang atributnya bersama tag-nya sehingga semua POST/PUT/DELETE HTMX dijawab 403. -->
-<div th:fragment="page(pageTitle, content)" class="min-h-screen bg-slate-50 text-slate-900"
+
+  Token CSRF dipasang sekali di sini, bukan per-halaman: HTMX mewarisi hx-headers dari elemen
+  leluhur, jadi fragmen yang di-swap ke dalam halaman ikut terlindungi tanpa harus membawa
+  tokennya sendiri.
+
+  Keadaan nav aktif dibaca dari jalurAktif (JalurAktifAdvice), sehingga dirender server dan
+  tidak bergantung JavaScript.
+*/-->
+<div th:fragment="page(pageTitle, content)" class="shell"
+     th:classappend="${fokus} ? 'shell-fokus'"
+     x-data="shell" :class="{ 'sidebar-rail': rail, 'sidebar-buka': buka }"
      th:attr="hx-headers=|{&quot;${_csrf.headerName}&quot;: &quot;${_csrf.token}&quot;}|">
 
   <div th:if="${@environment.getProperty('eduscreen.demo-banner', T(java.lang.Boolean), false)}"
-       class="bg-amber-500 px-4 py-2 text-center text-sm font-semibold text-amber-950"
+       class="banner-demo bg-warn px-4 py-2 text-center text-sm font-semibold text-bg"
        role="status">
     LINGKUNGAN PERAGAAN — data di sini karangan dan autentikasinya tidak nyata.
     Jangan pernah memasukkan data siswa sungguhan.
   </div>
 
-  <header class="border-b border-slate-200 bg-white">
-    <div class="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
-      <a th:href="@{/}" class="text-lg font-bold tracking-tight text-slate-900">Eduscreen</a>
+  <aside class="sidebar" aria-label="Navigasi utama"
+         sec:authorize="hasAnyRole('EDUSCREEN_ADMIN','CLIENT_ADMIN','GURU')">
+    <a th:href="@{/}" class="flex h-14 items-center gap-2.5 border-b border-line px-4 font-semibold tracking-tight">
+      <span class="grid h-7 w-7 flex-none place-items-center rounded-lg bg-accent-fill text-sm font-bold text-accent-ink">E</span>
+      <span class="brand-teks">Eduscreen</span>
+    </a>
 
-      <!-- Nav khusus Eduscreen Admin. Templat bukan pagar keamanan — SecurityConfig yang menjaga
-           rute Eduscreen di back end — tapi menampilkan pintu yang tidak boleh dibuka adalah cacat
-           tersendiri, jadi sec:authorize di sini menutupnya di lapis tampilan (BR-P04). -->
-      <nav id="nav-eduscreen" sec:authorize="hasRole('EDUSCREEN_ADMIN')"
-           class="flex items-center gap-4 text-sm"
-           xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-        <a th:href="@{/eduscreen}" th:classappend="${menuAktif == 'dashboard'} ? 'font-bold text-slate-900' : 'text-slate-600'"
-           th:attr="aria-current=${menuAktif == 'dashboard'} ? 'page' : null"
-           class="hover:text-slate-900">Dashboard</a>
-        <a th:href="@{/eduscreen/client}" th:classappend="${menuAktif == 'client'} ? 'font-bold text-slate-900' : 'text-slate-600'"
-           th:attr="aria-current=${menuAktif == 'client'} ? 'page' : null"
-           class="hover:text-slate-900">Client</a>
-        <a th:href="@{/eduscreen/bank-soal}" th:classappend="${menuAktif == 'bank-soal'} ? 'font-bold text-slate-900' : 'text-slate-600'"
-           th:attr="aria-current=${menuAktif == 'bank-soal'} ? 'page' : null"
-           class="hover:text-slate-900">Bank Soal</a>
-      </nav>
+    <nav id="nav-eduscreen" sec:authorize="hasRole('EDUSCREEN_ADMIN')" class="flex flex-col gap-0.5 p-3">
+      <a th:href="@{/eduscreen}" class="nav-item" title="Dashboard"
+         th:attr="aria-current=${jalurAktif == '/eduscreen'} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/></svg>
+        <span class="nav-label">Dashboard</span>
+      </a>
+      <a th:href="@{/eduscreen/client}" class="nav-item" title="Client"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/eduscreen/client')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.75 21h16.5M4.5 3h15M5.25 3v18m13.5-18v18M9 6.75h1.5m-1.5 3h1.5m-1.5 3h1.5m3-6H15m-1.5 3H15m-1.5 3H15M9 21v-3.375c0-.621.504-1.125 1.125-1.125h3.75c.621 0 1.125.504 1.125 1.125V21"/></svg>
+        <span class="nav-label">Client</span>
+      </a>
+      <a th:href="@{/eduscreen/bank-soal}" class="nav-item" title="Bank Soal Master"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/eduscreen/bank-soal')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+        <span class="nav-label">Bank Soal Master</span>
+      </a>
+    </nav>
 
-      <div sec:authorize="isAuthenticated()" class="flex items-center gap-4 text-sm"
-           xmlns:sec="http://www.thymeleaf.org/extras/spring-security">
-        <span class="text-slate-600" th:text="${#authentication.principal.fullName()}">Nama</span>
+    <nav sec:authorize="hasRole('CLIENT_ADMIN')" class="flex flex-col gap-0.5 p-3">
+      <a th:href="@{/admin}" class="nav-item" title="Beranda"
+         th:attr="aria-current=${jalurAktif == '/admin'} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        <span class="nav-label">Beranda</span>
+      </a>
+      <a th:href="@{/admin/ruangan}" class="nav-item" title="Ruangan"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/admin/ruangan')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 7.125C2.25 6.504 2.754 6 3.375 6h6c.621 0 1.125.504 1.125 1.125v3.75c0 .621-.504 1.125-1.125 1.125h-6a1.125 1.125 0 01-1.125-1.125v-3.75zM14.25 8.625c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v8.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-8.25zM3.75 16.125c0-.621.504-1.125 1.125-1.125h5.25c.621 0 1.125.504 1.125 1.125v2.25c0 .621-.504 1.125-1.125 1.125h-5.25a1.125 1.125 0 01-1.125-1.125v-2.25z"/></svg>
+        <span class="nav-label">Ruangan</span>
+      </a>
+      <a th:href="@{/admin/pengguna}" class="nav-item" title="Pengguna"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/admin/pengguna')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/></svg>
+        <span class="nav-label">Pengguna</span>
+      </a>
+      <a th:href="@{/admin/impor}" class="nav-item" title="Impor Soal"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/admin/impor')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/></svg>
+        <span class="nav-label">Impor Soal</span>
+      </a>
+      <div class="nav-group mt-3">Konten</div>
+      <a th:href="@{/bank-soal}" class="nav-item" title="Bank Soal"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/bank-soal')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+        <span class="nav-label">Bank Soal</span>
+      </a>
+      <a th:href="@{/katalog}" class="nav-item" title="Katalog Master"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/katalog')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z"/></svg>
+        <span class="nav-label">Katalog Master</span>
+      </a>
+    </nav>
+
+    <nav sec:authorize="hasRole('GURU')" class="flex flex-col gap-0.5 p-3">
+      <a th:href="@{/guru}" class="nav-item" title="Beranda"
+         th:attr="aria-current=${jalurAktif == '/guru'} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/></svg>
+        <span class="nav-label">Beranda</span>
+      </a>
+      <a th:href="@{/guru/assignment}" class="nav-item" title="Assignment"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/guru/assignment')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/></svg>
+        <span class="nav-label">Assignment</span>
+      </a>
+      <a th:href="@{/exercise}" class="nav-item" title="Exercise"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/exercise')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+        <span class="nav-label">Exercise</span>
+      </a>
+      <a th:href="@{/bank-soal}" class="nav-item" title="Bank Soal"
+         th:attr="aria-current=${#strings.startsWith(jalurAktif, '/bank-soal')} ? 'page' : null">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25"/></svg>
+        <span class="nav-label">Bank Soal</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-kaki mt-auto flex flex-col gap-0.5 border-t border-line p-3">
+      <div class="sidebar-nama truncate px-3 pb-1 text-xs text-ink-3"
+           th:text="${#authentication.principal.fullName()}">Nama</div>
+      <form th:action="@{/logout}" method="post">
+        <button type="submit" class="nav-item w-full" title="Keluar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+          <span class="nav-label">Keluar</span>
+        </button>
+      </form>
+      <button type="button" class="nav-item hidden w-full md:flex" @click="rail = !rail"
+              :title="rail ? 'Lebarkan sidebar' : 'Ciutkan sidebar'" :aria-expanded="!rail">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"
+             :style="rail ? 'transform: rotate(180deg)' : ''"><path d="M18.75 19.5l-7.5-7.5 7.5-7.5m-6 15L5.25 12l7.5-7.5"/></svg>
+        <span class="nav-label">Ciutkan</span>
+      </button>
+    </div>
+  </aside>
+
+  <div class="scrim md:hidden" x-show="buka" x-cloak x-transition.opacity.duration.200ms
+       @click="buka = false" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="mx-auto flex h-14 max-w-3xl items-center gap-3 px-4">
+      <button type="button" class="btn btn-ghost btn-icon -ml-2 md:hidden" @click="buka = true"
+              aria-label="Buka menu"
+              sec:authorize="hasAnyRole('EDUSCREEN_ADMIN','CLIENT_ADMIN','GURU')">
+        <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+      </button>
+      <a th:href="@{/}" class="flex items-center gap-2.5 font-semibold tracking-tight">
+        <span class="grid h-7 w-7 place-items-center rounded-lg bg-accent-fill text-sm font-bold text-accent-ink">E</span>
+        <span>Eduscreen</span>
+      </a>
+      <div sec:authorize="isAuthenticated()" class="ml-auto flex items-center gap-3">
+        <span class="hidden text-sm text-ink-2 sm:inline"
+              th:text="${#authentication.principal.fullName()}">Nama</span>
         <form th:action="@{/logout}" method="post">
-          <button type="submit" class="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100">
-            Keluar
-          </button>
+          <button type="submit" class="btn btn-secondary btn-sm">Keluar</button>
         </form>
       </div>
     </div>
   </header>
 
-  <main class="mx-auto max-w-5xl px-4 py-8">
-    <h1 class="mb-6 text-2xl font-bold" th:text="${pageTitle}">Judul</h1>
+  <main class="konten">
+    <div class="page-header">
+      <h1 th:text="${pageTitle}">Judul</h1>
+    </div>
     <div th:replace="${content}">Isi halaman</div>
   </main>
 

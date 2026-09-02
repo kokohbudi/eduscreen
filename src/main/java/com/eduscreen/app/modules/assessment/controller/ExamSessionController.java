@@ -116,6 +116,8 @@ public class ExamSessionController {
         model.addAttribute("sisaDetik", sessions.remainingSeconds(session));
         model.addAttribute("soal", sessions.view(session, Math.min(start, jumlahSoal(session) - 1),
                 assignment.isPractice()));
+        // Mode fokus: shell menyembunyikan navigasi selama pengerjaan (layout/base.html).
+        model.addAttribute("fokus", true);
         return assignment.isPractice() ? "siswa/practice" : "siswa/pengerjaan";
     }
 
