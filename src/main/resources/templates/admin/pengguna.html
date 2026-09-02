@@ -96,7 +96,7 @@
                 <button th:if="${user.status.name() != 'DEACTIVATED'}"
                         th:attr="hx-post=@{/admin/pengguna/{id}/nonaktif(id=${user.id})},hx-target=|#pengguna-${user.id}|"
                         hx-swap="outerHTML" hx-confirm="Nonaktifkan pengguna ini? Riwayatnya tetap tersimpan."
-                        class="btn btn-danger btn-sm">
+                        class="btn btn-ghost btn-sm text-danger">
                   Nonaktifkan
                 </button>
               </div>

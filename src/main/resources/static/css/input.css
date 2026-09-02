@@ -24,7 +24,7 @@
   --line-2: oklch(0.85 0.006 60);
   --ink: oklch(0.2 0.01 60);
   --ink-2: oklch(0.45 0.01 60);
-  --ink-3: oklch(0.58 0.01 60);
+  --ink-3: oklch(0.55 0.01 60);
 
   --accent: oklch(0.62 0.17 36);
   --accent-fill: oklch(0.55 0.17 36);
@@ -398,6 +398,7 @@
   }
   .shell:has(> .sidebar) > .topbar { display: none; }
   .shell:has(> .sidebar) > .konten {
+    grid-row: 2 / -1;
     grid-column: 2;
     max-width: 76rem;
     padding: 2.5rem 2.5rem 4rem;
