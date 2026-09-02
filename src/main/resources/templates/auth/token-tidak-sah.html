@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Tautan Tidak Berlaku')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Tautan Tidak Berlaku', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Tautan salah dan tautan kedaluwarsa sengaja tidak dibedakan. Membedakannya memberi tahu
+      bahwa sebuah token pernah sah, dan itu cukup untuk menebak-nebak token lain.
+    -->
+    <div class="mx-auto max-w-md rounded-lg border border-slate-200 bg-white p-6">
+      <p class="text-sm text-slate-700">
+        Tautan ini tidak berlaku. Tautan undangan dan pemulihan password hanya bisa dipakai sekali
+        dan punya masa berlaku.
+      </p>
+      <p class="mt-4">
+        <a th:href="@{/lupa-password}"
+           class="inline-block rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Minta tautan baru
+        </a>
+      </p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

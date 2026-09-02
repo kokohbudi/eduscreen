@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Aktivitas Latihan')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Aktivitas Latihan', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Halaman ini sengaja TERPISAH dari rekap nilai (BR-L04, AC-C03): Practice adalah latihan,
+      bukan penilaian. Mencampur aktivitas latihan ke rekap nilai membuat Siswa yang paling rajin
+      berlatih terlihat seolah nilainya paling jelek — semakin sering mencoba, semakin banyak
+      percobaan bernilai rendah yang ikut terhitung.
+    -->
+    <p role="status" class="mb-6 text-sm text-slate-500">
+      Aktivitas di halaman ini adalah latihan bebas, bukan nilai resmi. Tidak ada skor di sini
+      yang masuk ke rekap Assignment mana pun.
+    </p>
+
+    <div th:if="${#lists.isEmpty(hasil)}"
+         class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+      Belum ada aktivitas latihan tercatat di Ruangan ini.
+    </div>
+
+    <!--
+      Tidak ada nama Siswa atau judul Exercise di sini: ResultEntity hanya menyimpan sessionId,
+      dan templat ini tidak boleh menambah query/join baru (di luar cakupan tugas templat).
+    -->
+    <div th:unless="${#lists.isEmpty(hasil)}" class="overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th scope="col" class="py-2">Sesi</th>
+            <th scope="col" class="py-2">Benar</th>
+            <th scope="col" class="py-2">Salah</th>
+            <th scope="col" class="py-2">Tidak dijawab</th>
+            <th scope="col" class="py-2">Skor</th>
+            <th scope="col" class="py-2">Dicatat</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="r : ${hasil}" class="border-b border-slate-100">
+            <td class="py-2 font-mono text-xs text-slate-500"
+                th:text="${#strings.substring(r.sessionId.toString(), 0, 8)}">sesi-id</td>
+            <td class="py-2" th:text="${r.correctCount}">0</td>
+            <td class="py-2" th:text="${r.incorrectCount}">0</td>
+            <td class="py-2" th:text="${r.unansweredCount}">0</td>
+            <td class="py-2" th:text="|${#numbers.formatDecimal(r.score * 100, 1, 2)}%|">0.00%</td>
+            <td class="py-2" th:text="${#temporals.format(r.createdAt, 'dd MMM yyyy HH:mm')}">Dicatat</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

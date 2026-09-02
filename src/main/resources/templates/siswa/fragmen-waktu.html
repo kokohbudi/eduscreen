@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<body>
+
+<!--
+  Satu-satunya sumber kebenaran sisa waktu (TC-15, FR-042). Hitung mundur di layar membaca
+  atribut data di bawah dan tidak pernah menghitung sendiri dari jam perangkat.
+
+  Nilainya sudah memperhitungkan pemangkasan oleh expiresAt sejak detik pertama (BR-T04): Siswa
+  yang Start 10 menit sebelum batas akhir dengan Timer 60 menit melihat 10 menit, bukan 60 yang
+  tiba-tiba terputus.
+-->
+<span th:fragment="sisa"
+      th:attr="data-sisa-detik=${sisaDetik}"
+      th:data-berjalan="${berjalan}"
+      th:text="${sisaDetik}">0</span>
+
+</body>
+</html>

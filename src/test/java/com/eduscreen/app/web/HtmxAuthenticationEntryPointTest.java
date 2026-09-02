@@ -42,7 +42,7 @@ class HtmxAuthenticationEntryPointTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("Aset klien terlayani tanpa autentikasi; gambar soal tidak ikut dibebaskan")
+    @DisplayName("TC-26: aset klien terlayani tanpa autentikasi; gambar soal tidak ikut dibebaskan")
     void clientAssetsArePublicButQuestionImagesAreNot() throws Exception {
         mockMvc.perform(get("/vendor/htmx/htmx.min.js")).andExpect(status().isOk());
         // Gambar soal dilayani endpoint berotorisasi (TC-26), bukan sebagai berkas statis.

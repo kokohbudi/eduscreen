@@ -7,3 +7,25 @@
 
 @source "../../templates";
 @source "../js";
+
+/*
+ * Tabel tidak boleh menggeser seluruh halaman ke samping di layar sempit.
+ *
+ * Aturannya ditulis sekali di sini, bukan sebagai pembungkus di setiap templat: sebagian tabel
+ * berada di dalam fragmen yang ditukar HTMX, dan menambahkan elemen pembungkus di sana berisiko
+ * memindahkan target swap tanpa disadari. Satu aturan CSS tidak punya risiko itu.
+ *
+ * display:block membuat tabel menyusut ke lebar isinya lalu menggulir sendiri; di layar lebar
+ * (>= 640px) perilaku tabel normal dikembalikan agar kolomnya kembali merata.
+ */
+table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+@media (min-width: 640px) {
+  table {
+    display: table;
+  }
+}

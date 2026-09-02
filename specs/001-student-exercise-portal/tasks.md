@@ -86,21 +86,21 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 1 (wajib per TC-41)
 
-- [ ] T027 [P] [US1] Tulis tes IDOR lintas-Client untuk endpoint pengguna dan Ruangan yang membuktikan `404` seragam di `src/test/java/com/eduscreen/app/web/AccountIdorTest.java`
-- [ ] T028 [P] [US1] Tulis tes integrasi `AC-U01`, `AC-U02`, `AC-U04`, `AC-P01` di `src/test/java/com/eduscreen/app/modules/RuanganAndAccountsIT.java`
+- [x] T027 [P] [US1] Tulis tes IDOR lintas-Client untuk endpoint pengguna dan Ruangan yang membuktikan `404` seragam di `src/test/java/com/eduscreen/app/web/AccountIdorTest.java`
+- [x] T028 [P] [US1] Tulis tes integrasi `AC-U01`, `AC-U02`, `AC-U04`, `AC-P01` di `src/test/java/com/eduscreen/app/modules/RuanganAndAccountsIT.java`
 
 ### Implementation for User Story 1
 
-- [ ] T029 [P] [US1] Implementasikan layanan undangan dan reset password lewat `NotificationPort` di `src/main/java/com/eduscreen/app/modules/identity/service/InvitationService.java`
-- [ ] T030 [US1] Implementasikan `UserManagementService` (buat, undang ulang, nonaktifkan tanpa menghapus riwayat) di `src/main/java/com/eduscreen/app/modules/identity/service/UserManagementService.java`
-- [ ] T031 [US1] Implementasikan `RuanganService` (buat, kelola anggota many-to-many, arsipkan, tolak perubahan pada Ruangan terarsip) di `src/main/java/com/eduscreen/app/modules/assessment/service/RuanganService.java`
-- [ ] T032 [US1] Implementasikan `AuthController` untuk `/login`, `/logout`, `/undangan/{token}`, `/lupa-password`, `/reset/{token}` dengan kegagalan seragam di `src/main/java/com/eduscreen/app/modules/identity/controller/AuthController.java`
-- [ ] T033 [US1] Implementasikan `UserAdminController` untuk `/admin/pengguna` di `src/main/java/com/eduscreen/app/modules/identity/controller/UserAdminController.java`
-- [ ] T034 [US1] Implementasikan `RuanganAdminController` untuk `/admin/ruangan` di `src/main/java/com/eduscreen/app/modules/assessment/controller/RuanganAdminController.java`
-- [ ] T035 [US1] Implementasikan pengalihan portal berbasis peran untuk `/` di `src/main/java/com/eduscreen/app/shared/web/PortalRoutingController.java`
-- [ ] T036 [US1] Bangun kerangka portal Siswa yang menggabungkan seluruh Ruangan keanggotaannya di `src/main/resources/templates/siswa/portal.html`
-- [ ] T037 [P] [US1] Bangun templat admin untuk pengguna dan Ruangan di `src/main/resources/templates/admin/pengguna.html` dan `src/main/resources/templates/admin/ruangan.html`
-- [ ] T038 [US1] Implementasikan `SupportAccessService` dan pengendalinya: aktifkan 4 jam, baca-saja, catat setiap pembacaan (FR-006) di `src/main/java/com/eduscreen/app/modules/assessment/service/SupportAccessService.java`
+- [x] T029 [P] [US1] Implementasikan layanan undangan dan reset password lewat `NotificationPort` di `src/main/java/com/eduscreen/app/modules/identity/service/InvitationService.java`
+- [x] T030 [US1] Implementasikan `UserManagementService` (buat, undang ulang, nonaktifkan tanpa menghapus riwayat) di `src/main/java/com/eduscreen/app/modules/identity/service/UserManagementService.java`
+- [x] T031 [US1] Implementasikan `RuanganService` (buat, kelola anggota many-to-many, arsipkan, tolak perubahan pada Ruangan terarsip) di `src/main/java/com/eduscreen/app/modules/assessment/service/RuanganService.java`
+- [x] T032 [US1] Implementasikan `AuthController` untuk `/login`, `/logout`, `/undangan/{token}`, `/lupa-password`, `/reset/{token}` dengan kegagalan seragam di `src/main/java/com/eduscreen/app/modules/identity/controller/AuthController.java`
+- [x] T033 [US1] Implementasikan `UserAdminController` untuk `/admin/pengguna` di `src/main/java/com/eduscreen/app/modules/identity/controller/UserAdminController.java`
+- [x] T034 [US1] Implementasikan `RuanganAdminController` untuk `/admin/ruangan` di `src/main/java/com/eduscreen/app/modules/assessment/controller/RuanganAdminController.java`
+- [x] T035 [US1] Implementasikan pengalihan portal berbasis peran untuk `/` di `src/main/java/com/eduscreen/app/shared/web/PortalRoutingController.java`
+- [x] T036 [US1] Bangun kerangka portal Siswa yang menggabungkan seluruh Ruangan keanggotaannya di `src/main/resources/templates/siswa/portal.html`
+- [x] T037 [P] [US1] Bangun templat admin untuk pengguna dan Ruangan di `src/main/resources/templates/admin/pengguna.html` dan `src/main/resources/templates/admin/ruangan.html`
+- [x] T038 [US1] Implementasikan `SupportAccessService` dan pengendalinya: aktifkan 4 jam, baca-saja, catat setiap pembacaan (FR-006) di `src/main/java/com/eduscreen/app/modules/assessment/service/SupportAccessService.java`
 
 **Checkpoint**: US1 berfungsi penuh dan bisa diuji sendiri
 
@@ -114,50 +114,50 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 2 (wajib per TC-41)
 
-- [ ] T039 [P] [US2] Tulis tes IDOR endpoint sesi yang membuktikan `404` identik untuk sesi milik Siswa lain dan sesi tidak ada di `src/test/java/com/eduscreen/app/web/ExamSessionIdorTest.java`
-- [ ] T040 [P] [US2] Tulis tes IDOR endpoint gambar dan bank soal lintas-Client di `src/test/java/com/eduscreen/app/web/ContentIdorTest.java`
-- [ ] T041 [P] [US2] Tulis tes integrasi `AC-S01`, `AC-S02`, `AC-S03`, `AC-E02` di `src/test/java/com/eduscreen/app/modules/ExamSessionIT.java`
-- [ ] T042 [P] [US2] Tulis tes integrasi waktu `AC-T01`, `AC-T03`, `AC-T04`, `AC-T06` di `src/test/java/com/eduscreen/app/modules/SessionTimingIT.java`
-- [ ] T043 [P] [US2] Tulis tes balapan finalisasi `AC-T05` yang membuktikan tepat satu Result terbentuk di `src/test/java/com/eduscreen/app/modules/SessionFinalizationConcurrencyIT.java`
-- [ ] T044 [P] [US2] Tulis tes integrasi rekap `AC-L01`, `AC-C01`, `AC-C04` di `src/test/java/com/eduscreen/app/modules/AssignmentReportIT.java`
+- [x] T039 [P] [US2] Tulis tes IDOR endpoint sesi yang membuktikan `404` identik untuk sesi milik Siswa lain dan sesi tidak ada di `src/test/java/com/eduscreen/app/web/ExamSessionIdorTest.java`
+- [x] T040 [P] [US2] Tulis tes IDOR endpoint gambar dan bank soal lintas-Client di `src/test/java/com/eduscreen/app/web/ContentIdorTest.java`
+- [x] T041 [P] [US2] Tulis tes integrasi `AC-S01`, `AC-S02`, `AC-S03`, `AC-E02` di `src/test/java/com/eduscreen/app/modules/ExamSessionIT.java`
+- [x] T042 [P] [US2] Tulis tes integrasi waktu `AC-T01`, `AC-T03`, `AC-T04`, `AC-T06` di `src/test/java/com/eduscreen/app/modules/SessionTimingIT.java`
+- [x] T043 [P] [US2] Tulis tes balapan finalisasi `AC-T05` yang membuktikan tepat satu Result terbentuk di `src/test/java/com/eduscreen/app/modules/SessionFinalizationConcurrencyIT.java`
+- [x] T044 [P] [US2] Tulis tes integrasi rekap `AC-L01`, `AC-C01`, `AC-C04` di `src/test/java/com/eduscreen/app/modules/AssignmentReportIT.java`
 
 ### Implementation for User Story 2 — konten
 
 - [x] T045 [US2] Tulis migrasi taksonomi dan bank soal (`subject`, `topic`, `question`, `question_option`, `exercise`, `exercise_item`) beserta index pencarian di `src/main/resources/db/migration/V2__content.sql`
 - [x] T046 [P] [US2] Implementasikan `ContentSanitizer` berbasis allowlist OWASP yang menolak `<script>`, `<style>`, `<iframe>`, `on*`, dan `javascript:` (TC-22, TC-23) di `src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java`
 - [x] T047 [P] [US2] Implementasikan pengekstrak teks polos untuk kolom `*_text` turunan (TC-25) sebagai method `toPlainText()` pada `src/main/java/com/eduscreen/app/modules/assessment/service/ContentSanitizer.java` (kelas terpisah dihapus saat audit: ia hanya mendelegasi ke sanitizer)
-- [ ] T048 [P] [US2] Buat entity dan repository `Subject` serta `Topic` dengan penanda asal `GLOBAL`/`CLIENT` di `src/main/java/com/eduscreen/app/modules/assessment/repository/SubjectEntity.java`, `TopicEntity.java`, dan repositorinya
-- [ ] T049 [P] [US2] Buat entity dan repository `Question` serta `QuestionOption` dengan `@SQLRestriction` untuk soft delete (TC-35) di `src/main/java/com/eduscreen/app/modules/assessment/repository/QuestionEntity.java`, `QuestionOptionEntity.java`, dan `QuestionRepository.java`
-- [ ] T050 [P] [US2] Buat entity dan repository `Exercise` serta `ExerciseItem` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ExerciseEntity.java`, `ExerciseItemEntity.java`, dan `ExerciseRepository.java`
-- [ ] T051 [US2] Implementasikan `TaxonomyService` yang menggabungkan Subject global dan lokal serta membolehkan Topic lokal di bawah Subject global di `src/main/java/com/eduscreen/app/modules/assessment/service/TaxonomyService.java`
-- [ ] T052 [US2] Implementasikan `QuestionService`: sanitasi saat tulis, validasi tepat satu Option benar, pencarian atas kolom teks polos, soft delete di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionService.java`
-- [ ] T053 [US2] Implementasikan `ImageService`: validasi magic bytes, batas ukuran, encode ulang saat simpan (TC-27) di `src/main/java/com/eduscreen/app/modules/assessment/service/ImageService.java`
-- [ ] T054 [US2] Implementasikan `ImageController` yang melayani `/gambar/{id}` dengan pemeriksaan `client_id` dan `Cache-Control: private` (TC-26) di `src/main/java/com/eduscreen/app/modules/assessment/controller/ImageController.java`
-- [ ] T055 [US2] Implementasikan `ExerciseService`: perakitan lintas Subject, pengurutan, penguncian `locked_at`, duplikasi di `src/main/java/com/eduscreen/app/modules/assessment/service/ExerciseService.java`
-- [ ] T056 [US2] Implementasikan `QuestionBankController` untuk `/soal` dan `/subject` di `src/main/java/com/eduscreen/app/modules/assessment/controller/QuestionBankController.java`
-- [ ] T057 [US2] Implementasikan `ExerciseController` untuk `/exercise` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExerciseController.java`
-- [ ] T058 [P] [US2] Bangun templat editor soal dengan KaTeX dan unggah gambar di `src/main/resources/templates/soal/editor.html`
-- [ ] T059 [P] [US2] Bangun templat perakit Exercise dengan penelusuran bank soal berbasis HTMX di `src/main/resources/templates/exercise/builder.html`
+- [x] T048 [P] [US2] Buat entity dan repository `Subject` serta `Topic` dengan penanda asal `GLOBAL`/`CLIENT` di `src/main/java/com/eduscreen/app/modules/assessment/repository/SubjectEntity.java`, `TopicEntity.java`, dan repositorinya
+- [x] T049 [P] [US2] Buat entity dan repository `Question` serta `QuestionOption` dengan `@SQLRestriction` untuk soft delete (TC-35) di `src/main/java/com/eduscreen/app/modules/assessment/repository/QuestionEntity.java`, `QuestionOptionEntity.java`, dan `QuestionRepository.java`
+- [x] T050 [P] [US2] Buat entity dan repository `Exercise` serta `ExerciseItem` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ExerciseEntity.java`, `ExerciseItemEntity.java`, dan `ExerciseRepository.java`
+- [x] T051 [US2] Implementasikan `TaxonomyService` yang menggabungkan Subject global dan lokal serta membolehkan Topic lokal di bawah Subject global di `src/main/java/com/eduscreen/app/modules/assessment/service/TaxonomyService.java`
+- [x] T052 [US2] Implementasikan `QuestionService`: sanitasi saat tulis, validasi tepat satu Option benar, pencarian atas kolom teks polos, soft delete di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionService.java`
+- [x] T053 [US2] Implementasikan `ImageService`: validasi magic bytes, batas ukuran, encode ulang saat simpan (TC-27) di `src/main/java/com/eduscreen/app/modules/assessment/service/ImageService.java`
+- [x] T054 [US2] Implementasikan `ImageController` yang melayani `/gambar/{id}` dengan pemeriksaan `client_id` dan `Cache-Control: private` (TC-26) di `src/main/java/com/eduscreen/app/modules/assessment/controller/ImageController.java`
+- [x] T055 [US2] Implementasikan `ExerciseService`: perakitan lintas Subject, pengurutan, penguncian `locked_at`, duplikasi di `src/main/java/com/eduscreen/app/modules/assessment/service/ExerciseService.java`
+- [x] T056 [US2] Implementasikan `QuestionBankController` untuk `/soal` dan `/subject` di `src/main/java/com/eduscreen/app/modules/assessment/controller/QuestionBankController.java`
+- [x] T057 [US2] Implementasikan `ExerciseController` untuk `/exercise` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExerciseController.java`
+- [x] T058 [P] [US2] Bangun templat editor soal dengan KaTeX dan unggah gambar di `src/main/resources/templates/soal/editor.html`
+- [x] T059 [P] [US2] Bangun templat perakit Exercise dengan penelusuran bank soal berbasis HTMX di `src/main/resources/templates/exercise/builder.html`
 
 ### Implementation for User Story 2 — penerbitan dan pengerjaan
 
-- [ ] T060 [US2] Tulis migrasi asesmen (`assignment`, `exam_session`, `session_question`, `session_answer`, `result`) beserta unique constraint `result.session_id` dan index yang disebut `data-model.md` di `src/main/resources/db/migration/V3__assessment.sql`
-- [ ] T061 [P] [US2] Buat entity dan repository `Assignment` di `src/main/java/com/eduscreen/app/modules/assessment/repository/AssignmentEntity.java` dan `AssignmentRepository.java`
-- [ ] T062 [P] [US2] Buat entity dan repository `ExamSession`, `SessionQuestion`, `SessionAnswer`, `Result` dengan method `findByIdForUpdate` dan penyaringan `client_id` eksplisit (TC-18, TC-36) di `src/main/java/com/eduscreen/app/modules/assessment/repository/`
-- [ ] T063 [US2] Implementasikan `AssignmentPublishingService`: gerbang validasi saat terbit, penguncian Exercise, penerbitan borongan menjadi N Assignment di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentPublishingService.java`
-- [ ] T064 [US2] Implementasikan siklus hidup Assignment: perpanjang saja, tutup lebih awal yang memfinalisasi sesi berjalan, hapus hanya `DRAFT` di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentLifecycleService.java`
-- [ ] T065 [US2] Implementasikan `ExamSessionService.start`: pembuatan malas, pengembalian sesi berjalan, pengacakan, pembekuan snapshot dan `effective_deadline` di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
-- [ ] T066 [US2] Implementasikan `AnswerService` sebagai upsert idempoten berkunci `session_question_id`, menolak kiriman lewat waktu dengan `410` (TC-20) di `src/main/java/com/eduscreen/app/modules/assessment/service/AnswerService.java`
-- [ ] T067 [US2] Implementasikan `SessionFinalizer` dengan kunci pesimistis, pemeriksaan status setelah kunci, tiga `terminal_reason`, dan idempotensi (TC-18, TC-19, TC-21) di `src/main/java/com/eduscreen/app/modules/assessment/service/SessionFinalizer.java`
-- [ ] T068 [US2] Implementasikan `ScoringService` untuk pilihan ganda dengan bobot seragam dan soal kosong dihitung salah di `src/main/java/com/eduscreen/app/modules/assessment/service/ScoringService.java`
-- [ ] T069 [US2] Implementasikan `AssignmentController` untuk `/guru/assignment` di `src/main/java/com/eduscreen/app/modules/assessment/controller/AssignmentController.java`
-- [ ] T070 [US2] Implementasikan `ExamSessionController` untuk `/siswa/assignment/{id}/mulai`, `/siswa/sesi/**`, termasuk auto-save yang mengembalikan fragmen (TC-14) di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExamSessionController.java`
-- [ ] T071 [US2] Implementasikan endpoint sisa waktu dan heartbeat yang tidak memperpanjang batas pengerjaan (TC-32) di `src/main/java/com/eduscreen/app/modules/assessment/controller/SessionTimeController.java`
-- [ ] T072 [P] [US2] Bangun halaman pengerjaan Quiz: peta soal, navigasi bebas, indikator koneksi, antrean kirim ulang di `src/main/resources/templates/siswa/pengerjaan.html`
-- [ ] T073 [P] [US2] Bangun komponen Alpine hitung mundur yang hanya menampilkan sisa waktu dari server (TC-15) di `src/main/resources/static/js/countdown.js`
-- [ ] T074 [P] [US2] Bangun templat formulir penerbitan Assignment di `src/main/resources/templates/guru/terbit.html`
-- [ ] T075 [US2] Implementasikan `ReportService`: rekap dibangun dari anggota Ruangan, finalisasi saat dibaca satu transaksi per sesi, `NOT_STARTED` tanpa membuat baris sesi di `src/main/java/com/eduscreen/app/modules/assessment/service/ReportService.java`
-- [ ] T076 [US2] Implementasikan `ReportController` dan templat rekap Ruangan di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/rekap.html`
+- [x] T060 [US2] Tulis migrasi asesmen (`assignment`, `exam_session`, `session_question`, `session_answer`, `result`) beserta unique constraint `result.session_id` dan index yang disebut `data-model.md` di `src/main/resources/db/migration/V3__assessment.sql`
+- [x] T061 [P] [US2] Buat entity dan repository `Assignment` di `src/main/java/com/eduscreen/app/modules/assessment/repository/AssignmentEntity.java` dan `AssignmentRepository.java`
+- [x] T062 [P] [US2] Buat entity dan repository `ExamSession`, `SessionQuestion`, `SessionAnswer`, `Result` dengan method `findByIdForUpdate` dan penyaringan `client_id` eksplisit (TC-18, TC-36) di `src/main/java/com/eduscreen/app/modules/assessment/repository/`
+- [x] T063 [US2] Implementasikan `AssignmentPublishingService`: gerbang validasi saat terbit, penguncian Exercise, penerbitan borongan menjadi N Assignment di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentPublishingService.java`
+- [x] T064 [US2] Implementasikan siklus hidup Assignment: perpanjang saja, tutup lebih awal yang memfinalisasi sesi berjalan, hapus hanya `DRAFT` di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentLifecycleService.java`
+- [x] T065 [US2] Implementasikan `ExamSessionService.start`: pembuatan malas, pengembalian sesi berjalan, pengacakan, pembekuan snapshot dan `effective_deadline` di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
+- [x] T066 [US2] Implementasikan `AnswerService` sebagai upsert idempoten berkunci `session_question_id`, menolak kiriman lewat waktu dengan `410` (TC-20) di `src/main/java/com/eduscreen/app/modules/assessment/service/AnswerService.java`
+- [x] T067 [US2] Implementasikan `SessionFinalizer` dengan kunci pesimistis, pemeriksaan status setelah kunci, tiga `terminal_reason`, dan idempotensi (TC-18, TC-19, TC-21) di `src/main/java/com/eduscreen/app/modules/assessment/service/SessionFinalizer.java`
+- [x] T068 [US2] Implementasikan `ScoringService` untuk pilihan ganda dengan bobot seragam dan soal kosong dihitung salah di `src/main/java/com/eduscreen/app/modules/assessment/service/ScoringService.java`
+- [x] T069 [US2] Implementasikan `AssignmentController` untuk `/guru/assignment` di `src/main/java/com/eduscreen/app/modules/assessment/controller/AssignmentController.java`
+- [x] T070 [US2] Implementasikan `ExamSessionController` untuk `/siswa/assignment/{id}/mulai`, `/siswa/sesi/**`, termasuk auto-save yang mengembalikan fragmen (TC-14) di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExamSessionController.java`
+- [x] T071 [US2] Implementasikan endpoint sisa waktu dan heartbeat yang tidak memperpanjang batas pengerjaan (TC-32) di `src/main/java/com/eduscreen/app/modules/assessment/controller/SessionTimeController.java`
+- [x] T072 [P] [US2] Bangun halaman pengerjaan Quiz: peta soal, navigasi bebas, indikator koneksi, antrean kirim ulang di `src/main/resources/templates/siswa/pengerjaan.html`
+- [x] T073 [P] [US2] Bangun komponen Alpine hitung mundur yang hanya menampilkan sisa waktu dari server (TC-15) di `src/main/resources/static/js/countdown.js`
+- [x] T074 [P] [US2] Bangun templat formulir penerbitan Assignment di `src/main/resources/templates/guru/terbit.html`
+- [x] T075 [US2] Implementasikan `ReportService`: rekap dibangun dari anggota Ruangan, finalisasi saat dibaca satu transaksi per sesi, `NOT_STARTED` tanpa membuat baris sesi di `src/main/java/com/eduscreen/app/modules/assessment/service/ReportService.java`
+- [x] T076 [US2] Implementasikan `ReportController` dan templat rekap Ruangan di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/rekap.html`
 
 **Checkpoint**: US1 dan US2 berfungsi sendiri-sendiri — ini lingkup MVP
 
@@ -171,17 +171,17 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 3
 
-- [ ] T077 [P] [US3] Tulis tes integrasi `AC-S04`, `AC-M01`, `AC-Q05`, `AC-C03`, `AC-C05` di `src/test/java/com/eduscreen/app/modules/PracticeModeIT.java`
-- [ ] T078 [P] [US3] Tulis tes yang membuktikan kiriman ulang jawaban identik pada soal terkunci tetap sukses, dan jawaban berbeda ditolak `409` di `src/test/java/com/eduscreen/app/modules/PracticeIdempotencyIT.java`
+- [x] T077 [P] [US3] Tulis tes integrasi `AC-S04`, `AC-M01`, `AC-Q05`, `AC-C03`, `AC-C05` di `src/test/java/com/eduscreen/app/modules/PracticeModeIT.java`
+- [x] T078 [P] [US3] Tulis tes yang membuktikan kiriman ulang jawaban identik pada soal terkunci tetap sukses, dan jawaban berbeda ditolak `409` di `src/test/java/com/eduscreen/app/modules/PracticeIdempotencyIT.java`
 
 ### Implementation for User Story 3
 
-- [ ] T079 [US3] Tambahkan gerbang validasi Practice saat terbit: tolak Exercise beressay atau bersoal tanpa pembahasan, sebutkan soal penyebabnya di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentPublishingService.java`
-- [ ] T080 [US3] Implementasikan penguncian jawaban per soal dan penyingkapan pembahasan seketika pada mode Practice di `src/main/java/com/eduscreen/app/modules/assessment/service/AnswerService.java`
-- [ ] T081 [US3] Terapkan navigasi maju satu arah untuk Practice dan tolak lompatan dengan `409` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExamSessionController.java`
-- [ ] T082 [US3] Bebaskan batas pengulangan untuk Practice dan tandai Result sebagai `kind = PRACTICE` yang langsung `FINAL` di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
-- [ ] T083 [P] [US3] Bangun halaman pengerjaan Practice dengan pembahasan sebaris di `src/main/resources/templates/siswa/practice.html`
-- [ ] T084 [US3] Implementasikan halaman aktivitas latihan yang terpisah dari rekap nilai di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/latihan.html`
+- [x] T079 [US3] Tambahkan gerbang validasi Practice saat terbit: tolak Exercise beressay atau bersoal tanpa pembahasan, sebutkan soal penyebabnya di `src/main/java/com/eduscreen/app/modules/assessment/service/AssignmentPublishingService.java`
+- [x] T080 [US3] Implementasikan penguncian jawaban per soal dan penyingkapan pembahasan seketika pada mode Practice di `src/main/java/com/eduscreen/app/modules/assessment/service/AnswerService.java`
+- [x] T081 [US3] Terapkan navigasi maju satu arah untuk Practice dan tolak lompatan dengan `409` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ExamSessionController.java`
+- [x] T082 [US3] Bebaskan batas pengulangan untuk Practice dan tandai Result sebagai `kind = PRACTICE` yang langsung `FINAL` di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
+- [x] T083 [P] [US3] Bangun halaman pengerjaan Practice dengan pembahasan sebaris di `src/main/resources/templates/siswa/practice.html`
+- [x] T084 [US3] Implementasikan halaman aktivitas latihan yang terpisah dari rekap nilai di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/latihan.html`
 
 **Checkpoint**: US1, US2, dan US3 berfungsi sendiri-sendiri
 
@@ -195,18 +195,18 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 4
 
-- [ ] T085 [P] [US4] Tulis tes integrasi `AC-C02`, `AC-G01`, `AC-G02` di `src/test/java/com/eduscreen/app/modules/EssayGradingIT.java`
-- [ ] T086 [P] [US4] Tulis tes IDOR penilaian yang membuktikan Guru di luar Ruangan mendapat `404` di `src/test/java/com/eduscreen/app/web/GradingIdorTest.java`
+- [x] T085 [P] [US4] Tulis tes integrasi `AC-C02`, `AC-G01`, `AC-G02` di `src/test/java/com/eduscreen/app/modules/EssayGradingIT.java`
+- [x] T086 [P] [US4] Tulis tes IDOR penilaian yang membuktikan Guru di luar Ruangan mendapat `404` di `src/test/java/com/eduscreen/app/web/GradingIdorTest.java`
 
 ### Implementation for User Story 4
 
-- [ ] T087 [US4] Tulis migrasi `score_audit` hanya-sisip (TC-37) di `src/main/resources/db/migration/V4__score_audit.sql`
-- [ ] T088 [P] [US4] Buat entity dan repository `ScoreAudit` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ScoreAuditEntity.java` dan `ScoreAuditRepository.java`
-- [ ] T089 [US4] Tambahkan penangkapan jawaban essay dan penandaan Result `PENDING_REVIEW` saat finalisasi di `src/main/java/com/eduscreen/app/modules/assessment/service/SessionFinalizer.java`
-- [ ] T090 [US4] Implementasikan `GradingService`: nilai 0–100 menjadi pecahan poin, perhitungan ulang Result seketika, transisi ke `FINAL`, penulisan `score_audit` di `src/main/java/com/eduscreen/app/modules/assessment/service/GradingService.java`
-- [ ] T091 [US4] Implementasikan `GradingController` untuk antrean penilaian dan pemberian nilai di `src/main/java/com/eduscreen/app/modules/assessment/controller/GradingController.java`
-- [ ] T092 [P] [US4] Bangun templat antrean penilaian essay di `src/main/resources/templates/guru/penilaian.html`
-- [ ] T093 [US4] Tampilkan penanda nilai sementara pada hasil `PENDING_REVIEW` di halaman hasil Siswa di `src/main/resources/templates/siswa/hasil.html`
+- [x] T087 [US4] Tulis migrasi `score_audit` hanya-sisip (TC-37) di `src/main/resources/db/migration/V4__score_audit.sql`
+- [x] T088 [P] [US4] Buat entity dan repository `ScoreAudit` di `src/main/java/com/eduscreen/app/modules/assessment/repository/ScoreAuditEntity.java` dan `ScoreAuditRepository.java`
+- [x] T089 [US4] Tambahkan penangkapan jawaban essay dan penandaan Result `PENDING_REVIEW` saat finalisasi di `src/main/java/com/eduscreen/app/modules/assessment/service/SessionFinalizer.java`
+- [x] T090 [US4] Implementasikan `GradingService`: nilai 0–100 menjadi pecahan poin, perhitungan ulang Result seketika, transisi ke `FINAL`, penulisan `score_audit` di `src/main/java/com/eduscreen/app/modules/assessment/service/GradingService.java`
+- [x] T091 [US4] Implementasikan `GradingController` untuk antrean penilaian dan pemberian nilai di `src/main/java/com/eduscreen/app/modules/assessment/controller/GradingController.java`
+- [x] T092 [P] [US4] Bangun templat antrean penilaian essay di `src/main/resources/templates/guru/penilaian.html`
+- [x] T093 [US4] Tampilkan penanda nilai sementara pada hasil `PENDING_REVIEW` di halaman hasil Siswa di `src/main/resources/templates/siswa/hasil.html`
 
 **Checkpoint**: Empat cerita pertama berfungsi sendiri-sendiri
 
@@ -220,15 +220,15 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 5
 
-- [ ] T094 [P] [US5] Tulis tes integrasi `AC-O01` dan `AC-O02` yang membuktikan salinan terpisah dan Subject global tidak diduplikasi di `src/test/java/com/eduscreen/app/modules/ClientOnboardingIT.java`
+- [x] T094 [P] [US5] Tulis tes integrasi `AC-O01` dan `AC-O02` yang membuktikan salinan terpisah dan Subject global tidak diduplikasi di `src/test/java/com/eduscreen/app/modules/ClientOnboardingIT.java`
 
 ### Implementation for User Story 5
 
-- [ ] T095 [US5] Implementasikan `ContentAdoptionService` yang menyalin Topic, Question, Option, Exercise, dan ExerciseItem beserta `source_question_id` di `src/main/java/com/eduscreen/app/modules/assessment/service/ContentAdoptionService.java`
-- [ ] T096 [US5] Implementasikan `ClientOnboardingService`: buat Client dengan zona waktu, akun Client Admin pertama beserta undangannya, lalu salin paket terpilih di `src/main/java/com/eduscreen/app/modules/assessment/service/ClientOnboardingService.java`
-- [ ] T097 [US5] Implementasikan `EduscreenAdminController` untuk `/eduscreen/client` dan `/eduscreen/subject` di `src/main/java/com/eduscreen/app/modules/assessment/controller/EduscreenAdminController.java`
-- [ ] T098 [US5] Implementasikan `CatalogController` untuk `/katalog` dan `/katalog/adopsi` di `src/main/java/com/eduscreen/app/modules/assessment/controller/CatalogController.java`
-- [ ] T099 [P] [US5] Bangun templat pendaftaran Client dan penelusuran katalog master di `src/main/resources/templates/eduscreen/client.html` dan `src/main/resources/templates/katalog/index.html`
+- [x] T095 [US5] Implementasikan `ContentAdoptionService` yang menyalin Topic, Question, Option, Exercise, dan ExerciseItem beserta `source_question_id` di `src/main/java/com/eduscreen/app/modules/assessment/service/ContentAdoptionService.java`
+- [x] T096 [US5] Implementasikan `ClientOnboardingService`: buat Client dengan zona waktu, akun Client Admin pertama beserta undangannya, lalu salin paket terpilih di `src/main/java/com/eduscreen/app/modules/assessment/service/ClientOnboardingService.java`
+- [x] T097 [US5] Implementasikan `EduscreenAdminController` untuk `/eduscreen/client` dan `/eduscreen/subject` di `src/main/java/com/eduscreen/app/modules/assessment/controller/EduscreenAdminController.java`
+- [x] T098 [US5] Implementasikan `CatalogController` untuk `/katalog` dan `/katalog/adopsi` di `src/main/java/com/eduscreen/app/modules/assessment/controller/CatalogController.java`
+- [x] T099 [P] [US5] Bangun templat pendaftaran Client dan penelusuran katalog master di `src/main/resources/templates/eduscreen/client.html` dan `src/main/resources/templates/katalog/index.html`
 
 **Checkpoint**: Lima cerita pertama berfungsi sendiri-sendiri
 
@@ -242,14 +242,14 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 6
 
-- [ ] T100 [P] [US6] Tulis tes integrasi `AC-Q03` dan `AC-Q06` yang mencakup penolakan berkas 2.000 baris di `src/test/java/com/eduscreen/app/modules/QuestionImportIT.java`
+- [x] T100 [P] [US6] Tulis tes integrasi `AC-Q03` dan `AC-Q06` yang mencakup penolakan berkas 2.000 baris di `src/test/java/com/eduscreen/app/modules/QuestionImportIT.java`
 
 ### Implementation for User Story 6
 
-- [ ] T101 [US6] Implementasikan pengurai Excel/CSV dengan validasi per baris dan pesan galat bernomor baris di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionImportParser.java`
-- [ ] T102 [US6] Implementasikan `QuestionImportService`: batas 500 baris ditolak sebelum diproses, pratinjau bertoken, penyimpanan sinkron hanya baris valid, sanitasi lewat jalur yang sama dengan editor di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionImportService.java`
-- [ ] T103 [US6] Implementasikan `ImportController` untuk `/admin/impor` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ImportController.java`
-- [ ] T104 [P] [US6] Bangun templat unggah, pratinjau, dan laporan kegagalan, beserta berkas templat unduhan di `src/main/resources/templates/admin/impor.html` dan `src/main/resources/static/templat-impor.csv`
+- [x] T101 [US6] Implementasikan pengurai Excel/CSV dengan validasi per baris dan pesan galat bernomor baris di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionImportParser.java`
+- [x] T102 [US6] Implementasikan `QuestionImportService`: batas 500 baris ditolak sebelum diproses, pratinjau bertoken, penyimpanan sinkron hanya baris valid, sanitasi lewat jalur yang sama dengan editor di `src/main/java/com/eduscreen/app/modules/assessment/service/QuestionImportService.java`
+- [x] T103 [US6] Implementasikan `ImportController` untuk `/admin/impor` di `src/main/java/com/eduscreen/app/modules/assessment/controller/ImportController.java`
+- [x] T104 [P] [US6] Bangun templat unggah, pratinjau, dan laporan kegagalan, beserta berkas templat unduhan di `src/main/resources/templates/admin/impor.html` dan `src/main/resources/static/templat-impor.csv`
 
 **Checkpoint**: Enam cerita pertama berfungsi sendiri-sendiri
 
@@ -263,14 +263,14 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 ### Tests for User Story 7
 
-- [ ] T105 [P] [US7] Tulis tes integrasi `AC-S05` dan `AC-L02` di `src/test/java/com/eduscreen/app/modules/MultiAttemptIT.java`
+- [x] T105 [P] [US7] Tulis tes integrasi `AC-S05` dan `AC-L02` di `src/test/java/com/eduscreen/app/modules/MultiAttemptIT.java`
 
 ### Implementation for User Story 7
 
-- [ ] T106 [US7] Terapkan penomoran dan penegakan `max_attempts` untuk Quiz, dengan snapshot baru tiap pengerjaan di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
-- [ ] T107 [US7] Hitung nilai resmi sebagai skor tertinggi di antara seluruh pengerjaan di `src/main/java/com/eduscreen/app/modules/assessment/service/ReportService.java`
-- [ ] T108 [US7] Implementasikan halaman riwayat pengerjaan per Siswa untuk Guru di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/riwayat-siswa.html`
-- [ ] T109 [P] [US7] Tampilkan riwayat pengerjaan dan nilai terbaik di portal Siswa di `src/main/resources/templates/siswa/portal.html`
+- [x] T106 [US7] Terapkan penomoran dan penegakan `max_attempts` untuk Quiz, dengan snapshot baru tiap pengerjaan di `src/main/java/com/eduscreen/app/modules/assessment/service/ExamSessionService.java`
+- [x] T107 [US7] Hitung nilai resmi sebagai skor tertinggi di antara seluruh pengerjaan di `src/main/java/com/eduscreen/app/modules/assessment/service/ReportService.java`
+- [x] T108 [US7] Implementasikan halaman riwayat pengerjaan per Siswa untuk Guru di `src/main/java/com/eduscreen/app/modules/assessment/controller/ReportController.java` dan `src/main/resources/templates/guru/riwayat-siswa.html`
+- [x] T109 [P] [US7] Tampilkan riwayat pengerjaan dan nilai terbaik di portal Siswa di `src/main/resources/templates/siswa/portal.html`
 
 **Checkpoint**: Seluruh cerita pengguna berfungsi sendiri-sendiri
 
@@ -280,13 +280,13 @@ Proyek Maven monolit (lihat `plan.md` → Structure Decision):
 
 **Purpose**: Penyelesaian yang menyentuh banyak cerita sekaligus
 
-- [ ] T110 [P] Susun konfigurasi profil `demo`: spanduk permanen, email dimatikan, larangan pemulihan dari cadangan produksi (TC-47, TC-48, TC-49) di `src/main/resources/application-demo.yml` dan `docs/runbook-demo.md`
-- [ ] T111 [P] Tulis runbook pencadangan harian, arsip WAL, dan uji pemulihan terjadwal (TC-43) di `docs/runbook-backup.md`
-- [ ] T112 [P] Verifikasi seluruh index yang disebut `data-model.md` sudah ada dan terpakai lewat `EXPLAIN` pada query rekap dan penelusuran bank soal di `src/main/resources/db/migration/`
-- [ ] T113 Jalankan uji beban terhadap sasaran SC-006 dan catat hasilnya sebagai bukti atau bantahan hipotesis di `docs/load-test-report.md`
-- [ ] T114 [P] Rapikan tampilan tanggap di seluruh halaman pengerjaan dan admin di `src/main/resources/templates/`
-- [ ] T115 [P] Pastikan setiap nama tes merujuk pengenal `AC-*` dan jalankan pemeriksaan cakupannya (TC-39) di `src/test/java/com/eduscreen/app/`
-- [ ] T116 Jalankan seluruh skenario validasi `quickstart.md` dari V1 sampai V7 beserta tabel kasus tepinya
+- [x] T110 [P] Susun konfigurasi profil `demo`: spanduk permanen, email dimatikan, larangan pemulihan dari cadangan produksi (TC-47, TC-48, TC-49) di `src/main/resources/application-demo.yml` dan `docs/runbook-demo.md`
+- [x] T111 [P] Tulis runbook pencadangan harian, arsip WAL, dan uji pemulihan terjadwal (TC-43) di `docs/runbook-backup.md`
+- [x] T112 [P] Verifikasi seluruh index yang disebut `data-model.md` sudah ada dan terpakai lewat `EXPLAIN` pada query rekap dan penelusuran bank soal di `src/main/resources/db/migration/`
+- [x] T113 Jalankan uji beban terhadap sasaran SC-006 dan catat hasilnya sebagai bukti atau bantahan hipotesis di `docs/load-test-report.md`
+- [x] T114 [P] Rapikan tampilan tanggap di seluruh halaman pengerjaan dan admin di `src/main/resources/templates/`
+- [x] T115 [P] Pastikan setiap nama tes merujuk pengenal `AC-*` dan jalankan pemeriksaan cakupannya (TC-39) di `src/test/java/com/eduscreen/app/`
+- [x] T116 Jalankan seluruh skenario validasi `quickstart.md` dari V1 sampai V7 beserta tabel kasus tepinya
 
 ---
 

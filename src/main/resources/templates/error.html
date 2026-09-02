@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Terjadi Kesalahan')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Terjadi Kesalahan', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Halaman galat terakhir untuk permintaan yang sampai ke /error, mis. jalur yang tidak
+      dikenal. Galat di dalam controller sendiri dirender @ControllerAdvice sebagai fragmen
+      (TC-31); halaman ini hanya jaring untuk yang tidak pernah sampai ke sana.
+
+      Sengaja tidak menampilkan pesan internal: pesan galat bisa membocorkan struktur data dan
+      keberadaan objek.
+    -->
+    <div class="rounded-lg border border-slate-200 bg-white p-6" role="alert">
+      <p class="text-sm text-slate-700">
+        Permintaan tidak bisa diselesaikan.
+        <span th:if="${status}">Kode <span th:text="${status}">500</span>.</span>
+      </p>
+      <p class="mt-4">
+        <a th:href="@{/}"
+           class="inline-block rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+          Kembali ke beranda
+        </a>
+      </p>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

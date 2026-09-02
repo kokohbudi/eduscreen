@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Bank Soal')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Bank Soal', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!-- Pencarian lintas-Paket (FR-019): Question menyebar lintas Subject dan Paket, dan bekerja
+         di dalam satu Paket lewat tingkat isi tidak selalu cukup kalau belum tahu soalnya ada di
+         Paket yang mana. -->
+    <p class="mb-4 text-sm">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/cari}" class="text-slate-600 underline">Cari soal →</a>
+    </p>
+
+    <!-- Ubah nama Subject GLOBAL, hanya ruang kerja master (BR-O04: "boleh diperbaiki kapan
+         saja"). Bank Soal Client tidak punya pasangan ini — Client Admin memang tidak berwenang
+         atas Subject GLOBAL. Hanya tampil ketika satu Subject sedang dipilih lewat penyaring:
+         mengubah nama tanpa tahu Subject mana yang dimaksud tidak masuk akal. Muat ulang penuh,
+         bukan HTMX: rename langka, dan memuat ulang membuat datalist ikut benar tanpa menukar
+         satu <option> di tengah. -->
+    <form th:if="${(master ?: false) and subject != null}" method="post" class="mb-4 flex items-end gap-2 text-sm"
+          th:action="@{__${basePath}__/subject/{id}/nama(id=${subject.id})}">
+      <div>
+        <label for="namaSubjectUbah" class="block font-medium text-slate-700">Ubah nama Subject ini</label>
+        <input type="text" id="namaSubjectUbah" name="name" required th:value="${subject.name}"
+               class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+      </div>
+      <button type="submit" class="rounded border border-slate-300 px-3 py-1.5 font-medium hover:bg-slate-100">
+        Simpan
+      </button>
+    </form>
+
+    <!-- Tingkat pertama menyambut dengan formulir buat Paket, bukan tabel Subject tanpa satu pun
+         jalan membuat sesuatu (revisi PO pasca-ADR-0018). Subject yang sudah ada dipakai ulang,
+         yang belum ada dibuat saat simpan (AC-B06). Satu kolom ber-datalist, bukan dua jalur
+         terpisah "pilih dari daftar" dan "tambah baru": autocomplete native, tanpa JS dan tanpa
+         pustaka. -->
+    <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket}"
+          class="mb-4 flex flex-wrap items-end gap-3 rounded border border-slate-200 bg-white p-4 text-sm">
+      <div class="flex-1">
+        <label for="title" class="block font-medium text-slate-700">Nama Paket</label>
+        <input type="text" id="title" name="title" required
+               class="mt-1 w-full rounded border border-slate-300 px-2 py-1.5">
+      </div>
+      <div>
+        <label for="subjectName" class="block font-medium text-slate-700">Subject</label>
+        <input type="text" id="subjectName" name="subjectName" list="daftarSubject" required
+               th:value="${subject != null ? subject.name : ''}"
+               class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+        <datalist id="daftarSubject">
+          <option th:each="s : ${subjects}" th:value="${s.name}"></option>
+        </datalist>
+      </div>
+      <button type="submit" class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+        Buat Paket
+      </button>
+    </form>
+
+    <!-- Subject turun jadi penyaring, bukan tingkat navigasi sendiri: memilih satu Subject di
+         sini menyempitkan tabel di bawah lewat subjectId, tanpa berpindah URL ke tingkat lain. -->
+    <form method="get" th:action="@{__${basePath ?: '/bank-soal'}__}" class="mb-4 flex items-end gap-2 text-sm">
+      <div>
+        <label for="subjectIdSaring" class="block font-medium text-slate-700">Saring</label>
+        <select id="subjectIdSaring" name="subjectId" onchange="this.form.submit()"
+                class="mt-1 rounded border border-slate-300 px-2 py-1.5">
+          <option value="">Semua Subject</option>
+          <option th:each="s : ${subjects}" th:value="${s.id}" th:text="${s.name}"
+                  th:selected="${subjectId != null and subjectId == s.id}">Subject</option>
+        </select>
+      </div>
+    </form>
+
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2">Paket</th>
+          <th class="py-2">Subject</th>
+          <th class="py-2 w-20 text-right">Soal</th>
+          <!-- ${master} dinyalakan ruang kerja Eduscreen (/eduscreen/bank-soal); di Bank Soal
+               Client kolom Status ini tidak pernah dirender. -->
+          <th class="py-2 w-40" th:if="${master ?: false}">Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- th:each di blok pembungkus, th:replace di elemen lain: keduanya di satu elemen
+             membuat fragmen dipanggil sebelum variabel iterasinya terikat (lihat
+             MasterContentRenderTest). -->
+        <th:block th:each="paket : ${pakets}">
+          <tr th:replace="~{::barisPaket}"></tr>
+        </th:block>
+      </tbody>
+    </table>
+    <p th:if="${#lists.isEmpty(pakets)}" class="mt-4 text-sm text-slate-500">
+      Belum ada Paket<span th:if="${subject != null}" th:text="' di ' + ${subject.name}"></span>.
+    </p>
+
+  </div>
+
+  <!--
+    Satu baris Paket, dipisah jadi fragmen ber-id: penerbitan dan penarikan konten master
+    (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang seluruh tabel
+    (TC-14). Dipakai MasterContentController (/eduscreen/bank-soal).
+  -->
+  <tr th:fragment="barisPaket" th:id="|paket-${paket.id}|" class="border-b border-slate-100">
+    <td class="py-2">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}"
+         th:text="${paket.title}" class="text-slate-900 underline">Judul Paket</a>
+    </td>
+    <td class="py-2" th:text="${namaSubject.get(paket.subjectId)}">Subject</td>
+    <td class="py-2 text-right tabular-nums" th:text="${jumlahSoal.getOrDefault(paket.id, 0)}">0</td>
+    <td class="py-2 space-x-2" th:if="${master ?: false}">
+      <span th:if="${paket.published}"
+            class="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Terbit</span>
+      <span th:unless="${paket.published}"
+            class="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">Belum terbit</span>
+      <button th:unless="${paket.published}"
+              th:attr="hx-post=@{__${basePath}__/paket/{id}/terbit(id=${paket.id})},hx-target=|#paket-${paket.id}|"
+              hx-swap="outerHTML"
+              class="rounded border border-emerald-300 px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+        Terbitkan
+      </button>
+      <button th:if="${paket.published}"
+              th:attr="hx-post=@{__${basePath}__/paket/{id}/tarik(id=${paket.id})},hx-target=|#paket-${paket.id}|"
+              hx-swap="outerHTML"
+              hx-confirm="Tarik Paket ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
+              class="rounded border border-amber-300 px-2 py-1 text-amber-700 hover:bg-amber-50">
+        Tarik
+      </button>
+    </td>
+  </tr>
+
+</div>
+</body>
+</html>

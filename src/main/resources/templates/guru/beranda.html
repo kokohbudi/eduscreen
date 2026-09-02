@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Portal Guru')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Portal Guru', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <section class="mb-10">
+      <h2 class="mb-3 text-lg font-semibold">Ruangan yang ditugaskan</h2>
+
+      <div th:if="${#lists.isEmpty(ruangan)}"
+           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Anda belum ditugaskan ke Ruangan mana pun. Hubungi Admin sekolah Anda.
+      </div>
+
+      <ul th:unless="${#lists.isEmpty(ruangan)}" class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <li th:each="r : ${ruangan}"
+            class="rounded border border-slate-200 bg-white p-4">
+          <p class="font-medium text-slate-900" th:text="${r.name}">Nama Ruangan</p>
+          <div class="mt-2 flex flex-wrap gap-3 text-sm">
+            <a th:href="@{/guru/assignment(ruanganId=${r.id})}" class="text-slate-600 underline">
+              Lihat Assignment
+            </a>
+            <a th:href="@{/guru/ruangan/{id}/latihan(id=${r.id})}" class="text-slate-600 underline">
+              Aktivitas latihan
+            </a>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold">Assignment terbaru</h2>
+
+      <div th:if="${#lists.isEmpty(assignments)}"
+           class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+        Belum ada Assignment yang diterbitkan.
+      </div>
+
+      <ul th:unless="${#lists.isEmpty(assignments)}" class="space-y-2">
+        <li th:each="a : ${assignments}"
+            class="flex flex-wrap items-center justify-between gap-3 rounded border border-slate-200 bg-white px-4 py-3">
+          <div>
+            <a th:href="@{/guru/assignment/{id}(id=${a.id})}"
+               class="font-medium text-slate-900 underline-offset-2 hover:underline"
+               th:text="${a.title}">Judul Assignment</a>
+            <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+              <span class="rounded bg-slate-100 px-2 py-0.5 font-medium"
+                    th:text="${a.mode.name() == 'QUIZ' ? 'Quiz' : 'Latihan'}">Mode</span>
+              <span th:text="${a.status}">STATUS</span>
+              <span th:text="|Batas akhir: ${#temporals.format(a.expiresAt, 'dd MMM yyyy HH:mm')}|">Batas akhir</span>
+            </div>
+          </div>
+          <a th:href="@{/guru/assignment/{id}(id=${a.id})}"
+             class="rounded border border-slate-300 px-3 py-1.5 text-sm hover:bg-slate-100">
+            Buka
+          </a>
+        </li>
+      </ul>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

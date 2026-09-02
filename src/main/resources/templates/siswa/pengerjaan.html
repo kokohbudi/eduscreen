@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head(${assignment.title})}"></head>
+<body>
+<div th:replace="~{layout/base :: page(${assignment.title}, ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Heartbeat menjaga sesi login tetap hidup selagi Siswa mengerjakan, dan HANYA itu — ia BUKAN
+      memperpanjang batas waktu pengerjaan (TC-32). Batas waktu murni wewenang server.
+    -->
+    <div th:attr="hx-post=@{/siswa/sesi/{id}/heartbeat(id=${sesi.id})}" hx-trigger="every 60s" hx-swap="none">
+
+      <div class="mb-6 flex flex-wrap items-center justify-between gap-3 rounded border border-slate-200 bg-white px-4 py-3"
+           th:with="sesiUrl='/siswa/sesi/' + ${sesi.id}"
+           th:attr="x-data=|countdown(${sisaDetik}, '${sesiUrl}')|">
+        <!--
+          Hitung mundur: angkanya SELALU datang dari server (TC-15, BR-T03). Komponen Alpine di
+          sini hanya menampilkan dan menyinkronkan ulang secara berkala — tidak pernah menghitung
+          sisa waktu dari jam perangkat Siswa sendiri.
+        -->
+        <div>
+          <span class="block text-xs text-slate-500">Sisa waktu</span>
+          <span class="font-mono text-2xl font-bold" x-text="tampil">00:00</span>
+        </div>
+
+        <!--
+          Indikator koneksi (AC-S06): TIDAK ADA penyimpanan jawaban di peramban untuk
+          disinkronkan belakangan (ADR-0006) — pengerjaan membutuhkan koneksi aktif. Yang
+          ditunjukkan di sini murni status antrean HTMX yang sedang mencoba ulang kiriman gagal.
+        -->
+        <div x-show="!daring" role="alert"
+             class="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm text-amber-800">
+          Koneksi terputus — jawaban yang belum terkirim sedang diantre dan dicoba ulang.
+        </div>
+      </div>
+
+      <!-- Peta soal: navigasi Quiz bebas ke soal mana pun (berbeda dari Practice). -->
+      <div class="mb-6 flex flex-wrap gap-2" role="navigation" aria-label="Peta soal">
+        <button th:each="i : ${#numbers.sequence(0, soal.total() - 1)}"
+                type="button"
+                th:text="${i + 1}"
+                th:attr="hx-get=@{/siswa/sesi/{id}/soal/{position}(id=${sesi.id},position=${i})}"
+                hx-target="#soal" hx-swap="innerHTML"
+                th:classappend="${terjawab.contains(i)} ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-slate-300 text-slate-700'"
+                class="h-9 w-9 rounded border text-sm font-medium hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-500">
+          1
+        </button>
+      </div>
+
+      <div th:fragment="soal" id="soal">
+        <!-- th:utext dipakai karena question.bodyHtml sudah tersanitasi saat ditulis (TC-22). -->
+        <div class="prose prose-slate mb-4 max-w-none rounded border border-slate-200 bg-white p-4"
+             th:utext="${soal.question().bodyHtml}">Batang soal</div>
+
+        <div th:if="${soal.question().type.name() == 'MULTIPLE_CHOICE'}" class="space-y-2">
+          <!--
+            Urutan Option dirender PERSIS seperti diberikan (${soal.options()}), TIDAK diurutkan
+            ulang — itu urutan yang sudah dibekukan snapshot sesi ini (BR-S02).
+          -->
+          <div th:each="opsi, iter : ${soal.options()}"
+               class="flex items-start gap-2 rounded border border-slate-200 p-3">
+            <input type="radio" th:id="|opsi-${soal.sessionQuestion().id}-${iter.index}|"
+                   name="selectedOptionId" th:value="${opsi.id}"
+                   th:checked="${soal.answer() != null and soal.answer().selectedOptionId == opsi.id}"
+                   th:attr="hx-put=@{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
+                   hx-trigger="change" hx-target="#soal" hx-swap="outerHTML"
+                   class="mt-1">
+            <label th:for="|opsi-${soal.sessionQuestion().id}-${iter.index}|"
+                   th:utext="${opsi.bodyHtml}">Pilihan</label>
+          </div>
+        </div>
+
+        <div th:if="${soal.question().type.name() == 'ESSAY'}">
+          <label th:for="|essay-${soal.sessionQuestion().id}|" class="mb-1 block text-sm font-medium text-slate-700">
+            Jawaban
+          </label>
+          <!--
+            Auto-save mengembalikan FRAGMEN, bukan JSON, sehingga satu jalur render yang sama
+            melayani muat awal maupun pembaruan parsial ini (TC-14).
+          -->
+          <textarea th:id="|essay-${soal.sessionQuestion().id}|" name="essayText" rows="6"
+                    th:attr="hx-put=@{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
+                    hx-trigger="keyup changed delay:800ms" hx-target="#soal" hx-swap="outerHTML"
+                    class="w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none"
+                    th:text="${soal.answer() != null ? soal.answer().essayText : ''}"></textarea>
+        </div>
+      </div>
+
+      <form class="mt-6" th:action="@{/siswa/sesi/{id}/selesai(id=${sesi.id})}" method="post"
+            onsubmit="return confirm('Selesaikan pengerjaan sekarang? Jawaban yang sudah tersimpan tidak bisa diubah lagi setelah ini.');">
+        <button type="submit"
+                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Selesai
+        </button>
+      </form>
+    </div>
+
+    <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
+    <script>
+      // Render KaTeX untuk rumus LaTeX di batang soal/opsi. Dipanggil lagi setelah tiap swap
+      // HTMX karena auto-save dan navigasi soal mengganti markup lewat innerHTML/outerHTML,
+      // bukan lewat muat ulang halaman penuh.
+      function eduscreenRenderMath(root) {
+        if (window.renderMathInElement) {
+          window.renderMathInElement(root, {
+            delimiters: [
+              { left: '$$', right: '$$', display: true },
+              { left: '$', right: '$', display: false }
+            ]
+          });
+        }
+      }
+      document.addEventListener('DOMContentLoaded', function () { eduscreenRenderMath(document.body); });
+      document.body.addEventListener('htmx:afterSwap', function (e) { eduscreenRenderMath(e.detail.target); });
+    </script>
+  </div>
+</div>
+</body>
+</html>

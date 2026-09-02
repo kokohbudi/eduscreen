@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Impor Soal')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Impor Soal', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Impor diproses SINKRON, tanpa antrean pekerjaan latar (TC-45, ADR-0014). Batas 500 baris
+      per berkas adalah yang membuat itu mungkin, dan ia ada supaya tidak ada yang
+      "memperbaikinya" dengan memasukkan kembali infrastruktur yang sengaja dihindari di v1.
+    -->
+    <section class="rounded-lg border border-slate-200 bg-white p-6">
+      <h2 class="text-lg font-semibold">Unggah berkas</h2>
+      <p class="mt-1 text-sm text-slate-600">
+        Format Excel (<code>.xlsx</code>) atau CSV, maksimum <strong>500 baris</strong> per berkas.
+        Berkas yang lebih besar ditolak sebelum diproses — pecah menjadi beberapa berkas.
+        Seluruh baris valid disimpan ke Paket dan Topic tujuan yang dipilih di bawah; kolom
+        <code>topic</code> pada berkas boleh dikosongkan.
+      </p>
+      <p class="mt-2 text-sm">
+        <a th:href="@{/templat-impor.csv}" class="text-slate-700 underline" download>
+          Unduh templat kolom
+        </a>
+      </p>
+
+      <form class="mt-4 flex flex-wrap items-end gap-3"
+            hx-post="/admin/impor/pratinjau" hx-encoding="multipart/form-data"
+            hx-target="#pratinjau" hx-swap="innerHTML">
+        <!--
+          Tujuan impor dipilih eksplisit (ADR-0018): seluruh baris valid mendarat di satu Paket
+          dan satu Topic — kolom topic pada berkas tidak menentukan tujuan, dan karena itu boleh
+          dikosongkan (parser tidak membacanya sama sekali). Daftar Topic dimuat
+          ulang saat Paket berganti, lewat fragmen opsiTopic yang sama dengan perakit Exercise,
+          supaya daftar dan urutannya tidak bisa diam-diam melenceng dari halaman isi Paket.
+        -->
+        <div>
+          <label for="paketIdImpor" class="block text-sm font-medium text-slate-700">Paket tujuan</label>
+          <select id="paketIdImpor" name="paketId" required
+                  onchange="htmx.ajax('GET', '/bank-soal/paket/' + this.value + '/topic-options', {target: '#topicIdImpor', swap: 'innerHTML'})"
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">-- Paket --</option>
+            <option th:each="p : ${pakets}" th:value="${p.id}" th:text="${p.title}">Paket</option>
+          </select>
+        </div>
+        <div>
+          <label for="topicIdImpor" class="block text-sm font-medium text-slate-700">Topic tujuan</label>
+          <select id="topicIdImpor" name="topicId" required
+                  class="mt-1 rounded border border-slate-300 px-2 py-1.5 text-sm">
+            <option value="">-- Topic --</option>
+          </select>
+        </div>
+        <div>
+          <label for="berkas" class="block text-sm font-medium text-slate-700">Berkas</label>
+          <input type="file" id="berkas" name="berkas" accept=".csv,.xlsx" required
+                 class="mt-1 block text-sm">
+        </div>
+        <button type="submit"
+                class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+          Pratinjau
+        </button>
+      </form>
+    </section>
+
+    <div id="pratinjau" class="mt-6">
+      <!--
+        Kegagalan satu baris tidak membatalkan baris lain (BR-Q05). Nomor barisnya ditampilkan
+        supaya pengguna bisa memperbaiki berkas aslinya, bukan menebak-nebak baris mana yang
+        salah (AC-Q03).
+      -->
+      <section th:fragment="pratinjau" th:if="${pratinjau}"
+               class="rounded-lg border border-slate-200 bg-white p-6">
+        <h2 class="text-lg font-semibold">Hasil pembacaan</h2>
+        <p class="mt-1 text-sm text-slate-700">
+          <span th:text="${pratinjau.validCount()}">0</span> baris valid,
+          <span th:text="${#lists.size(pratinjau.failures())}">0</span> baris gagal.
+        </p>
+
+        <div th:if="${!#lists.isEmpty(pratinjau.failures())}" class="mt-4 overflow-x-auto">
+          <table class="w-full text-left text-sm">
+            <thead class="border-b border-slate-200 text-slate-500">
+              <tr>
+                <th scope="col" class="py-2">Baris</th>
+                <th scope="col" class="py-2">Alasan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr th:each="g : ${pratinjau.failures()}" class="border-b border-slate-100">
+                <td class="py-2" th:text="${g.lineNumber()}">0</td>
+                <td class="py-2 text-red-700" th:text="${g.reason()}">Alasan</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Tujuan dibawa ulang dari formulir unggah; layanan memeriksanya lagi saat menyimpan
+             (TC-36, AC-B02) — field tersembunyi bukan gerbang keamanan. -->
+        <form class="mt-4" hx-post="/admin/impor/simpan" hx-target="#pratinjau" hx-swap="innerHTML">
+          <input type="hidden" name="token" th:value="${pratinjau.token()}">
+          <input type="hidden" name="paketId" th:value="${paketId}">
+          <input type="hidden" name="topicId" th:value="${topicId}">
+          <button type="submit"
+                  class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">
+            Simpan baris yang valid
+          </button>
+        </form>
+      </section>
+
+      <div th:fragment="ringkasan" th:if="${ringkasan}" role="status"
+           class="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <span th:text="${ringkasan.saved()}">0</span> soal tersimpan ke bank soal.
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

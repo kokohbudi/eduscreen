@@ -23,7 +23,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 class UuidV7Test {
 
     @Test
-    @DisplayName("Menghasilkan UUID versi 7 dengan varian RFC 9562")
+    @DisplayName("TC-08: menghasilkan UUID versi 7 dengan varian RFC 9562")
     void producesVersion7WithCorrectVariant() {
         for (int i = 0; i < 1_000; i++) {
             UUID uuid = UuidV7.randomUuid();
@@ -33,7 +33,7 @@ class UuidV7Test {
     }
 
     @Test
-    @DisplayName("Stempel waktu tertanam mencerminkan waktu pembuatan")
+    @DisplayName("TC-08: stempel waktu tertanam mencerminkan waktu pembuatan")
     void embedsCreationTimestamp() {
         long before = System.currentTimeMillis();
         UUID uuid = UuidV7.randomUuid();
@@ -43,7 +43,7 @@ class UuidV7Test {
     }
 
     @Test
-    @DisplayName("Urutan pembuatan monoton, termasuk dalam milidetik yang sama")
+    @DisplayName("TC-08: urutan pembuatan monoton, termasuk dalam milidetik yang sama")
     void isMonotonicWithinSameMillisecond() {
         List<UUID> generated = new ArrayList<>();
         for (int i = 0; i < 10_000; i++) {
@@ -61,7 +61,7 @@ class UuidV7Test {
     }
 
     @Test
-    @DisplayName("Tidak menghasilkan tabrakan di bawah beban paralel")
+    @DisplayName("TC-08: tidak menghasilkan tabrakan di bawah beban paralel")
     void producesNoCollisionsUnderConcurrency() throws Exception {
         int threads = 16;
         int perThread = 5_000;

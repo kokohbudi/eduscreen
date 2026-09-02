@@ -33,11 +33,15 @@ _Hindari_: Murid, Peserta Didik, Student
 ## Konten
 
 **Subject**:
-Mata pelajaran pada satu jenjang tertentu, misalnya `Matematika Kelas 4`. Berasal dari Eduscreen (global) atau dibuat Client (lokal).
+Mata pelajaran pada satu jenjang tertentu, misalnya `Matematika Kelas 4`. Berasal dari Eduscreen (global) atau dibuat Client (lokal). Perannya adalah label pada Paket, bukan wadah soal.
 _Hindari_: Mapel, Mata Pelajaran, Course
 
+**Paket**:
+Kumpulan soal yang ditulis sebagai satu kesatuan dan diberi satu Subject. Milik Eduscreen (dijual lewat katalog) atau milik satu Client. Paket adalah satuan yang diadopsi.
+_Hindari_: Buku, Bundle, Set Soal
+
 **Topic**:
-Sub-bahasan di bawah satu Subject, misalnya `Aljabar Dasar`.
+Sub-bahasan di dalam satu Paket, misalnya `Aljabar Dasar`. Milik Paket, bukan milik Subject.
 _Hindari_: Bab, Materi, Chapter
 
 **Question**:

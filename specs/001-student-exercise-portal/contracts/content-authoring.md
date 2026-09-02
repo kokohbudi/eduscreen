@@ -2,36 +2,46 @@
 
 **Cerita**: US2, US5, US6 | **Kebutuhan**: FR-012 sampai FR-026
 
-## Taksonomi
-
-| Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
-| --- | --- | --- | --- | --- | --- |
-| GET | `/subject` | Client Admin, Guru | — | `fragment` daftar gabungan `GLOBAL` + lokal, asal ditandai (FR-013) | — |
-| POST | `/admin/subject` | Client Admin | `name` | `fragment` baris; `origin = CLIENT` | `400` |
-| POST | `/eduscreen/subject` | Eduscreen Admin | `name` | `fragment` baris; `origin = GLOBAL` | `400` |
-| GET | `/subject/{id}/topic` | Client Admin, Guru | — | `fragment` daftar Topic | `404` |
-| POST | `/subject/{id}/topic` | Client Admin, Guru | `name` | `fragment` baris Topic lokal (FR-014) | `404`, `400` |
-
 ## Bank soal
 
+Taksonomi sekarang tiga lapis: Subject (label) › Paket › Topic › Question. Paket adalah satuan
+yang ditulis, dijual, dan diadopsi; Topic milik satu Paket, bukan milik Subject (ADR-0018).
+
+Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawalan
+`/eduscreen/bank-soal`, template yang sama dengan `basePath` berbeda — pola yang sudah dipakai
+`MasterContentController` sekarang. Tombol terbit dan tarik hanya muncul di ruang kerja master
+(FR-066, FR-067).
+
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/soal` | Client Admin, Guru | `subjectId`, `topicId`, `q`, `page` | `fragment` hasil berhalaman | — |
-| GET | `/soal/baru` | Client Admin, Guru | `topicId` | `page` editor | — |
-| POST | `/soal` | Client Admin, Guru | `topicId`, `type`, `bodyHtml`, `explanationHtml`, `options[]` | `302` ke detail | `400` fragmen validasi |
-| GET | `/soal/{id}` | Client Admin, Guru | — | `page` detail | `404` bila di luar Client |
-| PUT | `/soal/{id}` | Client Admin, Guru | sama seperti POST | `fragment` detail | `404`, `400` |
-| DELETE | `/soal/{id}` | Client Admin, Guru | — | `fragment` konfirmasi | `404` |
+| GET | `/bank-soal` | Client Admin, Guru | — | `page` tabel Paket lintas Subject, dengan jumlah soal per Paket, plus formulir buat Paket | — |
+| GET | `/bank-soal?subjectId={id}` | Client Admin, Guru | `subjectId` | `page` tabel yang sama tersaring ke satu Subject | `404` |
+| POST | `/bank-soal/paket` | Client Admin, Guru | `title`, `subjectId` atau `subjectName` | `302` ke isi Paket | `400` |
+| GET | `/bank-soal/paket/{id}` | Client Admin, Guru | — | `page` isi Paket: soal dikelompokkan per Topic | `404` bila di luar Client |
+| POST | `/bank-soal/paket/{id}/topic` | Client Admin, Guru | `title` | `fragment` daftar Topic | `404`, `400` |
+| GET | `/bank-soal/paket/{id}/soal/baru` | Client Admin, Guru | `topicId` | `page` editor, `topicId` sebagai induk | `404` |
+| POST | `/bank-soal/paket/{id}/soal` | Client Admin, Guru | `topicId`, `type`, `bodyHtml`, `explanationHtml`, `options[]` | `302` ke detail | `400` fragmen validasi |
+| PUT | `/bank-soal/soal/{id}` | Client Admin, Guru | sama seperti POST | `fragment` detail | `404`, `400` |
+| DELETE | `/bank-soal/soal/{id}` | Client Admin, Guru | — | `fragment` konfirmasi | `404` |
+| GET | `/bank-soal/paket/{id}/pinjam` | Client Admin, Guru | `q`, `page` | `fragment` panel pinjam: cari soal di Paket lain milik Client | `404` |
+| POST | `/bank-soal/paket/{id}/pinjam` | Client Admin, Guru | `questionIds[]` atau `sourceTopicId` | `fragment` ringkasan salinan | `400` |
 
 **Aturan mengikat**
 
+- Paket baru MUST lahir dengan tepat satu Topic bernama `Topik 1` (AC-B01).
+- Question MUST menunjuk Topic yang `paketId`-nya sama dengan `paketId` Question itu; kombinasi
+  lain MUST ditolak (AC-B02).
+- Meminjam soal dari Paket lain MUST menghasilkan Question baru milik Paket tujuan dengan
+  `sourceQuestionId` menunjuk soal asal; mengubah salinan MUST NOT mengubah soal asal (AC-B03).
+- Soal yang `sourceQuestionId`-nya sudah ada di Paket tujuan MUST disembunyikan dari daftar
+  pinjam Paket itu (AC-B04).
 - Pencarian `q` MUST menyentuh kolom teks polos turunan, bukan kolom HTML (FR-019, TC-25).
 - `bodyHtml`, `explanationHtml`, dan tiap `options[].bodyHtml` MUST melewati sanitasi allowlist
   **saat menulis**; yang tersimpan adalah hasil sanitasi (TC-22, TC-23).
 - Rumus MUST diterima sebagai LaTeX berdelimiter dan MUST NOT disimpan sebagai HTML hasil render
   (TC-24).
 - Question `MULTIPLE_CHOICE` MUST punya ≥2 Option dan tepat 1 benar; selain itu `400` (FR-016).
-- Question MUST melekat pada tepat satu Topic (FR-015).
+- Question MUST melekat pada tepat satu Topic (BR-Q02).
 - `DELETE` MUST menghilangkan soal dari pencarian tanpa memutus Exercise, Assignment, atau
   pengerjaan yang sudah memakainya (FR-018).
 
@@ -56,16 +66,26 @@
 | --- | --- | --- | --- | --- | --- |
 | GET | `/exercise` | Client Admin, Guru | `q`, `page` | `page` daftar se-Client (FR-004) | — |
 | POST | `/exercise` | Guru | `title` | `302` ke perakit | `400` |
-| GET | `/exercise/{id}` | Client Admin, Guru | — | `page` perakit | `404` |
+| GET | `/exercise/{id}` | Client Admin, Guru | `paketId`, `topicId`, `q`, `page`, `exerciseId`, `type`, `sembunyikanTerpasang` (panel penelusuran) | `page` perakit | `404` |
 | POST | `/exercise/{id}/item` | Guru | `questionId` | `fragment` daftar item | `404`; `409` bila terkunci |
+| POST | `/exercise/{id}/item/topik` | Guru | `topicId` | `fragment` daftar item | `404`; `409` bila terkunci |
+| POST | `/exercise/{id}/item/terpilih` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
 | DELETE | `/exercise/{id}/item/{questionId}` | Guru | — | `fragment` daftar item | `404`; `409` bila terkunci |
 | PUT | `/exercise/{id}/urutan` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
 | POST | `/exercise/{id}/duplikat` | Guru | — | `302` ke Exercise baru | `404` |
 
 **Aturan mengikat**
 
-- Perakit MUST membolehkan penambahan Question dari Subject dan Topic mana pun di dalam Client,
+- Perakit MUST membolehkan penambahan Question dari Paket dan Topic mana pun di dalam Client,
   berpindah bebas dalam satu sesi perakitan (FR-024).
+- Perakit MUST membolehkan penambahan beberapa Question terpilih maupun seluruh Question satu
+  Topic dalam satu tindakan (BR-E01). Urutan yang masuk MUST mengikuti urutan yang dikirim.
+- Panel penelusuran perakit MUST bisa disaring per tipe soal dan MUST bisa menyembunyikan
+  Question yang sudah terpasang di Exercise itu. Saringan MUST ikut terbawa antar-halaman
+  hasil; penyaringan MUST NOT mengubah aturan penerbitan Practice, yang tetap ditegakkan
+  di jalur penerbitan (BR-M04).
+  Soal yang sudah terpasang MUST dilewati, dan Topic yang bukan milik Client pemanggil MUST
+  menghasilkan 0 soal, bukan kebocoran maupun galat yang membedakannya dari Topic kosong (TC-36).
 - Setiap perubahan pada Exercise ber-`locked_at` MUST dijawab `409` disertai tawaran duplikasi
   (FR-026).
 - Exercise kosong MUST NOT bisa diterbitkan; divalidasi di jalur penerbitan (FR-025).
@@ -94,7 +114,7 @@
 | GET | `/eduscreen/client` | Eduscreen Admin | — | `page` daftar Client | — |
 | POST | `/eduscreen/client` | Eduscreen Admin | `name`, `timezone`, `adminEmail`, `paketIds[]` | `302` ke detail Client | `400` |
 | GET | `/katalog` | Client Admin | `subjectId` | `page` katalog master | — |
-| POST | `/katalog/adopsi` | Client Admin | `questionIds[]` atau `exerciseIds[]` | `fragment` ringkasan salinan | `400` |
+| POST | `/katalog/adopsi` | Client Admin | `paketIds[]` | `fragment` ringkasan salinan | `400` |
 
 **Aturan mengikat**
 
@@ -102,5 +122,5 @@
   merambat (FR-021, ADR-0001).
 - Onboarding MUST membuat Client, akun Client Admin pertama beserta undangannya, dan menyalin
   paket yang dipilih (FR-020).
-- Subject `GLOBAL` MUST NOT disalin — ia dibaca langsung; yang disalin adalah Topic, Question,
-  dan Exercise.
+- Subject `GLOBAL` MUST NOT disalin — ia dibaca langsung; yang disalin adalah Paket, Topic,
+  Question, dan Option.

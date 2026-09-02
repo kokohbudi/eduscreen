@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Riwayat Siswa')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Riwayat Siswa', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <p class="mb-1 text-sm text-slate-500">
+      <a th:href="@{/guru/assignment/{id}/rekap(id=${assignment.id})}" class="underline">Kembali ke rekap</a>
+    </p>
+    <h2 class="mb-1 text-lg font-semibold" th:text="${siswa.fullName}">Nama Siswa</h2>
+    <p class="mb-6 text-sm text-slate-500" th:text="${assignment.title}">Judul Assignment</p>
+
+    <div th:if="${#lists.isEmpty(pengerjaan)}"
+         class="rounded border border-slate-200 bg-white p-6 text-center text-sm text-slate-500">
+      Siswa ini belum pernah menekan Mulai pada Assignment ini.
+    </div>
+
+    <!--
+      Nilai resmi Siswa adalah yang TERTINGGI di antara seluruh Attempt-nya (BR-L03, AC-L02).
+      Seluruh Attempt tetap ditampilkan dan tetap bisa dibuka di sini — hanya baris dengan skor
+      tertinggi yang ditandai, bukan disembunyikan.
+    -->
+    <div th:unless="${#lists.isEmpty(pengerjaan)}" class="overflow-x-auto">
+      <table class="w-full border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-slate-500">
+            <th scope="col" class="py-2">Attempt</th>
+            <th scope="col" class="py-2">Mulai</th>
+            <th scope="col" class="py-2">Status</th>
+            <th scope="col" class="py-2">Sebab berakhir</th>
+            <th scope="col" class="py-2">Skor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="sesi : ${pengerjaan}"
+              th:with="skor=${hasil.get(sesi.id)},
+                       resmi=${skor != null and skorTertinggi != null
+                                and skor.score.compareTo(skorTertinggi) == 0}"
+              class="border-b border-slate-100">
+            <td class="py-2" th:text="${sesi.attemptNumber}">1</td>
+            <td class="py-2" th:text="${#temporals.format(sesi.startedAt, 'dd MMM yyyy HH:mm')}">Mulai</td>
+            <td class="py-2" th:text="${sesi.status}">STATUS</td>
+            <td class="py-2" th:text="${sesi.terminalReason != null ? sesi.terminalReason : '—'}">Sebab</td>
+            <td class="py-2">
+              <span th:if="${skor == null}" class="text-slate-400">Belum dinilai</span>
+              <span th:if="${skor != null}"
+                    th:text="|${#numbers.formatDecimal(skor.score * 100, 1, 2)}%|">0.00%</span>
+              <span th:if="${skor != null and skor.status.name() == 'PENDING_REVIEW'}" role="status"
+                    class="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Sementara
+              </span>
+              <span th:if="${resmi}"
+                    class="ml-2 rounded bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                Nilai resmi
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
