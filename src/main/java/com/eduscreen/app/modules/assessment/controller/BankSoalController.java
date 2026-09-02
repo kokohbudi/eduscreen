@@ -28,10 +28,13 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Bank Soal: Subject › Paket › isi Paket (ADR-0018).
+ * Bank Soal: daftar Paket › isi Paket (ADR-0018).
  *
- * <p>Tiga tingkat, tiga tabel, tautan biasa. Tidak ada dropdown bertingkat: tiap tingkat punya
- * URL sendiri, sehingga hasilnya bisa disalin dan tombol kembali peramban bekerja.
+ * <p>Dua tingkat. Tingkat pertama menyambut dengan tabel Paket lintas Subject sekaligus formulir
+ * buat Paket — bukan tabel Subject yang dulu jadi jalan buntu tanpa cara membuat apa pun; Subject
+ * sekarang hanya penyaring lewat {@code subjectId} (revisi tingkat pertama pasca-ADR-0018).
+ * Tidak ada dropdown bertingkat: tiap tingkat punya URL sendiri, sehingga hasilnya bisa disalin
+ * dan tombol kembali peramban bekerja.
  *
  * <p>Setiap pembacaan lewat {@link PaketService#require} atau query ber-{@code clientId},
  * sehingga milik Client lain dijawab 404, bukan 403 (TC-36, TC-09). Itu juga syarat memakai
@@ -61,7 +64,11 @@ public class BankSoalController {
         this.taxonomy = taxonomy;
     }
 
-    /** Tingkat 1: daftar Subject dengan jumlah Paket. Tingkat 2 bila {@code subjectId} terisi. */
+    /**
+     * Tingkat 1: tabel Paket milik Client, seluruh Subject sekaligus formulir buat Paket. Tersaring
+     * ke satu Subject bila {@code subjectId} terisi — Subject di sini penyaring, bukan tingkat
+     * navigasi sendiri.
+     */
     @GetMapping("/bank-soal")
     public String index(@RequestParam(required = false) UUID subjectId,
                         @AuthenticationPrincipal UserPrincipal user,
@@ -69,21 +76,18 @@ public class BankSoalController {
         UUID clientId = user.requireClientId();
         List<SubjectEntity> subjects = taxonomy.visibleSubjects(clientId);
         model.addAttribute("subjects", subjects);
-        if (subjectId == null) {
-            // Jumlah diagregasi satu query, bukan dihitung per baris tabel.
-            Map<UUID, Long> jumlahPaket = new HashMap<>();
-            paketRepository.countBySubject(clientId)
-                    .forEach(c -> jumlahPaket.put(c.getSubjectId(), c.getJumlah()));
-            model.addAttribute("jumlahPaket", jumlahPaket);
-            return "bank/subject";
+        model.addAttribute("subjectId", subjectId);
+        model.addAttribute("pakets", subjectId == null
+                ? paketRepository.findByClientIdOrderByTitleAsc(clientId)
+                : paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(clientId, subjectId));
+        if (subjectId != null) {
+            model.addAttribute("subject", taxonomy.requireVisibleSubject(subjectId, clientId));
         }
-        model.addAttribute("subject", taxonomy.requireVisibleSubject(subjectId, clientId));
-        model.addAttribute("pakets",
-                paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(clientId, subjectId));
         Map<UUID, Long> jumlahSoal = new HashMap<>();
         questionRepository.countByPaket(clientId)
                 .forEach(c -> jumlahSoal.put(c.getPaketId(), c.getJumlah()));
         model.addAttribute("jumlahSoal", jumlahSoal);
+        model.addAttribute("namaSubject", namaSubject(subjects));
         return "bank/paket";
     }
 
@@ -125,7 +129,7 @@ public class BankSoalController {
         return "redirect:/bank-soal/paket/" + paket.getId();
     }
 
-    /** Tingkat 3: isi Paket, soal dikelompokkan per Topic. */
+    /** Tingkat 2: isi Paket, soal dikelompokkan per Topic. */
     @GetMapping("/bank-soal/paket/{id}")
     public String isiPaket(@PathVariable UUID id,
                            @AuthenticationPrincipal UserPrincipal user,
@@ -296,5 +300,12 @@ public class BankSoalController {
         model.addAttribute("topicId", topicId);
         model.addAttribute("topics", pakets.topicsOf(paket.getId()));
         model.addAttribute("basePath", "/bank-soal");
+    }
+
+    /** Nama Subject per id, untuk kolom Subject tabel Paket — {@code bank/paket.html} tidak menyimpan relasi. */
+    private static Map<UUID, String> namaSubject(List<SubjectEntity> subjects) {
+        Map<UUID, String> nama = new HashMap<>();
+        subjects.forEach(s -> nama.put(s.getId(), s.getName()));
+        return nama;
     }
 }

@@ -33,12 +33,17 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Layar Bank Soal tiga tingkat benar-benar dirender, bukan sekadar dipetakan.
+ * Layar Bank Soal dua tingkat benar-benar dirender, bukan sekadar dipetakan.
  *
  * <p>Alasan yang sama dengan {@code MasterContentRenderTest}: galat templat (ekspresi bersarang,
  * {@code th:each} bersama {@code th:replace} di elemen yang sama) lolos seluruh tes layanan dan
  * baru meledak saat halamannya disentuh. Setiap halaman dan fragmen baru di sini karena itu
  * disentuh lewat MockMvc (TC-13, TC-14).
+ *
+ * <p>Sejak revisi tingkat pertama (PO pasca-ADR-0018), {@code GET /bank-soal} menyambut dengan
+ * tabel Paket lintas Subject dan formulir buat Paket, bukan tabel Subject tanpa satu pun jalan
+ * membuat sesuatu. Subject turun jadi penyaring lewat {@code subjectId}, bukan tingkat navigasi
+ * sendiri — drill tinggal dua tingkat: daftar Paket, lalu isi Paket.
  */
 @AutoConfigureMockMvc
 class BankSoalRenderTest extends PostgresTestBase {
@@ -49,30 +54,33 @@ class BankSoalRenderTest extends PostgresTestBase {
     @Autowired TaxonomyService taxonomy;
 
     @Test
-    @DisplayName("TC-13 (ADR-0018): tiga tingkat Bank Soal dirender: tabel Subject, tabel Paket, lalu isi Paket per Topic")
-    void tigaTingkatDirender() throws Exception {
+    @DisplayName("TC-13 (ADR-0018): dua tingkat Bank Soal dirender: tabel Paket dengan form buat Paket, lalu isi Paket per Topic")
+    void duaTingkatDirender() throws Exception {
         ClientEntity client = data.client("SD Bank Render");
         var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Bank")));
         PaketEntity paket = data.paket(client, "Matematika Kelas 4 BankRender", "Paket Aritmetika Render");
         TopicEntity topik1 = paketService.topicsOf(paket.getId()).get(0);
         data.mcq(client, topik1, "Soal isi paket render", 4);
 
-        // Tingkat 1: Subject sebagai tautan menuju tingkat 2.
+        // Tingkat 1: tabel Paket menyambut langsung (bukan tabel Subject), lengkap dengan nama
+        // Subject per baris dan form buat Paket. URL harus benar-benar terpasang, bukan
+        // "basePath" harfiah — kelas kesalahan yang pernah lolos di templat bersama lain.
         mvc.perform(get("/bank-soal").with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(containsString("Matematika Kelas 4 BankRender")))
-                .andExpect(content().string(containsString("/bank-soal?subjectId=" + paket.getSubjectId())));
-
-        // Tingkat 2: daftar Paket plus form buat Paket. URL harus benar-benar terpasang, bukan
-        // "basePath" harfiah — kelas kesalahan yang pernah lolos di templat bersama lain.
-        mvc.perform(get("/bank-soal").param("subjectId", paket.getSubjectId().toString()).with(admin))
-                .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Paket Aritmetika Render")))
+                .andExpect(content().string(containsString("Matematika Kelas 4 BankRender")))
                 .andExpect(content().string(containsString("/bank-soal/paket/" + paket.getId())))
                 .andExpect(content().string(containsString("action=\"/bank-soal/paket\"")))
                 .andExpect(content().string(not(containsString("basePath"))));
 
-        // Tingkat 3: soal dikelompokkan per Topic, tombol tambah soal menunjuk Topic-nya.
+        // Subject sekarang penyaring lewat subjectId, bukan tingkat navigasi terpisah — tabel
+        // yang sama tersaring, bukan berpindah templat.
+        mvc.perform(get("/bank-soal").param("subjectId", paket.getSubjectId().toString()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Paket Aritmetika Render")))
+                .andExpect(content().string(containsString("/bank-soal/paket/" + paket.getId())));
+
+        // Tingkat 2: soal dikelompokkan per Topic, tombol tambah soal menunjuk Topic-nya.
         mvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Topik 1")))
@@ -90,6 +98,42 @@ class BankSoalRenderTest extends PostgresTestBase {
         mvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Topik Pecahan Render")));
+    }
+
+    @Test
+    @DisplayName("AC-B18 (TC-13): tingkat pertama menampilkan Paket dari lebih dari satu Subject sekaligus, tanpa Paket milik Client lain")
+    void tingkatPertamaLintasSubjectTanpaBocorClientLain() throws Exception {
+        ClientEntity client = data.client("SD Bank Lintas Subject");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Lintas Subject")));
+        PaketEntity paketMatematika = data.paket(client, "Matematika Kelas 4 BankLintas", "Paket Matematika Lintas");
+        PaketEntity paketFisika = data.paket(client, "Fisika Kelas 8 BankLintas", "Paket Fisika Lintas");
+        ClientEntity lain = data.client("SD Bank Lintas Lain");
+        data.paket(lain, "Matematika Kelas 4 BankLintas", "Paket Milik Client Lain Lintas");
+
+        mvc.perform(get("/bank-soal").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Paket Matematika Lintas")))
+                .andExpect(content().string(containsString("Paket Fisika Lintas")))
+                .andExpect(content().string(not(containsString("Paket Milik Client Lain Lintas"))));
+
+        // Bukti lumpuh-pulih penjaring subjectId ada di
+        // #penyaringSubjectIdBenarBenarMenyaring — di sini cukup pastikan keduanya masih
+        // muncul saat tidak disaring, supaya kedua tes tidak menguji hal yang sama.
+        assertThat(paketMatematika.getSubjectId()).isNotEqualTo(paketFisika.getSubjectId());
+    }
+
+    @Test
+    @DisplayName("AC-B18 (TC-13): penyaring subjectId pada tingkat pertama benar-benar menyaring, bukan hiasan")
+    void penyaringSubjectIdBenarBenarMenyaring() throws Exception {
+        ClientEntity client = data.client("SD Bank Saring");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Saring")));
+        PaketEntity paketMatematika = data.paket(client, "Matematika Kelas 4 BankSaring", "Paket Matematika Saring");
+        PaketEntity paketFisika = data.paket(client, "Fisika Kelas 8 BankSaring", "Paket Fisika Saring");
+
+        mvc.perform(get("/bank-soal").param("subjectId", paketMatematika.getSubjectId().toString()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Paket Matematika Saring")))
+                .andExpect(content().string(not(containsString("Paket Fisika Saring"))));
     }
 
     @Test

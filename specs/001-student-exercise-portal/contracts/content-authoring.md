@@ -14,8 +14,8 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/bank-soal` | Client Admin, Guru | — | `page` tabel Subject, dengan jumlah Paket per Subject | — |
-| GET | `/bank-soal?subjectId={id}` | Client Admin, Guru | `subjectId` | `fragment` tabel Paket di Subject itu, dengan jumlah soal per Paket | `404` |
+| GET | `/bank-soal` | Client Admin, Guru | — | `page` tabel Paket lintas Subject, dengan jumlah soal per Paket, plus formulir buat Paket | — |
+| GET | `/bank-soal?subjectId={id}` | Client Admin, Guru | `subjectId` | `page` tabel yang sama tersaring ke satu Subject | `404` |
 | POST | `/bank-soal/paket` | Client Admin, Guru | `title`, `subjectId` atau `subjectName` | `302` ke isi Paket | `400` |
 | GET | `/bank-soal/paket/{id}` | Client Admin, Guru | — | `page` isi Paket: soal dikelompokkan per Topic | `404` bila di luar Client |
 | POST | `/bank-soal/paket/{id}/topic` | Client Admin, Guru | `title` | `fragment` daftar Topic | `404`, `400` |

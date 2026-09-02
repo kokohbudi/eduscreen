@@ -6,6 +6,7 @@ import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
+import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
@@ -81,21 +82,24 @@ public class MasterContentController {
         this.publishing = publishing;
     }
 
-    /** Tingkat 1: daftar Subject GLOBAL dengan jumlah Paket master. Tingkat 2 bila {@code subjectId} terisi. */
+    /**
+     * Tingkat 1: tabel Paket master, seluruh Subject GLOBAL sekaligus. Tersaring ke satu Subject
+     * bila {@code subjectId} terisi — sejajar {@link BankSoalController#index}.
+     */
     @GetMapping("/eduscreen/bank-soal")
     public String index(@RequestParam(required = false) UUID subjectId, Model model) {
-        model.addAttribute("subjects", taxonomy.visibleSubjects(MASTER));
+        List<SubjectEntity> subjects = taxonomy.visibleSubjects(MASTER);
+        model.addAttribute("subjects", subjects);
+        model.addAttribute("subjectId", subjectId);
         isiJalur(model);
-        if (subjectId == null) {
-            Map<UUID, Long> jumlahPaket = new HashMap<>();
-            paketRepository.countMasterBySubject()
-                    .forEach(c -> jumlahPaket.put(c.getSubjectId(), c.getJumlah()));
-            model.addAttribute("jumlahPaket", jumlahPaket);
-            return "bank/subject";
+        model.addAttribute("pakets", subjectId == null
+                ? paketRepository.findAllMaster()
+                : paketRepository.findMaster(subjectId));
+        if (subjectId != null) {
+            model.addAttribute("subject", taxonomy.requireGlobalSubject(subjectId));
         }
-        model.addAttribute("subject", taxonomy.requireGlobalSubject(subjectId));
-        model.addAttribute("pakets", paketRepository.findMaster(subjectId));
         model.addAttribute("jumlahSoal", jumlahSoalMaster());
+        model.addAttribute("namaSubject", namaSubject(subjects));
         return "bank/paket";
     }
 
@@ -146,7 +150,7 @@ public class MasterContentController {
         return "redirect:" + BASE_PATH + "/paket/" + paket.getId();
     }
 
-    /** Tingkat 3: isi Paket master, soal dikelompokkan per Topic. */
+    /** Tingkat 2: isi Paket master, soal dikelompokkan per Topic. */
     @GetMapping("/eduscreen/bank-soal/paket/{id}")
     public String isiPaket(@PathVariable UUID id, Model model) {
         PaketEntity paket = pakets.require(id, MASTER);
@@ -316,8 +320,19 @@ public class MasterContentController {
     private String barisPaket(PaketEntity paket, Model model) {
         model.addAttribute("paket", paket);
         model.addAttribute("jumlahSoal", jumlahSoalMaster());
+        // Satu baris saja yang ditukar (TC-14), tapi kolom Subject-nya tetap butuh nama: peta
+        // satu-entri, bukan memuat ulang seluruh daftar Subject demi satu baris.
+        model.addAttribute("namaSubject",
+                Map.of(paket.getSubjectId(), taxonomy.requireGlobalSubject(paket.getSubjectId()).getName()));
         isiJalur(model);
         return "bank/paket :: barisPaket";
+    }
+
+    /** Nama Subject per id, untuk kolom Subject tabel Paket — {@code bank/paket.html} tidak menyimpan relasi. */
+    private static Map<UUID, String> namaSubject(List<SubjectEntity> subjects) {
+        Map<UUID, String> nama = new HashMap<>();
+        subjects.forEach(s -> nama.put(s.getId(), s.getName()));
+        return nama;
     }
 
     /** Satu baris Question setelah keadaan terbitnya berubah; sama alasan dengan {@link #barisPaket}. */

@@ -31,6 +31,14 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
             + "order by p.title asc")
     List<PaketEntity> findMaster(@Param("subjectId") UUID subjectId);
 
+    /**
+     * Seluruh Paket master, lintas Subject — padanan {@link #findByClientIdOrderByTitleAsc} untuk
+     * tingkat pertama Bank Soal master (ADR-0018 revisi tingkat pertama): tabel Paket menyambut
+     * langsung, tanpa memilih Subject lebih dulu.
+     */
+    @Query("select p from PaketEntity p where p.clientId is null order by p.title asc")
+    List<PaketEntity> findAllMaster();
+
     /** Paket master yang sudah terbit; satu-satunya yang boleh terlihat Client (FR-067). */
     @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is not null "
             + "and p.subjectId = :subjectId order by p.title asc")
@@ -78,24 +86,9 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterReadyToPublish();
 
-    /** Jumlah Paket per Subject untuk tabel tingkat pertama Bank Soal. */
-    @Query("select p.subjectId as subjectId, count(p) as jumlah from PaketEntity p "
-            + "where p.clientId = :clientId group by p.subjectId")
-    List<SubjectCount> countBySubject(@Param("clientId") UUID clientId);
-
-    @Query("select p.subjectId as subjectId, count(p) as jumlah from PaketEntity p "
-            + "where p.clientId is null group by p.subjectId")
-    List<SubjectCount> countMasterBySubject();
-
     /** Paket yang sudah pernah diadopsi Client ini, untuk menandai katalog (FR-076). */
     @Query("select distinct p.sourcePaketId from PaketEntity p "
             + "where p.clientId = :clientId and p.sourcePaketId in :ids")
     List<UUID> findAdoptedSourceIds(@Param("clientId") UUID clientId,
                                     @Param("ids") Collection<UUID> ids);
-
-    interface SubjectCount {
-        UUID getSubjectId();
-
-        long getJumlah();
-    }
 }

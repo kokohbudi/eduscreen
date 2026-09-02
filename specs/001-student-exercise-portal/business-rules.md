@@ -425,6 +425,11 @@ berikut:
   begitu Paket ditarik. Gerbang penerbitan berlaku dua arah: tanpa ini, Paket terbit bisa
   berubah menjadi Paket yang memuat soal draf — atau Paket terbit yang kosong, melanggar
   AC-B16 — dan tetap bisa diadopsi sekolah.
+- **AC-B18**: Tingkat pertama Bank Soal menampilkan seluruh Paket milik pemiliknya — Client yang
+  sedang masuk, atau seluruh Paket master di ruang kerja Eduscreen — lintas Subject sekaligus,
+  tanpa Paket milik Client lain ikut tampil. Memilih Subject lewat penyaring `subjectId`
+  mempersempit tabel yang sama ke satu Subject, bukan berpindah ke templat atau tingkat
+  navigasi lain.
 
 ### Exercise & Assignment
 

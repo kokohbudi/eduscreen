@@ -51,22 +51,23 @@ class MasterContentRenderTest extends PostgresTestBase {
     @Autowired PaketRepository pakets;
 
     @Test
-    @DisplayName("TC-13: ketiga tingkat ruang kerja Bank Soal master dirender utuh, jalurnya sungguhan terpasang")
+    @DisplayName("TC-13: kedua tingkat ruang kerja Bank Soal master dirender utuh, jalurnya sungguhan terpasang")
     void ruangKerjaBankSoalMasterDirender() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Tier", "Paket tier render unik");
         TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
         QuestionEntity soal = data.masterMcq(topic, "Soal tier3 render draf unik");
 
-        // Tingkat 1: daftar Subject, tautan menunjuk tingkat 2 lewat basePath master.
+        // Tingkat 1: tabel Paket master lintas Subject, dengan opsi penyaring Subject-nya lewat
+        // subjectId (bukan tingkat navigasi terpisah).
         mockMvc.perform(get("/eduscreen/bank-soal").with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "Matematika Kelas 4 Render Tier")))
+                        "Paket tier render unik")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/eduscreen/bank-soal?subjectId=" + paket.getSubjectId())));
+                        "<option value=\"" + paket.getSubjectId() + "\"")));
 
-        // Tingkat 2: daftar Paket di Subject ini, dengan status dan tombol Terbitkan (FR-066).
+        // Tersaring ke Subject ini: tabel yang sama, dengan status dan tombol Terbitkan (FR-066).
         mockMvc.perform(get("/eduscreen/bank-soal").param("subjectId", paket.getSubjectId().toString())
                         .with(admin))
                 .andExpect(status().isOk())
@@ -82,11 +83,11 @@ class MasterContentRenderTest extends PostgresTestBase {
                 // hanya pemeriksaan jalur seperti ini yang menangkapnya (lihat komentar kelas).
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("basePath"))))
-                // Lihat catatan penjaga kedua di tingkat 3: templat tingkat ini juga dipakai dua sisi.
+                // Lihat catatan penjaga kedua di tingkat 2: templat tingkat ini juga dipakai dua sisi.
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("\"/bank-soal"))));
 
-        // Tingkat 3: isi Paket, soal dikelompokkan per Topic, dengan status dan tombol Terbitkan
+        // Tingkat 2: isi Paket, soal dikelompokkan per Topic, dengan status dan tombol Terbitkan
         // Question — gerbang AC-B12 tidak bisa dibuka tanpa jalur ini (lihat brief Task 10).
         mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
                 .andExpect(status().isOk())
@@ -213,6 +214,17 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master render bocor")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Paket milik Client render bocor"))));
+
+        // Tingkat pertama tanpa penyaring: seluruh Paket master lintas Subject, tautannya
+        // sendiri harus berawalan /eduscreen/bank-soal — bukan /bank-soal yang dipagari
+        // CLIENT_ADMIN/GURU dan akan membalas 403 ke Eduscreen Admin.
+        mockMvc.perform(get("/eduscreen/bank-soal").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master render bocor")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Paket milik Client render bocor"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("\"/bank-soal"))));
     }
 
     @Test
