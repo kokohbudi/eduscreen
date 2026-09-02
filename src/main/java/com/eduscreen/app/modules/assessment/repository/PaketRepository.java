@@ -19,6 +19,13 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
 
     List<PaketEntity> findByClientIdAndSubjectIdOrderByTitleAsc(UUID clientId, UUID subjectId);
 
+    /**
+     * Seluruh Paket milik Client, lintas Subject — daftar pilihan Paket di panel perakit Exercise
+     * (BR-E01, FR-024): perakit boleh menelusuri Paket mana pun di dalam Client, bukan hanya
+     * Paket satu Subject seperti panel pinjam antar-Paket.
+     */
+    List<PaketEntity> findByClientIdOrderByTitleAsc(UUID clientId);
+
     /** Paket master, dipakai ruang kerja Eduscreen. */
     @Query("select p from PaketEntity p where p.clientId is null and p.subjectId = :subjectId "
             + "order by p.title asc")

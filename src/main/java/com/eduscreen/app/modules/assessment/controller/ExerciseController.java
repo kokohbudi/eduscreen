@@ -1,11 +1,12 @@
 package com.eduscreen.app.modules.assessment.controller;
 
+import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
-import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -41,12 +42,12 @@ public class ExerciseController {
 
     private final ExerciseService exercises;
     private final QuestionService questions;
-    private final TaxonomyService taxonomy;
+    private final PaketRepository pakets;
 
-    public ExerciseController(ExerciseService exercises, QuestionService questions, TaxonomyService taxonomy) {
+    public ExerciseController(ExerciseService exercises, QuestionService questions, PaketRepository pakets) {
         this.exercises = exercises;
         this.questions = questions;
-        this.taxonomy = taxonomy;
+        this.pakets = pakets;
     }
 
     @GetMapping("/exercise")
@@ -71,19 +72,58 @@ public class ExerciseController {
         model.addAttribute("exercise", exercises.require(id, clientId));
         muatItem(id, clientId, model);
 
-        // Penelusuran bank soal awal saat perakit dibuka: belum difilter Subject/Topic mana pun,
-        // sengaja lewat GET /soal langsung supaya fragmen "hasil"-nya identik dengan yang dipakai
-        // ulang saat Guru mencari lagi lewat HTMX (lihat exercise/builder.html).
+        // Penelusuran bank soal awal saat perakit dibuka: belum difilter Paket/Topic mana pun.
+        // Pencarian berikutnya lewat HTMX memakai GET /exercise/{id}/cari (lihat cari() di bawah
+        // dan exercise/builder.html) — bukan lagi GET /soal milik QuestionBankController, karena
+        // panel ini sekarang menyaring per Paket, bukan Subject (ADR-0018).
         model.addAttribute("hasil", questions.searchForBuilder(
-                clientId, null, null, List.of(), null, PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
-        model.addAttribute("subjectId", null);
+                clientId, null, null, null, List.of(), null,
+                PageRequest.of(0, UKURAN_HALAMAN_BANK_SOAL)));
+        model.addAttribute("paketId", null);
         model.addAttribute("topicId", null);
         model.addAttribute("q", null);
         model.addAttribute("type", null);
         model.addAttribute("sembunyikanTerpasang", false);
         model.addAttribute("exerciseId", id);
-        model.addAttribute("subjects", taxonomy.visibleSubjects(clientId));
+        model.addAttribute("pakets", pakets.findByClientIdOrderByTitleAsc(clientId));
         return "exercise/builder";
+    }
+
+    /**
+     * Panel penelusuran bank soal di dalam perakit: menyaring per Paket dan Topic (ADR-0018),
+     * bukan lagi Subject/Topic. Rute sendiri di bawah {@code /exercise/{id}}, bukan berbagi
+     * {@code GET /soal} milik {@link QuestionBankController} — {@code exerciseId} datang dari
+     * path, bukan parameter opsional yang gampang lupa dikirim, dan bentuk fragmen hasilnya bebas
+     * berbeda dari daftar bank soal biasa.
+     */
+    @GetMapping("/exercise/{id}/cari")
+    public String cari(@PathVariable UUID id,
+                       @RequestParam(required = false) UUID paketId,
+                       @RequestParam(required = false) UUID topicId,
+                       @RequestParam(required = false) QuestionType type,
+                       @RequestParam(required = false) String q,
+                       @RequestParam(defaultValue = "false") boolean sembunyikanTerpasang,
+                       @RequestParam(defaultValue = "0") int page,
+                       @AuthenticationPrincipal UserPrincipal user,
+                       Model model) {
+        UUID clientId = user.requireClientId();
+        // require dulu (TC-36, TC-09): Exercise milik Client lain dijawab 404 sebelum panelnya
+        // sempat memuat satu baris pun, bukan diam-diam menampilkan bank soal Client ini di
+        // dalam perakit orang lain.
+        exercises.require(id, clientId);
+        List<UUID> terpasang = sembunyikanTerpasang
+                ? exercises.itemsOf(id).stream().map(ExerciseItemEntity::getQuestionId).toList()
+                : List.of();
+        model.addAttribute("hasil", questions.searchForBuilder(
+                clientId, paketId, topicId, type, terpasang, q,
+                PageRequest.of(page, UKURAN_HALAMAN_BANK_SOAL)));
+        model.addAttribute("paketId", paketId);
+        model.addAttribute("topicId", topicId);
+        model.addAttribute("q", q);
+        model.addAttribute("type", type);
+        model.addAttribute("sembunyikanTerpasang", sembunyikanTerpasang);
+        model.addAttribute("exerciseId", id);
+        return "exercise/builder :: hasil";
     }
 
     @PostMapping("/exercise/{id}/item")

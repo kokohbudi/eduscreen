@@ -29,27 +29,27 @@
       </section>
 
       <!-- Panel kanan: penelusuran bank soal untuk ditambahkan. Sengaja TIDAK ada peringatan
-           apa pun saat Guru berpindah Subject/Topic mana pun di dalam Client dalam satu sesi
-           perakitan ini — Exercise memang boleh memuat soal lintas Subject dan Topic (BR-E01,
-           AC-E02, FR-024); satu-satunya batasan adalah kunci di atas, bukan taksonomi. -->
+           apa pun saat Guru berpindah Paket/Topic mana pun di dalam Client dalam satu sesi
+           perakitan ini — Exercise memang boleh memuat soal lintas Paket dan Topic (BR-E01,
+           AC-E02, FR-024); satu-satunya batasan adalah kunci di atas, bukan taksonomi. Panel ini
+           hanya MENYARING tampilan pencarian per Paket (ADR-0018) — bukan membatasi soal apa yang
+           boleh ditambahkan. -->
       <section th:unless="${exercise.locked}" class="rounded border border-slate-200 bg-white p-4">
         <h2 class="mb-3 text-lg font-semibold">Cari &amp; tambah soal</h2>
-        <!-- "change from:#subjectIdBuilder" sengaja TIDAK ikut memicu pencarian: mengganti
-             Subject membuat #topicIdBuilder dimuat ulang lewat AJAX terpisah (lihat onchange di
-             bawah) yang baru selesai belakangan; mencari lebih dulu hanya akan memakai topicId
-             lama yang sudah tidak relevan. Memilih Topic baru atau menekan Cari sudah cukup. -->
-        <form th:attr="hx-get=@{/soal}" hx-target="#hasil-soal" hx-swap="outerHTML"
+        <!-- "change from:#paketIdBuilder" sengaja TIDAK ikut memicu pencarian: mengganti Paket
+             membuat #topicIdBuilder dimuat ulang lewat AJAX terpisah (lihat onchange di bawah)
+             yang baru selesai belakangan; mencari lebih dulu hanya akan memakai topicId lama yang
+             sudah tidak relevan. Memilih Topic baru atau menekan Cari sudah cukup. -->
+        <form th:attr="hx-get=@{/exercise/{id}/cari(id=${exercise.id})}" hx-target="#hasil-soal" hx-swap="outerHTML"
               hx-trigger="submit, change from:#topicIdBuilder, change from:#typeBuilder, change from:#sembunyikanBuilder"
               class="mb-4 flex flex-wrap items-end gap-2 text-sm">
-          <input type="hidden" name="exerciseId" th:value="${exercise.id}">
           <div>
-            <label for="subjectIdBuilder" class="block font-medium text-slate-700">Subject</label>
-            <select id="subjectIdBuilder" name="subjectId"
-                    onchange="htmx.ajax('GET', '/subject/' + this.value + '/topic', {target: '#topicIdBuilder', swap: 'innerHTML'})"
+            <label for="paketIdBuilder" class="block font-medium text-slate-700">Paket</label>
+            <select id="paketIdBuilder" name="paketId"
+                    onchange="htmx.ajax('GET', '/bank-soal/paket/' + this.value + '/topic-options', {target: '#topicIdBuilder', swap: 'innerHTML'})"
                     class="mt-1 rounded border border-slate-300 px-2 py-1.5">
-              <option value="">-- Subject --</option>
-              <option th:each="s : ${subjects}" th:value="${s.id}"
-                      th:text="|${s.name} (${s.origin.name() == 'GLOBAL' ? 'Global' : 'Sekolah Anda'})|">Subject</option>
+              <option value="">-- Paket --</option>
+              <option th:each="p : ${pakets}" th:value="${p.id}" th:text="${p.title}">Paket</option>
             </select>
           </div>
           <div>
@@ -96,11 +96,82 @@
           </button>
         </form>
 
-        <div id="hasil-soal" th:replace="~{soal/daftar :: hasil}"></div>
+        <div id="hasil-soal" th:replace="~{::hasil}"></div>
       </section>
 
     </div>
   </div>
+
+  <!--
+    Hasil pencarian panel perakit, berhalaman. Fragmen sendiri, bukan dipakai ulang dari
+    soal/daftar.html: panel ini SELALU berada dalam konteks satu Exercise (exerciseId tidak
+    pernah null di sini), jadi tidak perlu variabel basePath/itemPath yang menopang dua konteks
+    sekaligus seperti soal/daftar.html — dan menyaringnya per Paket, bukan Subject (ADR-0018).
+  -->
+  <div th:fragment="hasil" id="hasil-soal">
+    <table class="w-full border-collapse text-sm">
+      <thead>
+        <tr class="border-b border-slate-200 text-left text-slate-500">
+          <th class="py-2 w-8"></th>
+          <th class="py-2">Isi</th>
+          <th class="py-2">Tipe</th>
+          <th class="py-2">Aksi</th>
+        </tr>
+      </thead>
+      <!-- th:each dibungkus th:block, bukan ditaruh bersama th:replace di elemen yang sama:
+           th:replace berjalan lebih dulu (presedensi 100 vs 200), sehingga fragmennya akan
+           dipanggil sebelum variabel iterasinya sempat terikat (temuan Task 9/10). -->
+      <th:block th:each="pertanyaan : ${hasil}">
+        <tbody th:replace="~{::barisHasil}"></tbody>
+      </th:block>
+    </table>
+
+    <div class="mt-4 flex items-center justify-between text-sm text-slate-500" th:if="${hasil.totalPages > 0}">
+      <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
+      <div class="space-x-2">
+        <a th:if="${hasil.hasPrevious()}"
+           th:href="@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Sebelumnya</a>
+        <a th:if="${hasil.hasNext()}"
+           th:href="@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1})}"
+           class="rounded border border-slate-300 px-2 py-1 hover:bg-slate-100">Berikutnya</a>
+      </div>
+    </div>
+    <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">Belum ada soal yang cocok.</p>
+
+    <!-- Menambah beberapa soal sekaligus. hx-include menyapu seluruh centang di halaman ini;
+         HTMX tidak mengirim checkbox yang tidak tercentang, jadi tidak perlu penyaringan sendiri.
+         Kiriman kosong dijawab tanpa perubahan, bukan 400 — mencentang nol soal lalu menekan
+         tombol adalah salah pencet, bukan galat. -->
+    <button th:if="${hasil.totalElements > 0}" type="button"
+            th:attr="hx-post=@{/exercise/{id}/item/terpilih(id=${exerciseId})}"
+            hx-include="[name='questionIds']" hx-target="#daftar-item" hx-swap="outerHTML"
+            class="mt-4 rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
+      + Tambah soal terpilih
+    </button>
+  </div>
+
+  <!--
+    Satu baris hasil pencarian, dipisah jadi fragmen supaya th:each di atas tidak bersanding
+    th:replace pada elemen yang sama (alasan sama seperti komentar di fragmen "hasil").
+  -->
+  <tbody th:fragment="barisHasil" th:id="|hasil-soal-${pertanyaan.id}|" class="border-b border-slate-100 align-top">
+    <tr>
+      <td class="py-2">
+        <input type="checkbox" name="questionIds" th:value="${pertanyaan.id}" class="rounded border-slate-300">
+      </td>
+      <td class="py-2" th:text="${#strings.abbreviate(pertanyaan.bodyText, 120)}">Cuplikan isi soal</td>
+      <td class="py-2" th:text="${pertanyaan.type.name() == 'ESSAY' ? 'Esai' : 'Pilihan Ganda'}">Tipe</td>
+      <td class="py-2">
+        <button type="button" th:attr="hx-post=@{/exercise/{id}/item(id=${exerciseId})},
+                                        hx-vals=|{&quot;questionId&quot;: &quot;${pertanyaan.id}&quot;}|"
+                hx-target="#daftar-item" hx-swap="outerHTML"
+                class="rounded border border-emerald-300 px-2 py-1 text-emerald-700 hover:bg-emerald-50">
+          + Tambah ke Exercise
+        </button>
+      </td>
+    </tr>
+  </tbody>
 
   <!--
     Daftar soal terpasang, urut sesuai posisi. Dipakai sebagai bagian halaman ini dan dibalas

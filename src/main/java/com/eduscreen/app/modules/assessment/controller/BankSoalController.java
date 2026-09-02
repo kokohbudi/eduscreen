@@ -114,6 +114,20 @@ public class BankSoalController {
         return "redirect:/bank-soal/paket/" + id;
     }
 
+    /**
+     * Fragmen {@code <option>} Topic satu Paket, dipakai ulang panel penelusuran perakit Exercise
+     * (Task 12) supaya daftar dan urutan Topic-nya konsisten dengan halaman isi Paket ini —
+     * bukan menulis ulang query yang sama di {@code ExerciseController}.
+     */
+    @GetMapping("/bank-soal/paket/{id}/topic-options")
+    public String topicOptions(@PathVariable UUID id,
+                               @AuthenticationPrincipal UserPrincipal user,
+                               Model model) {
+        pakets.require(id, user.requireClientId());
+        model.addAttribute("topics", pakets.topicsOf(id));
+        return "bank/isi :: opsiTopic";
+    }
+
     @GetMapping("/bank-soal/paket/{id}/soal/baru")
     public String soalBaru(@PathVariable UUID id, @RequestParam UUID topicId,
                            @AuthenticationPrincipal UserPrincipal user, Model model) {

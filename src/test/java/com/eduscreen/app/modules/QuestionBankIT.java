@@ -69,22 +69,61 @@ class QuestionBankIT extends PostgresTestBase {
 
         // Tanpa saringan: ketiganya muncul.
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, null, List.of(), "saringunik", PageRequest.of(0, 20))
+                client.getId(), null, null, null, List.of(), "saringunik", PageRequest.of(0, 20))
                 .getTotalElements()).isEqualTo(3);
 
         // Practice hanya boleh memuat pilihan ganda (BR-M04): esai disingkirkan sebelum merakit.
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, QuestionType.MULTIPLE_CHOICE, List.of(), "saringunik",
+                client.getId(), null, null, QuestionType.MULTIPLE_CHOICE, List.of(), "saringunik",
                 PageRequest.of(0, 20)).getTotalElements()).isEqualTo(2);
 
         // Yang sudah terpasang disembunyikan; pengecualian kosong tidak menyaring apa pun.
         ExerciseEntity exercise = exerciseService.create(client.getId(), "Ulangan", guru.getId());
         exerciseService.addQuestions(exercise.getId(), List.of(pg1.getId()), client.getId());
         assertThat(questionService.searchForBuilder(
-                client.getId(), null, null, List.of(pg1.getId()), "saringunik", PageRequest.of(0, 20)))
+                client.getId(), null, null, null, List.of(pg1.getId()), "saringunik", PageRequest.of(0, 20)))
                 .extracting(QuestionEntity::getId)
                 .doesNotContain(pg1.getId())
                 .contains(pg2.getId());
+    }
+
+    @Test
+    @DisplayName("BR-E01: panel perakit menyaring per Paket, dan Paket lain tidak bocor")
+    void builderFiltersByPaket() {
+        ClientEntity client = data.client("SD Perakit Paket");
+        PaketEntity paketA = data.paket(client, "Matematika Kelas 4 Perakit", "Paket A");
+        PaketEntity paketB = data.paket(client, "Matematika Kelas 4 Perakit", "Paket B");
+        TopicEntity topicA = paketService.topicsOf(paketA.getId()).get(0);
+        TopicEntity topicB = paketService.topicsOf(paketB.getId()).get(0);
+        data.mcq(client, topicA, "Soal di Paket A", 4);
+        data.mcq(client, topicB, "Soal di Paket B", 4);
+
+        Page<QuestionEntity> hasil = questionService.searchForBuilder(
+                client.getId(), paketA.getId(), null, null, List.of(), null,
+                PageRequest.of(0, 20));
+
+        assertThat(hasil.getContent())
+                .extracting(QuestionEntity::getBodyText)
+                .contains("Soal di Paket A")
+                .doesNotContain("Soal di Paket B");
+    }
+
+    @Test
+    @DisplayName("TC-36: paketId milik Client lain di panel perakit menghasilkan nol hasil, bukan galat")
+    void builderPaketMilikClientLainMenghasilkanNolHasil() {
+        ClientEntity client = data.client("SD Perakit Sendiri");
+        ClientEntity lain = data.client("SD Perakit Lain");
+        PaketEntity paketLain = data.paket(lain, "Matematika Kelas 4 Perakit Lain", "Paket Lain");
+        TopicEntity topicLain = paketService.topicsOf(paketLain.getId()).get(0);
+        data.mcq(lain, topicLain, "Soal milik sekolah lain untuk perakit", 4);
+
+        // paketId sah milik Client B disodorkan sambil clientId yang dipakai tetap Client A —
+        // skenario paling dekat dengan penyerang yang menebak/menyalin id Paket orang lain.
+        Page<QuestionEntity> hasil = questionService.searchForBuilder(
+                client.getId(), paketLain.getId(), null, null, List.of(), null,
+                PageRequest.of(0, 20));
+
+        assertThat(hasil.getContent()).isEmpty();
     }
 
     @Test

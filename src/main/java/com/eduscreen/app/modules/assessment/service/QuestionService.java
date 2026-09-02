@@ -70,8 +70,12 @@ public class QuestionService {
     }
 
     /**
-     * Pencarian panel perakit Exercise: seperti {@link #search}, ditambah saringan tipe soal dan
-     * pengecualian soal yang sudah terpasang di Exercise yang sedang dirakit.
+     * Pencarian panel perakit Exercise: seperti {@link #search}, ditambah saringan Paket, tipe
+     * soal, dan pengecualian soal yang sudah terpasang di Exercise yang sedang dirakit.
+     *
+     * <p>{@code paketId} null berarti tidak difilter Paket sama sekali — perakit boleh menelusuri
+     * lintas Paket dan Topic mana pun di dalam Client (BR-E01, FR-024); saringan ini hanya
+     * mempersempit tampilan panel, bukan membatasi soal apa yang boleh masuk Exercise.
      *
      * <p>Practice hanya boleh memuat soal pilihan ganda (BR-M04), jadi Guru yang merakit untuk
      * Practice perlu menyingkirkan esai sebelum merakit, bukan setelah penerbitannya ditolak.
@@ -80,13 +84,13 @@ public class QuestionService {
      * tidak sah, sedangkan UUIDv7 tidak pernah nol sehingga sentinel itu tidak menyaring apa pun.
      */
     @Transactional(readOnly = true)
-    public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID topicId, QuestionType type,
+    public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID paketId, UUID topicId, QuestionType type,
                                                  Collection<UUID> excluded, String q, Pageable pageable) {
         Collection<UUID> excludeIds = excluded == null || excluded.isEmpty()
                 ? List.of(new UUID(0L, 0L))
                 : excluded;
         return questions.searchForBuilder(
-                clientId, topicId, type, excludeIds, ExerciseService.likePattern(q), pageable);
+                clientId, paketId, topicId, type, excludeIds, ExerciseService.likePattern(q), pageable);
     }
 
     /**

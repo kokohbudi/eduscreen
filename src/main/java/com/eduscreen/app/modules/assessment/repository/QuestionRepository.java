@@ -70,14 +70,19 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             Pageable pageable);
 
     /**
-     * Varian {@link #search} untuk perakit Exercise: menambah saringan tipe soal dan pengecualian
-     * soal yang sudah terpasang.
+     * Varian {@link #search} untuk perakit Exercise: menambah saringan Paket, tipe soal, dan
+     * pengecualian soal yang sudah terpasang.
+     *
+     * <p>{@code paketId} disaring di dalam query utama ini, bukan di kode pemanggil (TC-36):
+     * Paket milik Client lain otomatis menghasilkan nol baris karena klausa {@code clientId}
+     * di atasnya sudah menutup jalan, tanpa perlu pemeriksaan kepemilikan Paket terpisah di sini.
      *
      * <p>{@code excludeIds} tidak pernah kosong — {@code not in ()} bukan SQL yang sah. Pemanggil
      * mengirim UUID nil sebagai isi pengganti; UUIDv7 tidak pernah bernilai nol, jadi ia tidak
      * bisa berbenturan dengan pengenal soal mana pun (ADR-0009).
      */
     @Query("select q from QuestionEntity q where q.clientId = :clientId "
+            + "and (:paketId is null or q.paketId = :paketId) "
             + "and (:topicId is null or q.topicId = :topicId) "
             + "and (:type is null or q.type = :type) "
             + "and q.id not in :excludeIds "
@@ -85,6 +90,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             + "order by q.createdAt desc")
     Page<QuestionEntity> searchForBuilder(
             @Param("clientId") UUID clientId,
+            @Param("paketId") UUID paketId,
             @Param("topicId") UUID topicId,
             @Param("type") QuestionType type,
             @Param("excludeIds") Collection<UUID> excludeIds,

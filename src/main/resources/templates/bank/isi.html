@@ -62,6 +62,17 @@
   </div>
 
   <!--
+    Fragmen <option> Topic milik satu Paket, dipakai ulang panel penelusuran perakit Exercise
+    (GET /bank-soal/paket/{id}/topic-options, Task 12) supaya nama dan urutan Topic yang dilihat
+    Guru di sana identik dengan yang dilihat di halaman isi Paket ini — bukan salinan yang bisa
+    diam-diam melenceng.
+  -->
+  <select th:fragment="opsiTopic" th:remove="tag">
+    <option value="">-- Topic --</option>
+    <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
+  </select>
+
+  <!--
     Satu baris Question, dipisah jadi fragmen ber-id: penerbitan, penarikan, dan penghapusan
     Question master (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang
     seluruh halaman (TC-14). ${nomor} datang sebagai parameter, opsional: perulangan

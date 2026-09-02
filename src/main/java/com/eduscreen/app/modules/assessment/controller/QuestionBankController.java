@@ -114,8 +114,10 @@ public class QuestionBankController {
                 ? exercises.itemsOf(exercises.require(exerciseId, clientId).getId()).stream()
                         .map(ExerciseItemEntity::getQuestionId).toList()
                 : List.of();
+        // paketId selalu null di jalur lama ini: penyaring Paket khusus panel perakit sekarang
+        // hidup di GET /exercise/{id}/cari, bukan di sini (Task 12, ADR-0018).
         model.addAttribute("hasil", questions.searchForBuilder(
-                clientId, topicId, type, terpasang, q, PageRequest.of(page, UKURAN_HALAMAN)));
+                clientId, null, topicId, type, terpasang, q, PageRequest.of(page, UKURAN_HALAMAN)));
         model.addAttribute("subjectId", subjectId);
         model.addAttribute("topicId", topicId);
         model.addAttribute("q", q);
