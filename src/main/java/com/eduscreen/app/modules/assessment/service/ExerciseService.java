@@ -42,18 +42,13 @@ public class ExerciseService {
     }
 
     /**
-     * Daftar Exercise satu Client, atau katalog master bila {@code clientId} null.
-     *
-     * <p>Konten master tinggal di baris ber-{@code client_id} null, dan {@code = null} tidak
-     * pernah cocok di SQL — jadi kedua kasus itu memakai query yang berbeda, bukan satu query
-     * dengan parameter yang kebetulan kosong.
+     * Daftar Exercise satu Client — perakit Guru (ADR-0018: Exercise master, baris ber-
+     * {@code client_id} null, sudah dicabut; katalog dan adopsi sejak itu satuannya Paket, lihat
+     * {@code PaketService}/{@code ContentAdoptionService}).
      */
     @Transactional(readOnly = true)
     public Page<ExerciseEntity> list(UUID clientId, String q, Pageable pageable) {
-        String pattern = likePattern(q);
-        return clientId == null
-                ? exercises.searchMaster(pattern, pageable)
-                : exercises.search(clientId, pattern, pageable);
+        return exercises.search(clientId, likePattern(q), pageable);
     }
 
     /**

@@ -2,10 +2,10 @@ package com.eduscreen.app.modules;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
@@ -49,6 +49,8 @@ class MasterContentIT extends PostgresTestBase {
     QuestionRepository questions;
     @Autowired
     SubjectRepository subjects;
+    @Autowired
+    PaketRepository paketRepository;
     @Autowired
     MasterPublishingService publishing;
 
@@ -165,25 +167,31 @@ class MasterContentIT extends PostgresTestBase {
     // sendiri tidak berubah.
 
     @Test
-    @DisplayName("BR-E03 (FR-069, FR-072): paket master ditolak terbit bila kosong, atau bila masih memuat soal yang belum terbit")
-    void gerbangPenerbitanPaket() {
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity terbit = data.publishedMasterMcq(topic, "Sudah terbit");
-        QuestionEntity draft = data.masterMcq(topic, "Belum terbit penyebabnya");
+    @DisplayName("AC-B16 (FR-072): Paket master tanpa satu pun Question ditolak terbit")
+    void paketMasterKosongDitolakTerbit() {
+        PaketEntity kosong = data.masterPaket("Matematika Kelas 4 Gerbang Kosong", "Paket tanpa soal");
 
-        ExerciseEntity kosong = data.masterExercise("Paket kosong", List.of());
-        assertThatThrownBy(() -> publishing.publishExercise(kosong.getId()))
+        assertThatThrownBy(() -> publishing.publishPaket(kosong.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("minimal 1 soal");
+    }
 
-        ExerciseEntity campuran = data.masterExercise("Paket campuran", List.of(terbit, draft));
-        assertThatThrownBy(() -> publishing.publishExercise(campuran.getId()))
-                .isInstanceOf(IllegalArgumentException.class)
-                // Pesannya wajib menyebut soal penyebabnya, bukan sekadar menolak (FR-069).
-                .hasMessageContaining("Belum terbit penyebabnya");
+    @Test
+    @DisplayName("AC-B17 (FR-067): Paket master yang belum terbit tidak muncul di katalog Client")
+    void unpublishedPaketStaysHidden() {
+        PaketEntity draf = data.masterPaket("Kimia Kelas 10 Master", "Draf Kimia");
+        TopicEntity topic = pakets.topicsOf(draf.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal supaya Paket ini boleh terbit");
 
-        publishing.publishQuestion(draft.getId());
-        assertThat(publishing.publishExercise(campuran.getId()).isPublished()).isTrue();
+        assertThat(paketRepository.findMasterPublished(draf.getSubjectId()))
+                .extracting(PaketEntity::getId)
+                .doesNotContain(draf.getId());
+
+        publishing.publishPaket(draf.getId());
+
+        assertThat(paketRepository.findMasterPublished(draf.getSubjectId()))
+                .extracting(PaketEntity::getId)
+                .contains(draf.getId());
     }
 
     @Test
@@ -205,7 +213,7 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     // hapusMasterTidakMenyentuhSalinan pindah ke CatalogAdoptionIT (AC-B09), memakai adoptPakets
-    // menggantikan adoptQuestions — lihat catatan di atas gerbangPenerbitanPaket.
+    // menggantikan adoptQuestions — lihat catatan di atas paketMasterKosongDitolakTerbit.
 
     @Test
     @DisplayName("TC-10 (FR-066): keadaan terbit ditolak database pada konten milik sebuah Client")

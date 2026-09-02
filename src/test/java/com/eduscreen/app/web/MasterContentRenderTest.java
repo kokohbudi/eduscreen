@@ -1,7 +1,6 @@
 package com.eduscreen.app.web;
 
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
@@ -17,13 +16,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.util.List;
-
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -46,88 +44,156 @@ class MasterContentRenderTest extends PostgresTestBase {
     @Autowired PaketRepository pakets;
 
     @Test
-    @DisplayName("TC-13 (FR-064): ruang kerja Question master dirender utuh, halaman penuh maupun fragmen HTMX")
-    void ruangKerjaSoalMasterDirender() throws Exception {
+    @DisplayName("TC-13 (FR-064): ketiga tingkat ruang kerja Bank Soal master dirender utuh, jalurnya sungguhan terpasang")
+    void ruangKerjaBankSoalMasterDirender() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        data.masterMcq(topic, "Soal render draf");
-        data.publishedMasterMcq(topic, "Soal render terbit");
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Tier", "Paket tier render unik");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.masterMcq(topic, "Soal tier3 render draf unik");
 
-        mockMvc.perform(get("/eduscreen/soal").with(admin))
+        // Tingkat 1: daftar Subject, tautan menunjuk tingkat 2 lewat basePath master.
+        mockMvc.perform(get("/eduscreen/bank-soal").with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal render draf")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Matematika Kelas 4 Render Tier")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/eduscreen/bank-soal?subjectId=" + paket.getSubjectId())));
+
+        // Tingkat 2: daftar Paket di Subject ini, dengan status dan tombol Terbitkan (FR-066).
+        mockMvc.perform(get("/eduscreen/bank-soal").param("subjectId", paket.getSubjectId().toString())
+                        .with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket tier render unik")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Belum terbit")))
-                // URL yang benar-benar terpasang, bukan sekadar status 200. Templat bersama ini
-                // menyusun jalurnya dari atribut model, dan `@{...}` memperlakukan isinya sebagai
-                // teks URL — bukan SpEL. Versi pertama karena itu sempat merender
-                // `hx-post="basePath/..."` secara harfiah dan tetap membalas 200; hanya
-                // pemeriksaan jalur seperti inilah yang menangkapnya.
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("hx-post=\"/eduscreen/soal/")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("/terbit\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("hx-delete=\"/eduscreen/soal/")))
-                // Token CSRF harus benar-benar sampai ke HTML: saat atributnya dipasang pada
-                // elemen ber-th:remove="tag" ia ikut terbuang, dan setiap tombol HTMX di halaman
-                // ini dijawab 403 walau semuanya tetap dirender 200.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/terbit\"")))
+                // Token CSRF harus benar-benar sampai ke HTML (lihat catatan yang sama di bawah).
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("hx-headers=")))
+                // Templat bersama ini menyusun jalurnya dari atribut model lewat `@{...}`, yang
+                // memperlakukan isinya sebagai teks URL, bukan SpEL. Versi pertama karena itu
+                // sempat merender `hx-post="basePath/..."` secara harfiah dan tetap membalas 200;
+                // hanya pemeriksaan jalur seperti ini yang menangkapnya (lihat komentar kelas).
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("basePath"))));
 
-        mockMvc.perform(get("/eduscreen/soal").header("HX-Request", "true").with(admin))
-                .andExpect(status().isOk());
-        mockMvc.perform(get("/eduscreen/soal/baru").param("topicId", topic.getId().toString()).with(admin))
-                .andExpect(status().isOk());
-        mockMvc.perform(get("/eduscreen/subject/{id}/topic", data.subjectIdOf(topic)).with(admin))
-                .andExpect(status().isOk());
-    }
-
-    @Test
-    @DisplayName("TC-14 (BR-O04): ruang kerja master memakai jalur Subject-nya sendiri, dan form ubah nama hanya muncul saat ada Subject terpilih")
-    void jalurSubjectRuangKerjaMaster() throws Exception {
-        var admin = user(data.principal(data.eduscreenAdmin()));
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-
-        mockMvc.perform(get("/eduscreen/soal").with(admin))
+        // Tingkat 3: isi Paket, soal dikelompokkan per Topic, dengan status dan tombol Terbitkan
+        // Question — gerbang AC-B12 tidak bisa dibuka tanpa jalur ini (lihat brief Task 10).
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(
-                        org.hamcrest.Matchers.containsString("action=\"/eduscreen/subject\"")))
-                // Tanpa Subject terpilih, tidak ada yang bisa di-rename.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal tier3 render draf unik")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Belum terbit")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/soal/" + soal.getId() + "/terbit\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "/eduscreen/bank-soal/soal/" + soal.getId() + "\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("/nama"))));
+                        org.hamcrest.Matchers.containsString("basePath"))));
 
-        mockMvc.perform(get("/eduscreen/soal")
-                        .param("subjectId", data.subjectIdOf(topic).toString()).with(admin))
+        // Editor soal master: formulir baru dan detail sesudah simpan.
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/soal/baru", paket.getId())
+                        .param("topicId", topic.getId().toString()).with(admin))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/eduscreen/bank-soal/soal/{id}", soal.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal tier3 render draf unik")));
+
+        // Menyimpan perubahan dibalas fragmen detail di tempat, bukan halaman penuh (TC-14).
+        mockMvc.perform(put("/eduscreen/bank-soal/soal/{id}", soal.getId())
+                        .param("topicId", topic.getId().toString())
+                        .param("type", "MULTIPLE_CHOICE")
+                        .param("bodyHtml", "<p>Soal tier3 render diubah unik</p>")
+                        .param("optionBody", "<p>Benar</p>", "<p>Salah</p>")
+                        .param("correctIndex", "0")
+                        .with(admin).with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/eduscreen/subject/" + data.subjectIdOf(topic) + "/nama")));
+                        "Soal tier3 render diubah unik")));
     }
 
     @Test
-    @DisplayName("BR-O03 (FR-013): membuat Subject global memuat ulang halaman ke Subject itu, sehingga hasilnya terlihat")
-    void subjectGlobalBaruMemuatUlangKeSubjectItu() throws Exception {
+    @DisplayName("TC-14 (FR-066, FR-068): menerbitkan dan menarik Paket master menukar satu baris")
+    void terbitDanTarikPaketMenukarSatuBaris() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Fisika Kelas 9 Render Terbit", "Paket render terbit tarik");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal siap terbit render");
 
-        // Berhasil harus TERLIHAT. Menyisipkan <option> ke dalam <select> yang tertutup membuat
-        // penambahan yang sukses tidak meninggalkan jejak apa pun di layar, dan nama kembar yang
-        // dibalas 400 bahkan tidak ditukar HTMX sama sekali — dua-duanya terbaca sebagai "gagal".
-        mockMvc.perform(post("/eduscreen/subject").param("name", "Kimia Kelas 11 render")
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
                         .with(admin).with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location",
-                        org.hamcrest.Matchers.startsWith("/eduscreen/soal?subjectId=")));
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "id=\"paket-" + paket.getId() + "\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(">Terbit<")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/tarik\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Terbitkan"))));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isTrue();
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/tarik", paket.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Belum terbit")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/terbit\"")));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isFalse();
     }
 
     @Test
-    @DisplayName("BR-O03: nama Subject global yang kembar membalas 400 berpesan, bukan diam")
-    void subjectGlobalKembarMembalasPesan() throws Exception {
+    @DisplayName("TC-14 (FR-066): menerbitkan dan menarik Question master menukar satu baris, gerbang AC-B12 bagi Paket induknya")
+    void terbitDanTarikSoalMenukarSatuBaris() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
-        mockMvc.perform(post("/eduscreen/subject").param("name", "Fisika Kelas 10 render kembar")
-                        .with(admin).with(csrf()))
-                .andExpect(status().is3xxRedirection());
+        PaketEntity paket = data.masterPaket("Kimia Kelas 10 Render Terbit Soal", "Paket render terbit soal");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.masterMcq(topic, "Soal render terbit satu baris");
 
-        mockMvc.perform(post("/eduscreen/subject").param("name", "fisika KELAS 10 render kembar")
+        mockMvc.perform(post("/eduscreen/bank-soal/soal/{id}/terbit", soal.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "id=\"soal-" + soal.getId() + "\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(">Terbit<")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/soal/" + soal.getId() + "/tarik\"")));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/soal/{id}/tarik", soal.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Belum terbit")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-post=\"/eduscreen/bank-soal/soal/" + soal.getId() + "/terbit\"")));
+    }
+
+    @Test
+    @DisplayName("AC-B12 (FR-069): Paket master yang masih memuat Question draf ditolak terbit lewat layar, bukan cuma lewat layanan")
+    void paketDenganSoalDrafDitolakTerbitLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Biologi Kelas 8 Render Gerbang", "Paket render gerbang layar");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.masterMcq(topic, "Soal draf penyebab gerbang layar");
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
                         .with(admin).with(csrf()))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("sudah ada")));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "Soal draf penyebab gerbang layar")));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isFalse();
+    }
+
+    @Test
+    @DisplayName("TC-36 (BR-P04): Paket milik sebuah Client tidak pernah bocor ke ruang kerja master, walau berbagi Subject GLOBAL yang sama")
+    void paketMilikClientTidakBocorKeRuangKerjaMaster() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity master = data.masterPaket("Matematika Kelas 4 Render Bocor", "Paket master render bocor");
+        ClientEntity client = data.client("SD Render Bocor Master");
+        data.paket(client, "Matematika Kelas 4 Render Bocor", "Paket milik Client render bocor");
+
+        mockMvc.perform(get("/eduscreen/bank-soal").param("subjectId", master.getSubjectId().toString())
+                        .with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket master render bocor")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Paket milik Client render bocor"))));
     }
 
     @Test
@@ -145,34 +211,13 @@ class MasterContentRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-14 (FR-071): daftar dan perakit paket master dirender utuh")
-    void perakitPaketDirender() throws Exception {
-        var admin = user(data.principal(data.eduscreenAdmin()));
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity soal = data.publishedMasterMcq(topic, "Isi paket render");
-        ExerciseEntity paket = data.masterExercise("Paket render", List.of(soal));
-
-        mockMvc.perform(get("/eduscreen/paket").with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket render")));
-        mockMvc.perform(get("/eduscreen/paket/{id}", paket.getId()).with(admin))
-                .andExpect(status().isOk())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Isi paket render")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "hx-post=\"/eduscreen/paket/" + paket.getId() + "/terbit\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "hx-post=\"/eduscreen/paket/" + paket.getId() + "/item\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("itemPath"))));
-    }
-
-    @Test
     @DisplayName("TC-13 (AC-B11, FR-074): katalog Paket dirender per Subject, lengkap dengan penanda adopsi")
     void katalogPaketDirender() throws Exception {
         ClientEntity client = data.client("SD Render");
         var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
         PaketEntity terbit = data.masterPaket("Matematika Kelas 4 Render", "Paket katalog render");
         PaketEntity draf = data.masterPaket("Matematika Kelas 4 Render", "Paket katalog masih digarap");
+        data.publishedMasterMcq(paketService.topicsOf(terbit.getId()).get(0), "Isi katalog render");
         masterPublishing.publishPaket(terbit.getId());
 
         // Tanpa Subject dipilih: daftar Subject terlihat, tapi belum ada Paket yang dimuat.

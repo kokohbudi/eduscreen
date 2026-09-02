@@ -172,11 +172,11 @@ class ContentIdorTest extends PostgresTestBase {
     void peranClientDitolakDiRuangKerjaMaster() throws Exception {
         Tenants tenants = data.twoTenants();
 
+        // Sejak Task 10 ruang kerja master satu jalur saja, /eduscreen/bank-soal — dulu dua rute
+        // terpisah (/eduscreen/soal untuk Question, /eduscreen/paket untuk Exercise master).
         for (var pengguna : java.util.List.of(
                 tenants.a().guru(), tenants.a().siswa(), tenants.a().admin())) {
-            mockMvc.perform(get("/eduscreen/soal").with(user(data.principal(pengguna))))
-                    .andExpect(status().isForbidden());
-            mockMvc.perform(get("/eduscreen/paket").with(user(data.principal(pengguna))))
+            mockMvc.perform(get("/eduscreen/bank-soal").with(user(data.principal(pengguna))))
                     .andExpect(status().isForbidden());
         }
 
@@ -189,36 +189,6 @@ class ContentIdorTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-41 (FR-081): peran Client tidak bisa membuat maupun mengubah nama Subject global")
-    void peranClientTidakBisaMenyentuhSubjectGlobal() throws Exception {
-        Tenants tenants = data.twoTenants();
-        UUID subjectGlobal = data.subjectIdOf(data.globalTopic("Kimia Kelas 11 idor", "Asam Basa"));
-
-        for (var pengguna : java.util.List.of(
-                tenants.a().guru(), tenants.a().siswa(), tenants.a().admin())) {
-            mockMvc.perform(post("/eduscreen/subject").param("name", "Titipan")
-                            .with(user(data.principal(pengguna))).with(csrf()))
-                    .andExpect(status().isForbidden());
-            mockMvc.perform(post("/eduscreen/subject/{id}/nama", subjectGlobal)
-                            .param("name", "Dirampas")
-                            .with(user(data.principal(pengguna))).with(csrf()))
-                    .andExpect(status().isForbidden());
-        }
-    }
-
-    @Test
-    @DisplayName("TC-09 (FR-061): Eduscreen Admin mengubah nama Subject milik sebuah Client menerima 404")
-    void eduscreenAdminTidakBisaMerenameSubjectClient() throws Exception {
-        Tenants tenants = data.twoTenants();
-        var admin = data.principal(data.eduscreenAdmin());
-        UUID subjectClient = data.subjectIdOf(tenants.a().topic());
-
-        mockMvc.perform(post("/eduscreen/subject/{id}/nama", subjectClient)
-                        .param("name", "Dirampas Eduscreen").with(user(admin)).with(csrf()))
-                .andExpect(status().isNotFound());
-    }
-
-    @Test
     @DisplayName("TC-09 (FR-080): Eduscreen Admin meminta Question milik sebuah Client menerima 404 yang identik dengan pengenal tak dikenal")
     void eduscreenAdminTidakBisaMembacaSoalClient() throws Exception {
         Tenants tenants = data.twoTenants();
@@ -226,31 +196,16 @@ class ContentIdorTest extends PostgresTestBase {
         QuestionEntity soalClient = tenants.a().questions().get(0);
 
         MvcResult milikClient = mockMvc.perform(
-                        get("/eduscreen/soal/{id}", soalClient.getId()).with(user(admin)))
+                        get("/eduscreen/bank-soal/soal/{id}", soalClient.getId()).with(user(admin)))
                 .andExpect(status().isNotFound())
                 .andReturn();
         MvcResult tidakAda = mockMvc.perform(
-                        get("/eduscreen/soal/{id}", UUID.randomUUID()).with(user(admin)))
+                        get("/eduscreen/bank-soal/soal/{id}", UUID.randomUUID()).with(user(admin)))
                 .andExpect(status().isNotFound())
                 .andReturn();
 
         assertEquals(tidakAda.getResponse().getContentAsString(),
                 milikClient.getResponse().getContentAsString());
-    }
-
-    @Test
-    @DisplayName("BR-P04 (FR-080): pencarian ruang kerja master tidak pernah memuat isi Question milik sebuah Client")
-    void pencarianMasterTidakMembocorkanIsiSoalClient() throws Exception {
-        Tenants tenants = data.twoTenants();
-        String teksSoalClient = tenants.a().questions().get(0).getBodyText();
-
-        MvcResult hasil = mockMvc.perform(get("/eduscreen/soal")
-                        .header("HX-Request", "true")
-                        .with(user(data.principal(data.eduscreenAdmin()))))
-                .andExpect(status().isOk())
-                .andReturn();
-
-        assertFalse(hasil.getResponse().getContentAsString().contains(teksSoalClient));
     }
 
     @Test

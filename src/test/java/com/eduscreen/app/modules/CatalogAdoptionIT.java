@@ -111,6 +111,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
     void draftBecomesAdoptableOncePublished() {
         ClientEntity client = data.client("SD Adopsi Terbit");
         PaketEntity master = data.masterPaket("Biologi Kelas 8 Adopsi", "Paket Masih Digarap");
+        data.publishedMasterMcq(paketService.topicsOf(master.getId()).get(0), "Isi paket adopsi terbit");
 
         assertThatThrownBy(() -> adoption.adoptPakets(client.getId(), List.of(master.getId()), null))
                 .isInstanceOf(ResourceNotFoundException.class);
@@ -291,6 +292,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
     void catalogMarksAdoptedPaket() {
         ClientEntity client = data.client("SD Katalog Tanda");
         PaketEntity master = data.masterPaket("Sejarah Kelas 9 Tanda", "Paket Sejarah");
+        data.publishedMasterMcq(paketService.topicsOf(master.getId()).get(0), "Isi paket tanda");
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
@@ -304,6 +306,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Katalog Tanda Sendiri");
         ClientEntity clientLain = data.client("SD Katalog Tanda Lain");
         PaketEntity master = data.masterPaket("Sejarah Kelas 9 Tanda Sendiri", "Paket Sejarah Sendiri");
+        data.publishedMasterMcq(paketService.topicsOf(master.getId()).get(0), "Isi paket tanda sendiri");
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
@@ -316,6 +319,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
     void adoptedCopyPointsToSameGlobalSubject() {
         ClientEntity client = data.client("SD Adopsi Subject");
         PaketEntity master = data.masterPaket("Kimia Kelas 10 Adopsi Subject", "Paket Kimia");
+        data.publishedMasterMcq(paketService.topicsOf(master.getId()).get(0), "Isi paket adopsi subject");
         masterPublishing.publishPaket(master.getId());
         long subjectSebelum = subjects.count();
 

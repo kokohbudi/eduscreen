@@ -201,6 +201,13 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     List<UUID> findSourceIdsInPaket(@Param("paketId") UUID paketId);
 
     /**
+     * Gerbang penerbitan Paket (AC-B16, FR-072): Paket tanpa satu pun Question tidak boleh
+     * terbit. Derived query, bukan {@code @Query}: cukup satu {@code exists}, tidak ada alasan
+     * menulis JPQL tangan untuk itu.
+     */
+    boolean existsByPaketId(UUID paketId);
+
+    /**
      * Jumlah soal per Paket untuk tabel tingkat kedua Bank Soal.
      *
      * <p>Satu query beragregasi untuk seluruh Paket satu Client, bukan satu {@code count} per
@@ -209,6 +216,11 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     @Query("select q.paketId as paketId, count(q) as jumlah from QuestionEntity q "
             + "where q.clientId = :clientId group by q.paketId")
     List<PaketCount> countByPaket(@Param("clientId") UUID clientId);
+
+    /** Padanan {@link #countByPaket} untuk ruang kerja Eduscreen: seluruh Paket master. */
+    @Query("select q.paketId as paketId, count(q) as jumlah from QuestionEntity q "
+            + "where q.clientId is null group by q.paketId")
+    List<PaketCount> countMasterByPaket();
 
     interface PaketCount {
         UUID getPaketId();

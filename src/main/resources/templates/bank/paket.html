@@ -38,8 +38,8 @@
         <tr class="border-b border-slate-200 text-left text-slate-500">
           <th class="py-2">Paket</th>
           <th class="py-2 w-20 text-right">Soal</th>
-          <!-- ${master} baru dinyalakan ruang kerja Eduscreen (Task 10); di Bank Soal Client
-               kolom Status ini tidak pernah dirender. -->
+          <!-- ${master} dinyalakan ruang kerja Eduscreen (/eduscreen/bank-soal); di Bank Soal
+               Client kolom Status ini tidak pernah dirender. -->
           <th class="py-2 w-40" th:if="${master ?: false}">Status</th>
         </tr>
       </thead>
@@ -61,8 +61,7 @@
   <!--
     Satu baris Paket, dipisah jadi fragmen ber-id: penerbitan dan penarikan konten master
     (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang seluruh tabel
-    (TC-14). Mode ${master} belum dinyalakan siapa pun — ruang kerja Eduscreen (Task 10) yang
-    mulai memakainya, jadi cabang Status/Terbitkan/Tarik di bawah ini mati sampai task itu.
+    (TC-14). Dipakai MasterContentController (/eduscreen/bank-soal).
   -->
   <tr th:fragment="barisPaket" th:id="|paket-${paket.id}|" class="border-b border-slate-100">
     <td class="py-2">

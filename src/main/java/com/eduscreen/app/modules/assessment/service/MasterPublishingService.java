@@ -1,8 +1,5 @@
 package com.eduscreen.app.modules.assessment.service;
 
-import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
-import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
@@ -38,19 +35,13 @@ import java.util.stream.Collectors;
 public class MasterPublishingService {
 
     private final QuestionRepository questions;
-    private final ExerciseRepository exercises;
-    private final ExerciseItemRepository exerciseItems;
     private final PaketRepository pakets;
     private final ClientClock clock;
 
     public MasterPublishingService(QuestionRepository questions,
-                                   ExerciseRepository exercises,
-                                   ExerciseItemRepository exerciseItems,
                                    PaketRepository pakets,
                                    ClientClock clock) {
         this.questions = questions;
-        this.exercises = exercises;
-        this.exerciseItems = exerciseItems;
         this.pakets = pakets;
         this.clock = clock;
     }
@@ -71,55 +62,27 @@ public class MasterPublishingService {
     }
 
     /**
-     * Menerbitkan paket master.
-     *
-     * <p>Dua gerbang, keduanya wajib: paket kosong ditolak (FR-072), dan paket yang masih memuat
-     * Question belum terbit ditolak dengan menyebut Question penyebabnya (FR-069). Yang kedua
-     * bukan kerewelan: paket terbit yang isinya sebagian tersembunyi akan tampil di katalog
-     * dengan jumlah soal yang berbeda dari yang benar-benar bisa diadopsi Client.
-     */
-    @Transactional
-    public ExerciseEntity publishExercise(UUID id) {
-        ExerciseEntity exercise = requireMasterExercise(id);
-
-        if (exerciseItems.countByExerciseId(id) == 0) {
-            throw new IllegalArgumentException("Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
-        }
-
-        List<QuestionEntity> belumTerbit = questions.findUnpublishedInExercise(id);
-        if (!belumTerbit.isEmpty()) {
-            String penyebab = belumTerbit.stream()
-                    .map(q -> "\"" + ringkas(q.getBodyText()) + "\"")
-                    .collect(Collectors.joining(", "));
-            throw new IllegalArgumentException(
-                    "Paket belum bisa diterbitkan karena masih memuat soal yang belum terbit: " + penyebab);
-        }
-
-        exercise.publish(clock.now());
-        return exercises.save(exercise);
-    }
-
-    @Transactional
-    public ExerciseEntity unpublishExercise(UUID id) {
-        ExerciseEntity exercise = requireMasterExercise(id);
-        exercise.unpublish();
-        return exercises.save(exercise);
-    }
-
-    /**
      * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067, AC-B12).
      *
-     * <p>Gerbang isi meniru {@link #publishExercise}: Paket yang masih memuat Question belum
-     * terbit ditolak, menyebut Question penyebabnya (FR-069 setara). Ini satu-satunya tempat
-     * FR-067 ditegakkan untuk isi Paket — {@code ContentAdoptionService.adoptPakets} sengaja
-     * menyalin seluruh Question Topic-nya apa adanya tanpa menyaring status terbit, sehingga kalau
-     * gerbangnya dipasang di sana ia akan menghasilkan salinan yang diam-diam tidak lengkap tanpa
-     * sekolah pernah tahu ada soal yang hilang. Gerbang di penerbitan gagal keras, lebih awal, dan
-     * di depan orang (Eduscreen Admin) yang bisa memperbaikinya.
+     * <p>Dua gerbang, keduanya wajib: Paket kosong ditolak (FR-072, AC-B16), dan Paket yang masih
+     * memuat Question belum terbit ditolak dengan menyebut Question penyebabnya (FR-069 setara).
+     * Yang kedua bukan kerewelan: Paket terbit yang isinya sebagian tersembunyi akan tampil di
+     * katalog dengan jumlah soal yang berbeda dari yang benar-benar bisa diadopsi Client.
+     *
+     * <p>Ini satu-satunya tempat FR-067 ditegakkan untuk isi Paket —
+     * {@code ContentAdoptionService.adoptPakets} sengaja menyalin seluruh Question Topic-nya apa
+     * adanya tanpa menyaring status terbit, sehingga kalau gerbangnya dipasang di sana ia akan
+     * menghasilkan salinan yang diam-diam tidak lengkap tanpa sekolah pernah tahu ada soal yang
+     * hilang. Gerbang di penerbitan gagal keras, lebih awal, dan di depan orang (Eduscreen Admin)
+     * yang bisa memperbaikinya.
      */
     @Transactional
     public PaketEntity publishPaket(UUID id) {
         PaketEntity paket = requireMasterPaket(id);
+
+        if (!questions.existsByPaketId(id)) {
+            throw new IllegalArgumentException("Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
+        }
 
         List<QuestionEntity> belumTerbit = questions.findUnpublishedInPaket(id);
         if (!belumTerbit.isEmpty()) {
@@ -146,11 +109,6 @@ public class MasterPublishingService {
     private QuestionEntity requireMasterQuestion(UUID id) {
         return questions.findByIdAndClientId(id, null)
                 .orElseThrow(() -> new ResourceNotFoundException("Soal master tidak ditemukan"));
-    }
-
-    private ExerciseEntity requireMasterExercise(UUID id) {
-        return exercises.findByIdAndClientId(id, null)
-                .orElseThrow(() -> new ResourceNotFoundException("Paket master tidak ditemukan"));
     }
 
     private PaketEntity requireMasterPaket(UUID id) {

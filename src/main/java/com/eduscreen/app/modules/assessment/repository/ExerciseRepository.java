@@ -36,12 +36,6 @@ public interface ExerciseRepository extends JpaRepository<ExerciseEntity, UUID> 
                                 @Param("pattern") String pattern,
                                 Pageable pageable);
 
-    /** Katalog master Eduscreen: baris ber-{@code client_id} null, dibaca saat Client mengadopsi. */
-    @Query("select e from ExerciseEntity e where e.clientId is null "
-            + "and lower(e.title) like :pattern "
-            + "order by e.updatedAt desc")
-    Page<ExerciseEntity> searchMaster(@Param("pattern") String pattern, Pageable pageable);
-
     /** Katalog Client: hanya paket master yang sudah terbit (FR-067, FR-074). */
     @Query("select e from ExerciseEntity e where e.clientId is null and e.publishedAt is not null "
             + "and lower(e.title) like :pattern "

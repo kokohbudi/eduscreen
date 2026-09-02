@@ -21,15 +21,12 @@
         </a>
       </div>
       <ol class="space-y-1">
-        <li th:each="q, it : ${soalTopic ?: {}}"
-            class="flex items-start gap-2 rounded border border-slate-100 p-2 text-sm">
-          <span class="mt-0.5 w-6 shrink-0 text-right text-slate-400" th:text="${it.index + 1}">1</span>
-          <!-- Cuplikan dari body_text yang teks polos, bukan body_html: markup dan gambar
-               tidak boleh ikut terpotong ke dalam daftar (TC-25). -->
-          <span class="flex-1" th:text="${#strings.abbreviate(q.bodyText, 110)}">Cuplikan soal</span>
-          <a th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
-             class="shrink-0 text-slate-600 underline">Ubah</a>
-        </li>
+        <!-- th:each di blok pembungkus, th:replace di elemen lain: keduanya di satu elemen
+             membuat fragmen dipanggil sebelum variabel iterasinya terikat (lihat
+             MasterContentRenderTest, dan komentar sama di bank/paket.html). -->
+        <th:block th:each="q : ${soalTopic ?: {}}">
+          <li th:replace="~{::barisSoal}"></li>
+        </th:block>
       </ol>
       <p th:if="${soalTopic == null or soalTopic.isEmpty()}"
          class="text-sm text-slate-500">Belum ada soal di Topic ini.</p>
@@ -59,6 +56,46 @@
     <div id="panel-pinjam" class="mt-6"></div>
 
   </div>
+
+  <!--
+    Satu baris Question, dipisah jadi fragmen ber-id: penerbitan dan penarikan Question master
+    (mode ${master}) menukar baris ini saja lewat HTMX, bukan memuat ulang seluruh halaman
+    (TC-14). Nomor urutnya dari q.position, bukan indeks perulangan Thymeleaf (${it.index}):
+    posisi itu tetap ada saat baris ini dirender sendirian lewat swap HTMX, sementara ${it}
+    hanya ada di dalam perulangan (lihat komentar sama di bank/paket.html soal th:each/th:replace).
+  -->
+  <li th:fragment="barisSoal" th:id="|soal-${q.id}|"
+      class="flex flex-wrap items-center gap-2 rounded border border-slate-100 p-2 text-sm">
+    <span class="mt-0.5 w-6 shrink-0 text-right text-slate-400" th:text="${q.position + 1}">1</span>
+    <!-- Cuplikan dari body_text yang teks polos, bukan body_html: markup dan gambar tidak boleh
+         ikut terpotong ke dalam daftar (TC-25). -->
+    <span class="flex-1" th:text="${#strings.abbreviate(q.bodyText, 110)}">Cuplikan soal</span>
+
+    <!-- Keadaan terbit hanya ada pada konten master; konten Client tidak memilikinya (FR-066). -->
+    <span th:if="${master ?: false}">
+      <span th:if="${q.published}"
+            class="rounded bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700">Terbit</span>
+      <span th:unless="${q.published}"
+            class="rounded bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">Belum terbit</span>
+    </span>
+
+    <a th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
+       class="shrink-0 text-slate-600 underline">Ubah</a>
+
+    <button th:if="${(master ?: false) and !q.published}"
+            th:attr="hx-post=@{__${basePath}__/soal/{id}/terbit(id=${q.id})},hx-target=|#soal-${q.id}|"
+            hx-swap="outerHTML"
+            class="shrink-0 rounded border border-emerald-300 px-2 py-1 text-xs text-emerald-700 hover:bg-emerald-50">
+      Terbitkan
+    </button>
+    <button th:if="${(master ?: false) and q.published}"
+            th:attr="hx-post=@{__${basePath}__/soal/{id}/tarik(id=${q.id})},hx-target=|#soal-${q.id}|"
+            hx-swap="outerHTML"
+            hx-confirm="Tarik soal ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
+            class="shrink-0 rounded border border-amber-300 px-2 py-1 text-xs text-amber-700 hover:bg-amber-50">
+      Tarik
+    </button>
+  </li>
 
   <!--
     Panel pinjam. Soal yang salinannya sudah ada di Paket ini tidak dirender sama sekali
