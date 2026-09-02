@@ -17,7 +17,10 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
+import java.net.URI;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -78,7 +81,10 @@ class MasterContentRenderTest extends PostgresTestBase {
                 // sempat merender `hx-post="basePath/..."` secara harfiah dan tetap membalas 200;
                 // hanya pemeriksaan jalur seperti ini yang menangkapnya (lihat komentar kelas).
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("basePath"))));
+                        org.hamcrest.Matchers.containsString("basePath"))))
+                // Lihat catatan penjaga kedua di tingkat 3: templat tingkat ini juga dipakai dua sisi.
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("\"/bank-soal"))));
 
         // Tingkat 3: isi Paket, soal dikelompokkan per Topic, dengan status dan tombol Terbitkan
         // Question — gerbang AC-B12 tidak bisa dibuka tanpa jalur ini (lihat brief Task 10).
@@ -91,7 +97,16 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "/eduscreen/bank-soal/soal/" + soal.getId() + "\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
-                        org.hamcrest.Matchers.containsString("basePath"))));
+                        org.hamcrest.Matchers.containsString("basePath"))))
+                // Penjaga kedua, gejala yang berbeda: yang di atas menangkap `basePath` yang
+                // bocor HARFIAH ke HTML, yang ini menangkap jalur Client yang DIKERASKAN di
+                // templat dua sisi. Keduanya pernah terjadi di cabang ini, dan penjaga pertama
+                // tidak melihat yang kedua sama sekali — `href="/bank-soal..."` adalah URL yang
+                // sah-sah saja bentuknya, cuma dipagari CLIENT_ADMIN/GURU sehingga Eduscreen
+                // Admin menekannya dan dapat 403. Jalur master selalu berawalan
+                // "/eduscreen/bank-soal, jadi kutip-lalu-/bank-soal hanya cocok pada yang keras.
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("\"/bank-soal"))));
 
         // Editor soal master: formulir baru dan detail sesudah simpan.
         mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}/soal/baru", paket.getId())
@@ -364,6 +379,38 @@ class MasterContentRenderTest extends PostgresTestBase {
         mockMvc.perform(get("/katalog").param("subjectId", terbit.getSubjectId().toString()).with(clientAdmin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Sudah diadopsi")));
+    }
+
+    /**
+     * Tautan lanjutan pada ringkasan adopsi sempat menunjuk {@code /soal}, rute yang dibongkar
+     * Task 14 tanpa ada yang kembali ke sini. Tidak ada tes yang menangkapnya karena semuanya
+     * hanya memeriksa TEKS tautannya ada, bukan bahwa jalurnya menjawab.
+     */
+    @Test
+    @DisplayName("TC-13 (AC-B05): tautan lanjutan pada ringkasan adopsi menunjuk rute Bank Soal yang hidup, bukan rute yang sudah dibongkar")
+    void tautanRingkasanAdopsiMenunjukRuteHidup() throws Exception {
+        ClientEntity client = data.client("SD Tautan Ringkasan");
+        var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
+        PaketEntity master = data.masterPaket("Matematika Kelas 4 Tautan", "Paket tautan ringkasan");
+        data.publishedMasterMcq(paketService.topicsOf(master.getId()).get(0), "Soal tautan ringkasan");
+        masterPublishing.publishPaket(master.getId());
+
+        String ringkasan = mockMvc.perform(post("/katalog/adopsi")
+                        .param("paketIds", master.getId().toString())
+                        .with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        // Jalurnya DIBACA dari HTML, bukan ditulis ulang di sini: menuliskannya ulang cuma
+        // menyalin asumsi yang sama dan tidak akan pernah menangkap rute yang dibongkar.
+        Matcher tautan = Pattern.compile("href=\"([^\"]+)\"[^>]*>Lihat di Bank Soal saya")
+                .matcher(ringkasan);
+        assertThat(tautan.find())
+                .as("fragmen ringkasan memuat tautan lanjutan ke Bank Soal")
+                .isTrue();
+
+        mockMvc.perform(get(URI.create(tautan.group(1))).with(clientAdmin))
+                .andExpect(status().isOk());
     }
 
     @Test

@@ -59,9 +59,11 @@
   <div th:fragment="ringkasan" th:if="${ringkasan}" role="status"
        class="rounded border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
     <span th:text="|${ringkasan.pakets()} Paket, ${ringkasan.topics()} Topic, dan ${ringkasan.questions()} soal disalin ke Bank Soal Anda.|">Ringkasan</span>
-    <!-- Task 11 di plan menaut ke /bank-soal (Task 9), yang belum ada di kode ini — /soal masih
-         jalur bank soal Client yang berlaku (Task 14 baru membongkarnya). -->
-    <a th:href="@{/soal(subjectId=${subjectId})}" class="ml-2 underline">Lihat di Bank Soal saya →</a>
+    <!-- Menaut ke /bank-soal, bank soal Client yang berlaku sejak Task 9. Sempat menunjuk /soal
+         sebagai jalan sementara sampai rute itu dibongkar Task 14; pembongkarannya terjadi tanpa
+         ada yang kembali ke sini, sehingga satu-satunya tautan lanjutan di layar adopsi menjawab
+         404 justru bagi Client Admin yang baru saja mengadopsi Paket pertamanya. -->
+    <a th:href="@{/bank-soal(subjectId=${subjectId})}" class="ml-2 underline">Lihat di Bank Soal saya →</a>
   </div>
 
   <!--

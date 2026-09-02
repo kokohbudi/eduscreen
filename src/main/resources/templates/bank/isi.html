@@ -6,7 +6,17 @@
   <div th:fragment="content" th:remove="tag">
 
     <p class="mb-4 text-sm">
-      <a th:href="@{/bank-soal(subjectId=${paket.subjectId})}" class="text-slate-600 underline">← Semua Paket</a>
+      <!--/*
+        Lewat basePath seperti setiap tautan lain di berkas ini: templat ini dipakai dua sisi, dan
+        jalur Client yang dikeraskan di sini membuat breadcrumb ruang kerja master menunjuk
+        /bank-soal yang dipagari CLIENT_ADMIN/GURU — Eduscreen Admin dapat 403.
+
+        Komentar parser-level Thymeleaf, bukan komentar HTML biasa: MasterContentRenderTest
+        menolak kata basePath yang sampai ke HTML sebagai bukti kebocoran ekspresi, dan komentar
+        HTML biasa yang menyebutnya akan memicu penjaga itu tanpa ada yang bocor.
+      */-->
+      <a th:href="@{__${basePath ?: '/bank-soal'}__(subjectId=${paket.subjectId})}"
+         class="text-slate-600 underline">← Semua Paket</a>
     </p>
 
     <!-- Topic adalah pengelompokan di dalam halaman ini, bukan tingkat navigasi keempat.
