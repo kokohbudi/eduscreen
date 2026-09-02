@@ -2,8 +2,8 @@ package com.eduscreen.app.modules;
 
 import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
@@ -27,6 +27,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  *
  * <p>Database tes dipakai bersama seluruh kelas (lihat {@link PostgresTestBase}), jadi tidak ada
  * assertion yang boleh mengandaikan angka mutlak. Yang diukur selalu SELISIH sebelum dan sesudah.
+ *
+ * <p>Sebelum Task 10 (ADR-0018), fixture di sini memakai {@code data.masterExercise(...)} —
+ * Exercise ber-{@code clientId} null, satuan konten master sebelum Paket menggantikannya. Exercise
+ * master itu sudah dicabut; fixture sekarang memakai {@code data.masterPaket(...)} beserta
+ * Question yang ditambahkan ke Topic bawaannya, satuan yang sungguhan dibaca dashboard sejak
+ * Task 10 (lihat {@code EduscreenDashboardService}).
  */
 class EduscreenDashboardIT extends PostgresTestBase {
 
@@ -43,7 +49,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
     @Autowired
     SubjectRepository subjects;
     @Autowired
-    ExerciseRepository exercises;
+    PaketRepository paketRepository;
 
     @Test
     @DisplayName("BR-O05: kartu menghitung Client, Question master, dan paket terbit")
@@ -53,9 +59,9 @@ class EduscreenDashboardIT extends PostgresTestBase {
 
         data.client("SD Dashboard1");
         TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity terbit = data.publishedMasterMcq(topic, "Soal terbit dashboard");
+        data.publishedMasterMcq(topic, "Soal terbit dashboard");
         data.masterMcq(topic, "Soal draf dashboard");
-        data.masterExercise("Paket dashboard terbit", List.of(terbit));
+        data.masterPaket("Matematika Kelas 4 Dashboard Terbit", "Paket dashboard terbit");
 
         var sesudah = dashboard.kartu();
         var antreanSesudah = dashboard.antrean();
@@ -63,7 +69,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
         assertThat(sesudah.client()).isEqualTo(sebelum.client() + 1);
         // Dua Question master lahir: satu terbit, satu draf. Kartu menghitung keduanya.
         assertThat(sesudah.questionMaster()).isEqualTo(sebelum.questionMaster() + 2);
-        // masterExercise() melahirkan paket DRAF, jadi kartu "paket terbit" tidak bergerak.
+        // masterPaket() melahirkan Paket DRAF, jadi kartu "paket terbit" tidak bergerak.
         assertThat(sesudah.paketTerbit()).isEqualTo(sebelum.paketTerbit());
         // Dari dua Question master di atas, hanya satu yang draf (masterMcq tanpa publish).
         assertThat(antreanSesudah.questionDraf()).isEqualTo(antreanSebelum.questionDraf() + 1);
@@ -75,10 +81,9 @@ class EduscreenDashboardIT extends PostgresTestBase {
         var sebelum = dashboard.kartu();
 
         ClientEntity client = data.client("SD Dashboard2");
+        data.paket(client, "Matematika Kelas 4 Dashboard Client", "Paket sekolah dashboard");
         TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
-        QuestionEntity soalClient = data.mcq(client, topicClient, "Soal sekolah dashboard", 4);
-        data.exercise(client, data.user(client, UserRole.GURU, "Guru Dashboard"),
-                "Paket sekolah dashboard", List.of(soalClient));
+        data.mcq(client, topicClient, "Soal sekolah dashboard", 4);
 
         var sesudah = dashboard.kartu();
 
@@ -91,44 +96,44 @@ class EduscreenDashboardIT extends PostgresTestBase {
     @Test
     @DisplayName("BR-O05 (FR-069): paket master yang memuat Question belum terbit masuk antrean, dan keluar begitu isinya diterbitkan")
     void paketMacetMasukAntreanLaluKeluar() {
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Dashboard Macet", "Paket macet dashboard");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
         QuestionEntity draf = data.masterMcq(topic, "Isi paket macet");
-        var paket = data.masterExercise("Paket macet dashboard", List.of(draf));
 
         assertThat(dashboard.antrean().paketMacet().tampil())
-                .extracting(ExerciseEntity::getId).contains(paket.getId());
+                .extracting(PaketEntity::getId).contains(paket.getId());
 
         publishing.publishQuestion(draf.getId());
 
         assertThat(dashboard.antrean().paketMacet().tampil())
-                .extracting(ExerciseEntity::getId).doesNotContain(paket.getId());
+                .extracting(PaketEntity::getId).doesNotContain(paket.getId());
     }
 
     @Test
-    @DisplayName("BR-O05 (FR-072): paket berisi yang seluruh isinya sudah terbit masuk antrean siap terbit, lalu keluar setelah diterbitkan")
+    @DisplayName("BR-O05 (AC-B16): paket berisi yang seluruh isinya sudah terbit masuk antrean siap terbit, lalu keluar setelah diterbitkan")
     void paketSiapTerbitMasukAntreanLaluKeluar() {
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity terbit = data.publishedMasterMcq(topic, "Isi paket siap");
-        var paket = data.masterExercise("Paket siap dashboard", List.of(terbit));
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Dashboard Siap", "Paket siap dashboard");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        data.publishedMasterMcq(topic, "Isi paket siap");
 
         assertThat(dashboard.antrean().paketSiapTerbit().tampil())
-                .extracting(ExerciseEntity::getId).contains(paket.getId());
+                .extracting(PaketEntity::getId).contains(paket.getId());
 
-        publishing.publishExercise(paket.getId());
+        publishing.publishPaket(paket.getId());
 
         assertThat(dashboard.antrean().paketSiapTerbit().tampil())
-                .extracting(ExerciseEntity::getId).doesNotContain(paket.getId());
+                .extracting(PaketEntity::getId).doesNotContain(paket.getId());
     }
 
     @Test
-    @DisplayName("BR-O05 (FR-072): paket master kosong tidak pernah disebut siap terbit")
+    @DisplayName("AC-B16 (BR-O05): paket master kosong tidak pernah disebut siap terbit")
     void paketKosongBukanSiapTerbit() {
-        var kosong = data.masterExercise("Paket kosong dashboard", List.of());
+        PaketEntity kosong = data.masterPaket("Matematika Kelas 4 Dashboard Kosong", "Paket kosong dashboard");
 
         assertThat(dashboard.antrean().paketSiapTerbit().tampil())
-                .extracting(ExerciseEntity::getId).doesNotContain(kosong.getId());
+                .extracting(PaketEntity::getId).doesNotContain(kosong.getId());
         assertThat(dashboard.antrean().paketMacet().tampil())
-                .extracting(ExerciseEntity::getId).doesNotContain(kosong.getId());
+                .extracting(PaketEntity::getId).doesNotContain(kosong.getId());
     }
 
     @Test
@@ -169,10 +174,9 @@ class EduscreenDashboardIT extends PostgresTestBase {
         var questionDrafSebelum = dashboard.antrean().questionDraf();
 
         ClientEntity client = data.client("SD Dashboard3");
-        var guru = data.user(client, UserRole.GURU, "Guru Antrean");
-        TopicEntity topicClient = data.topic(client, "Matematika Kelas 4", "Aljabar");
-        QuestionEntity soalClient = data.mcq(client, topicClient, "Soal sekolah antrean", 4);
-        var paketClient = data.exercise(client, guru, "Paket sekolah antrean", List.of(soalClient));
+        PaketEntity paketClient = data.paket(client, "Matematika Kelas 4 Dashboard Antrean", "Paket sekolah antrean");
+        TopicEntity topicPaketClient = pakets.topicsOf(paketClient.getId()).get(0);
+        data.mcq(client, topicPaketClient, "Soal sekolah antrean", 4);
         var subjectClient = subjects.save(SubjectEntity.forClient(client.getId(), "Bahasa Sunda Kelas 5 buntu"));
 
         var antrean = dashboard.antrean();
@@ -181,10 +185,10 @@ class EduscreenDashboardIT extends PostgresTestBase {
         // dan subjectBuntu diurut nama, jadi kalau suatu hari filter tenant hilang dari query,
         // baris milik Client cuma tertangkap kalau kebetulan masuk lima besar. Pengunci batas
         // tenant tidak boleh bergantung pada kebetulan seperti itu.
-        assertThat(exercises.findMasterBlocked())
-                .extracting(ExerciseEntity::getId).doesNotContain(paketClient.getId());
-        assertThat(exercises.findMasterReadyToPublish())
-                .extracting(ExerciseEntity::getId).doesNotContain(paketClient.getId());
+        assertThat(paketRepository.findMasterBlocked())
+                .extracting(PaketEntity::getId).doesNotContain(paketClient.getId());
+        assertThat(paketRepository.findMasterReadyToPublish())
+                .extracting(PaketEntity::getId).doesNotContain(paketClient.getId());
         assertThat(subjects.findGlobalWithoutTopic())
                 .extracting(SubjectEntity::getId).doesNotContain(subjectClient.getId());
         // soalClient lahir lewat data.mcq(...) tanpa publishedAt, tapi ber-clientId — tidak boleh
@@ -195,7 +199,7 @@ class EduscreenDashboardIT extends PostgresTestBase {
     @Test
     @DisplayName("BR-O05: antrean tanpa satu pun baris menyatakan dirinya kosong, sehingga bloknya tidak dirender")
     void antreanTanpaBarisMenyatakanDirinyaKosong() {
-        var nihil = new EduscreenDashboardService.Baris<ExerciseEntity>(List.of(), 0);
+        var nihil = new EduscreenDashboardService.Baris<PaketEntity>(List.of(), 0);
         var kosong = new EduscreenDashboardService.Antrean(0, nihil, nihil,
                 new EduscreenDashboardService.Baris<SubjectEntity>(List.of(), 0));
 

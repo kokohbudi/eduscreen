@@ -324,16 +324,9 @@ public class TestData {
         return questions.save(question);
     }
 
-    /** Paket master: Exercise ber-clientId null beserta itemnya. */
-    @Transactional
-    public ExerciseEntity masterExercise(String title, List<QuestionEntity> content) {
-        ExerciseEntity exercise = exercises.save(new ExerciseEntity(null, title, null));
-        int position = 0;
-        for (QuestionEntity question : content) {
-            exerciseItems.save(new ExerciseItemEntity(exercise.getId(), question.getId(), position++));
-        }
-        return exercise;
-    }
+    // masterExercise() dicabut Task 10 bersama Exercise master (ADR-0018): "Paket master" di
+    // fixture tes sekarang selalu masterPaket(...) di atas, satuan yang sungguhan dibaca layar
+    // dan dasbor Eduscreen sejak task itu.
 
     public UserPrincipal principal(AppUserEntity user) {
         return new UserPrincipal(user.getId(), user.getClientId(), user.getEmail(),

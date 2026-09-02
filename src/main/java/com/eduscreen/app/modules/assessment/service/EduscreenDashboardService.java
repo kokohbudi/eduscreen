@@ -1,8 +1,8 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.repository.ClientRepository;
-import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
-import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
@@ -16,25 +16,30 @@ import java.util.List;
  *
  * <p>Setiap query di sini menyaring {@code client_id is null} — konten milik Eduscreen — kecuali
  * {@link ClientRepository#count()} yang membaca tabel {@code client} itu sendiri, yaitu entitas
- * yang memang Eduscreen kelola. Tidak ada satu pun jalur yang menyentuh Question, Exercise,
+ * yang memang Eduscreen kelola. Tidak ada satu pun jalur yang menyentuh Question, Paket,
  * Ruangan, atau Session milik sebuah sekolah (FR-080, BR-P04). Batas itu dikunci
  * {@code EduscreenDashboardIT}, bukan sekadar diperiksa mata.
+ *
+ * <p>Sebelum Task 10 (ADR-0018), "Paket" di kartu dan antrean ini sesungguhnya {@code
+ * ExerciseEntity} ber-{@code clientId} null — sisa desain sebelum Paket menggantikan Exercise
+ * sebagai satuan konten master. Exercise master itu sudah dicabut; kelas ini kini membaca
+ * {@link PaketRepository}, satuan yang sungguhan dipakai katalog dan adopsi sejak Task 8.
  */
 @Service
 public class EduscreenDashboardService {
 
     private final ClientRepository clients;
     private final QuestionRepository questions;
-    private final ExerciseRepository exercises;
+    private final PaketRepository pakets;
     private final SubjectRepository subjects;
 
     public EduscreenDashboardService(ClientRepository clients,
                                      QuestionRepository questions,
-                                     ExerciseRepository exercises,
+                                     PaketRepository pakets,
                                      SubjectRepository subjects) {
         this.clients = clients;
         this.questions = questions;
-        this.exercises = exercises;
+        this.pakets = pakets;
         this.subjects = subjects;
     }
 
@@ -44,7 +49,7 @@ public class EduscreenDashboardService {
         return new KartuDashboard(
                 clients.count(),
                 questions.countMaster(),
-                exercises.countPublishedMaster());
+                pakets.countPublishedMaster());
     }
 
     /** ponytail: batas nama yang ditampilkan per baris antrean; hitungannya tetap utuh. */
@@ -61,8 +66,8 @@ public class EduscreenDashboardService {
     public Antrean antrean() {
         return new Antrean(
                 questions.countUnpublishedMaster(),
-                Baris.dari(exercises.findMasterBlocked()),
-                Baris.dari(exercises.findMasterReadyToPublish()),
+                Baris.dari(pakets.findMasterBlocked()),
+                Baris.dari(pakets.findMasterReadyToPublish()),
                 Baris.dari(subjects.findGlobalWithoutTopic()));
     }
 
@@ -91,8 +96,8 @@ public class EduscreenDashboardService {
      * sekali: antrean kosong berarti bloknya hilang dan kartu naik jadi isi utama.
      */
     public record Antrean(long questionDraf,
-                          Baris<ExerciseEntity> paketMacet,
-                          Baris<ExerciseEntity> paketSiapTerbit,
+                          Baris<PaketEntity> paketMacet,
+                          Baris<PaketEntity> paketSiapTerbit,
                           Baris<SubjectEntity> subjectBuntu) {
 
         public boolean kosong() {

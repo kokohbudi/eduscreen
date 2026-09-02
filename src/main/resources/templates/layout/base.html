@@ -50,12 +50,9 @@
         <a th:href="@{/eduscreen/client}" th:classappend="${menuAktif == 'client'} ? 'font-bold text-slate-900' : 'text-slate-600'"
            th:attr="aria-current=${menuAktif == 'client'} ? 'page' : null"
            class="hover:text-slate-900">Client</a>
-        <a th:href="@{/eduscreen/soal}" th:classappend="${menuAktif == 'soal'} ? 'font-bold text-slate-900' : 'text-slate-600'"
-           th:attr="aria-current=${menuAktif == 'soal'} ? 'page' : null"
-           class="hover:text-slate-900">Konten master</a>
-        <a th:href="@{/eduscreen/paket}" th:classappend="${menuAktif == 'paket'} ? 'font-bold text-slate-900' : 'text-slate-600'"
-           th:attr="aria-current=${menuAktif == 'paket'} ? 'page' : null"
-           class="hover:text-slate-900">Paket</a>
+        <a th:href="@{/eduscreen/bank-soal}" th:classappend="${menuAktif == 'bank-soal'} ? 'font-bold text-slate-900' : 'text-slate-600'"
+           th:attr="aria-current=${menuAktif == 'bank-soal'} ? 'page' : null"
+           class="hover:text-slate-900">Bank Soal</a>
       </nav>
 
       <div sec:authorize="isAuthenticated()" class="flex items-center gap-4 text-sm"

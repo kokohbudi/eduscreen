@@ -1,7 +1,8 @@
 package com.eduscreen.app.web;
 
-import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -23,14 +24,15 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
 
     @Autowired MockMvc mockMvc;
     @Autowired TestData data;
+    @Autowired PaketService paketService;
 
     @Test
     @DisplayName("BR-O05: dashboard merender antrean berisi paket yang macet")
     void dashboardMerenderAntrean() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
-        TopicEntity topic = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        QuestionEntity draf = data.masterMcq(topic, "Isi paket macet render");
-        data.masterExercise("Paket macet render", List.of(draf));
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Dashboard Render", "Paket macet render");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.masterMcq(topic, "Isi paket macet render");
 
         mockMvc.perform(get("/eduscreen").with(admin))
                 .andExpect(status().isOk())
@@ -60,7 +62,7 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
     void navMunculDiSeluruhHalamanEduscreen() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
 
-        for (String jalur : List.of("/eduscreen", "/eduscreen/client", "/eduscreen/soal", "/eduscreen/paket")) {
+        for (String jalur : List.of("/eduscreen", "/eduscreen/client", "/eduscreen/bank-soal")) {
             mockMvc.perform(get(jalur).with(admin))
                     .andExpect(status().isOk())
                     .andExpect(content().string(

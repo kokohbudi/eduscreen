@@ -41,6 +41,36 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
             + "order by p.title asc")
     List<PaketEntity> findAllMasterPublished();
 
+    /** Kartu dashboard: Paket master yang sudah terbit dan karena itu bisa diadopsi (FR-067). */
+    @Query("select count(p) from PaketEntity p where p.clientId is null and p.publishedAt is not null")
+    long countPublishedMaster();
+
+    /**
+     * Antrean dashboard: Paket master yang macet di gerbang AC-B12 — masih draf, tapi memuat
+     * Question yang belum terbit sehingga penerbitannya pasti ditolak (BR-O05).
+     *
+     * <p>Predikat {@code exists}-nya sengaja disalin dari gerbang
+     * {@code MasterPublishingService.publishPaket} ({@code QuestionRepository.findUnpublishedInPaket}),
+     * bukan memanggilnya per Paket dalam sebuah perulangan: satu query untuk seluruh Paket master,
+     * bukan N+1, mengikuti pola {@code ExerciseRepository.findMasterBlocked} sebelum Paket
+     * menggantikan Exercise sebagai satuan konten master (ADR-0018).
+     */
+    @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
+            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id and q.publishedAt is null) "
+            + "order by p.updatedAt desc")
+    List<PaketEntity> findMasterBlocked();
+
+    /**
+     * Antrean dashboard: Paket master yang tinggal diklik — berisi (AC-B16) dan seluruh isinya
+     * sudah terbit (BR-O05).
+     */
+    @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
+            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id) "
+            + "and not exists (select q.id from QuestionEntity q where q.paketId = p.id "
+            + "and q.publishedAt is null) "
+            + "order by p.updatedAt desc")
+    List<PaketEntity> findMasterReadyToPublish();
+
     /** Jumlah Paket per Subject untuk tabel tingkat pertama Bank Soal. */
     @Query("select p.subjectId as subjectId, count(p) as jumlah from PaketEntity p "
             + "where p.clientId = :clientId group by p.subjectId")
