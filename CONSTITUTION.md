@@ -181,10 +181,12 @@ Glosarium menyebut tenant sebagai **Client** (`CONTEXT.md`). Kode dan skema data
   DOM sebagai HTML?** Ya — pembahasan Practice, batang soal, apa pun yang berisi `*_html` tersimpan atau
   rumus LaTeX yang perlu dirender ulang — maka **fragment**, karena `th:utext` di template server adalah
   satu-satunya tempat keluaran tanpa escape yang teraudit, dan memindahkannya ke `innerHTML` di klien
-  memindahkan titik itu ke kode yang tidak dijaga tes render. Tidak — balasannya cuma keadaan, hitungan,
-  atau angka seperti auto-save Quiz ("tersimpan, 7 dari 20") dan sisa waktu Timer — maka **JSON**.
-  Endpoint JSON menegakkan otorisasi dan penyaringan tenant yang sama dengan jalur SSR-nya, dan membalas
-  status HTTP yang benar beserta pesan galat yang bisa ditampilkan.
+  memindahkan titik itu ke kode yang tidak dijaga tes render. Auto-save jawaban Quiz/Practice
+  (`ExamSessionController.saveAnswer`) jatuh di sisi ini: balasannya fragmen batang soal utuh, bukan
+  status polos "tersimpan, sekian dari sekian". Tidak — balasannya cuma keadaan, hitungan, atau angka
+  seperti sisa waktu Timer — maka **JSON**. Endpoint JSON menegakkan otorisasi dan penyaringan tenant
+  yang sama dengan jalur SSR-nya, dan membalas status HTTP yang benar beserta pesan galat yang bisa
+  ditampilkan.
 - **TC-14a** — Permukaan yang memakai jalur JSON wajib membawa **tes kontrak JSON** (bentuk balasan,
   penyaringan tenant, bentuk galat) **dan** tes yang menyentuh halamannya di peramban sungguhan. Selama
   yang kedua belum ada, tes render atas keadaan awal SSR-nya wajib memuat catatan eksplisit bahwa bagian

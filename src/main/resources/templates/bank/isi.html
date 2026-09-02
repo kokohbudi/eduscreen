@@ -307,6 +307,17 @@
             <span class="flex gap-2">
               <button type="button" @click="bersihkan()" x-show="jumlahTerpilih > 0"
                       class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Bersihkan</button>
+              <!-- Salin soal terpilih WAJIB mendahului tombol Topic di bawah dalam urutan dokumen
+                   (temuan review, bukan sekadar tampilan): submit implisit (menekan Enter di
+                   <select> mana pun dalam form ini) memicu tombol submit PERTAMA dalam urutan
+                   pohon DOM, terlepas dari x-show/display:none-nya saat itu — bukan tombol yang
+                   kebetulan sedang paling terlihat. Kalau tombol Topic ada lebih dulu, Enter di
+                   penyaring mana pun menyalin seluruh isi Topic tanpa satu centang atau konfirmasi
+                   pun. Dengan urutan ini, submit implisit jatuh ke tombol ini — yang aman kosong
+                   (PaketBorrowService.borrowQuestions membalas 0 untuk questionIds null/kosong)
+                   saat tidak ada yang tercentang, bukan menyalin borongan diam-diam. -->
+              <button type="submit" x-show="jumlahTerpilih > 0"
+                      class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">Salin soal terpilih</button>
               <!-- name="sourceTopicId" SENGAJA beda dari topicFilterId (state Alpine si
                    penyaring): keduanya hidup di form yang sama, dan menyamakan namanya akan
                    membuat "Salin soal terpilih" ikut terbaca sebagai "Salin seluruh Topic" begitu
@@ -316,8 +327,6 @@
                    dipertahankan sesuai bentuk yang disetujui — jangan dicabut lagi. -->
               <button type="submit" name="sourceTopicId" :value="topicFilterId" x-show="topicFilterId"
                       class="rounded border border-slate-300 px-3 py-1.5 hover:bg-slate-100">Salin seluruh Topic ini</button>
-              <button type="submit" x-show="jumlahTerpilih > 0"
-                      class="rounded bg-slate-900 px-4 py-2 font-medium text-white hover:bg-slate-800">Salin soal terpilih</button>
             </span>
           </div>
         </form>

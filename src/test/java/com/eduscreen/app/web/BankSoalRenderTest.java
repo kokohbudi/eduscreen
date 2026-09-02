@@ -239,9 +239,13 @@ class BankSoalRenderTest extends PostgresTestBase {
                 // Kemampuan "salin seluruh Topic" (temuan review I3): tombolnya ikut hilang dari
                 // layar saat panel ditulis ulang padahal kemampuannya diminta dipertahankan, dan
                 // tidak ada tes yang menangkapnya waktu itu. Assersi ini yang menutup lubang itu —
-                // tombolnya wajib ada di kerangka SSR, disambungkan ke penyaring Topic aktif.
+                // tombolnya wajib ada di kerangka SSR. Diperiksa sebagai SATU string atribut utuh
+                // (temuan review lanjutan), bukan name/:value/x-show terpisah: diperiksa
+                // sendiri-sendiri bisa hijau walau ketiganya pindah ke elemen berbeda, dan
+                // tombolnya lepas dari sambungan ke penyaring Topic aktif tanpa satu tes pun merah.
+                .andExpect(content().string(containsString(
+                        "name=\"sourceTopicId\" :value=\"topicFilterId\" x-show=\"topicFilterId\"")))
                 .andExpect(content().string(containsString("Salin seluruh Topic ini")))
-                .andExpect(content().string(containsString("name=\"sourceTopicId\"")))
                 .andExpect(content().string(not(containsString("basePath"))));
     }
 
