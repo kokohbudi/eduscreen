@@ -93,7 +93,9 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
 
     /**
      * Ruang kerja konten master Eduscreen: seluruh baris ber-{@code client_id} null, draf maupun
-     * terbit. Katalog Client TIDAK memakai ini — lihat {@link #searchPublishedMaster}.
+     * terbit — dipakai {@code QuestionService.searchMaster} saat penyaring status tidak dipilih.
+     * Katalog Client tidak lagi menyaring Question satu per satu sejak ADR-0018; satuan
+     * katalognya sekarang Paket ({@code PaketRepository.findMasterPublished}).
      *
      * <p>{@code question} tidak membawa {@code subject_id} sendiri, jadi penyaringan Subject
      * lewat subquery ke Paket induknya (ADR-0018).
@@ -110,11 +112,13 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             Pageable pageable);
 
     /**
-     * Katalog Client: hanya konten master yang <b>sudah terbit</b> (FR-067, FR-074).
+     * Ruang kerja konten master Eduscreen: penyaring status TERBIT
+     * ({@code QuestionService.searchMaster}, kasus {@code StatusTerbit.TERBIT}). Bukan jalur
+     * katalog Client — katalog menyaring per Paket, bukan per Question, sejak ADR-0018.
      *
-     * <p>Sengaja query terpisah dari {@link #searchMaster}, bukan satu query dengan parameter
-     * boolean: yang membedakan keduanya adalah siapa yang boleh melihat draf, dan perbedaan
-     * sepenting itu tidak pantas disembunyikan di balik argumen yang mudah salah kirim.
+     * <p>Sengaja query terpisah dari {@link #searchMaster} dan
+     * {@code searchUnpublishedMaster}, bukan satu query dengan parameter status: perbedaan siapa
+     * yang boleh melihat draf tidak pantas disembunyikan di balik argumen yang mudah salah kirim.
      */
     @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is not null "
             + "and (:subjectId is null or q.paketId in (select p.id from PaketEntity p where p.subjectId = :subjectId)) "

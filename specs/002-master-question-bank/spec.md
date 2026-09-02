@@ -214,9 +214,11 @@ berisi lima soal adopsi dan tiga soal buatan sekolah tanpa langkah tambahan apa 
 
 **Katalog dan adopsi granular**
 
-- **FR-074**: Katalog MUST menampilkan Question master terbit satu per satu, dapat disaring per
-  Subject dan Topic serta dicari berdasarkan kata di dalam isi soal, berdampingan dengan daftar
-  Exercise master terbit.
+- **FR-074** *(digantikan, ADR-0018)*: ~~Katalog MUST menampilkan Question master terbit satu per
+  satu, dapat disaring per Subject dan Topic serta dicari berdasarkan kata di dalam isi soal,
+  berdampingan dengan daftar Exercise master terbit.~~ Katalog dan adopsi bergeser seluruhnya
+  menjadi per Paket — Question tidak lagi ditampilkan maupun diadopsi satu per satu. Lihat AC-B05
+  dan seterusnya di `001-student-exercise-portal/business-rules.md`.
 - **FR-075**: Client Admin MUST bisa memilih beberapa Question master sekaligus dan mengadopsinya
   dalam satu tindakan.
 - **FR-076**: Katalog MUST menandai konten master yang sudah pernah diadopsi Client yang sedang

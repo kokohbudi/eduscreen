@@ -382,8 +382,10 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(salinan.getClientId()).isEqualTo(client.getId());
         assertThat(soal.getSourceQuestionId()).isNull();
 
-        // Salinan milik Client tidak terbaca sebagai konten master, dan tidak muncul di katalog.
-        assertThat(questionService.searchPublishedMaster(null, null, "Soal satu arah", PageRequest.of(0, 20))
+        // Salinan milik Client tidak terbaca sebagai konten master, dan tidak muncul di ruang
+        // kerja master (QuestionService.searchPublishedMaster sudah dihapus — tidak ada lagi
+        // katalog per Question sejak ADR-0018, jadi dibaca langsung lewat repository).
+        assertThat(questions.searchPublishedMaster(null, null, "%soal satu arah%", PageRequest.of(0, 20))
                 .getContent()).extracting(QuestionEntity::getId).containsExactly(soal.getId());
     }
 }

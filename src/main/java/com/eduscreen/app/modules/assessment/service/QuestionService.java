@@ -100,15 +100,6 @@ public class QuestionService {
         };
     }
 
-    /**
-     * Katalog Client: hanya konten master yang sudah terbit (FR-067, FR-074). Jalur terpisah dari
-     * {@link #searchMaster} — ruang kerja Eduscreen Admin justru harus melihat draf.
-     */
-    @Transactional(readOnly = true)
-    public Page<QuestionEntity> searchPublishedMaster(UUID subjectId, UUID topicId, String q, Pageable pageable) {
-        return questions.searchPublishedMaster(subjectId, topicId, ExerciseService.likePattern(q), pageable);
-    }
-
     @Transactional(readOnly = true)
     public QuestionEntity require(UUID id, UUID clientId) {
         return questions.findByIdAndClientId(id, clientId)

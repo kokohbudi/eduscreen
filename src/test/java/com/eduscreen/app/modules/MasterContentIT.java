@@ -134,30 +134,6 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B13 (FR-067, FR-074): katalog Client menyaring Question master terbit per Subject dan Topic, dan tidak pernah memuat yang masih digarap")
-    void katalogMenyaringPerSubjectDanTopic() {
-        TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
-        TopicEntity gerak = data.globalTopic("Fisika Kelas 9", "Gerak Lurus");
-        for (int i = 0; i < 3; i++) {
-            data.publishedMasterMcq(pecahan, "Pecahan katalogunik " + i);
-        }
-        data.publishedMasterMcq(gerak, "Gerak katalogunik lain");
-        data.masterMcq(pecahan, "Pecahan katalogunik masih digarap");
-
-        Page<QuestionEntity> semua = questionService.searchPublishedMaster(
-                null, null, "katalogunik", PageRequest.of(0, 20));
-        Page<QuestionEntity> perTopic = questionService.searchPublishedMaster(
-                null, pecahan.getId(), "katalogunik", PageRequest.of(0, 20));
-        Page<QuestionEntity> perSubject = questionService.searchPublishedMaster(
-                data.subjectIdOf(gerak), null, "katalogunik", PageRequest.of(0, 20));
-
-        // Yang masih digarap tidak pernah bocor ke katalog (FR-067, SC-013): totalnya 4, bukan 5.
-        assertThat(semua.getTotalElements()).isEqualTo(4);
-        assertThat(perTopic.getTotalElements()).isEqualTo(3);
-        assertThat(perSubject.getTotalElements()).isEqualTo(1);
-    }
-
-    @Test
     @DisplayName("BR-P04 (FR-080): pencarian ruang kerja master tidak pernah memuat Question milik sebuah Client")
     void pencarianMasterTidakMemuatKontenClient() {
         ClientEntity client = data.client("SD Master3");
