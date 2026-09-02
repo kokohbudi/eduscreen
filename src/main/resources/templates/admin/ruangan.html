@@ -6,49 +6,50 @@
   <div th:fragment="content" th:remove="tag">
 
     <!-- Ruangan baru lahir ACTIVE; hasilnya satu baris tabel lewat HTMX (TC-14). -->
-    <section class="mb-8 rounded border border-slate-200 bg-white p-4">
-      <h2 class="mb-3 text-lg font-semibold">Buat Ruangan</h2>
-      <form class="flex items-end gap-3"
+    <section class="card mb-6">
+      <h2 class="card-title mb-3">Buat Ruangan</h2>
+      <form class="flex flex-col gap-3 sm:flex-row sm:items-end"
             th:attr="hx-post=@{/admin/ruangan}"
             hx-target="#tabel-ruangan" hx-swap="beforeend">
         <div class="flex-1">
-          <label for="name" class="block text-sm font-medium text-slate-700">Nama Ruangan</label>
-          <input type="text" id="name" name="name" required placeholder="mis. Kelas 4B"
-                 class="mt-1 w-full rounded border border-slate-300 px-3 py-2 focus:border-slate-500 focus:outline-none">
+          <label for="name" class="label">Nama Ruangan</label>
+          <input type="text" id="name" name="name" required placeholder="mis. Kelas 4B" class="input">
         </div>
-        <button type="submit"
-                class="rounded bg-slate-900 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800">
-          Buat
-        </button>
+        <button type="submit" class="btn btn-primary">Buat</button>
       </form>
     </section>
 
-    <table class="w-full border-collapse text-sm" id="tabel-ruangan">
-      <thead>
-        <tr class="border-b border-slate-200 text-left text-slate-500">
-          <th class="py-2">Nama</th>
-          <th class="py-2">Status</th>
-          <th class="py-2">Aksi</th>
-        </tr>
-      </thead>
-      <tbody th:fragment="baris" th:each="r : ${ruangan}" th:id="|ruangan-${r.id}|"
-             class="border-b border-slate-100 align-top">
-        <tr>
-          <td class="py-2" th:text="${r.name}">Nama Ruangan</td>
-          <td class="py-2" th:text="${r.status}">STATUS</td>
-          <td class="py-2 space-x-2">
-            <a th:href="@{/admin/ruangan/{id}(id=${r.id})}" class="text-slate-600 underline">Kelola anggota</a>
-            <button th:if="${r.status.name() != 'ARCHIVED'}"
-                    th:attr="hx-post=@{/admin/ruangan/{id}/arsip(id=${r.id})},hx-target=|#ruangan-${r.id}|"
-                    hx-swap="outerHTML"
-                    hx-confirm="Arsipkan Ruangan ini? Riwayatnya tetap bisa dibaca, tetapi anggota dan Assignment baru tidak lagi diterima."
-                    class="rounded border border-red-200 px-2 py-1 text-red-700 hover:bg-red-50">
-              Arsipkan
-            </button>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="card p-0">
+      <table class="table table-hover" id="tabel-ruangan">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Status</th>
+            <th><span class="sr-only">Aksi</span></th>
+          </tr>
+        </thead>
+        <tbody th:fragment="baris" th:each="r : ${ruangan}" th:id="|ruangan-${r.id}|" class="align-top">
+          <tr>
+            <td class="font-medium">
+              <a th:href="@{/admin/ruangan/{id}(id=${r.id})}" class="hover:text-accent" th:text="${r.name}">Nama Ruangan</a>
+            </td>
+            <td>
+              <span th:class="${r.status.name() == 'ARCHIVED'} ? 'badge' : 'badge badge-success'" th:text="${r.status}">STATUS</span>
+            </td>
+            <td class="whitespace-nowrap text-right">
+              <a th:href="@{/admin/ruangan/{id}(id=${r.id})}" class="btn btn-ghost btn-sm">Kelola anggota</a>
+              <button th:if="${r.status.name() != 'ARCHIVED'}"
+                      th:attr="hx-post=@{/admin/ruangan/{id}/arsip(id=${r.id})},hx-target=|#ruangan-${r.id}|"
+                      hx-swap="outerHTML"
+                      hx-confirm="Arsipkan Ruangan ini? Riwayatnya tetap bisa dibaca, tetapi anggota dan Assignment baru tidak lagi diterima."
+                      class="btn btn-danger btn-sm">
+                Arsipkan
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
   </div>
 </div>
