@@ -9,7 +9,6 @@ import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -96,12 +95,5 @@ public class PaketService {
             throw new IllegalArgumentException("Judul Topic tidak boleh kosong");
         }
         return topics.save(TopicEntity.of(paketId, title.trim(), topics.nextPosition(paketId)));
-    }
-
-    @Transactional
-    public void softDelete(UUID id, UUID clientId) {
-        PaketEntity paket = require(id, clientId);
-        paket.softDelete(OffsetDateTime.now());
-        pakets.save(paket);
     }
 }

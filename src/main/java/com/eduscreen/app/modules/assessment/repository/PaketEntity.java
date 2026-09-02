@@ -55,6 +55,14 @@ public class PaketEntity {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    /**
+     * Terisi berarti Paket ini lenyap dari seluruh pembacaan, beserta Topic di dalamnya.
+     *
+     * <p>Tidak ada mutator yang mengisinya: mengganti nama dan menghapus Paket adalah kemampuan
+     * BARU yang belum dibangun, bukan kemampuan yang hilang — Paket sendiri baru lahir bersama
+     * ADR-0018. Kolomnya tetap ada karena V9 menuliskannya saat memindahkan data lama, dan
+     * {@code @SQLRestriction} di atas yang menyembunyikan barisnya (TC-35).
+     */
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
@@ -96,15 +104,6 @@ public class PaketEntity {
 
     public void withdraw() {
         this.publishedAt = null;
-    }
-
-    public void rename(String title) {
-        this.title = title;
-    }
-
-    /** Penghapusan bersifat soft delete (TC-35). */
-    public void softDelete(OffsetDateTime now) {
-        this.deletedAt = now;
     }
 
     public boolean isPublished() {

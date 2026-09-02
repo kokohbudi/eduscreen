@@ -119,15 +119,25 @@ class PaketServiceIT extends PostgresTestBase {
                 .extracting(TopicEntity::getTitle).containsExactly("Topik 1", "Bab Warna");
     }
 
+    /**
+     * Tidak ada rute maupun layanan yang menghapus Paket — menghapus Paket adalah kemampuan BARU
+     * yang belum dibangun, bukan yang hilang, dan {@code PaketService.softDelete} yang cuma
+     * dipanggil tes ini sudah dicabut. Barisnya tetap ada di produksi: V9 menuliskan
+     * {@code deleted_at} saat memindahkan data lama dari Topic global yang sudah terhapus lunak.
+     *
+     * <p>Yang dijaga tes ini karena itu bukan cara mengisinya, melainkan akibatnya: baris
+     * ber-{@code deleted_at} lenyap dari setiap pembacaan, dan tidak pernah dihapus fisik (TC-35).
+     * {@code deleted_at} disemai lewat JDBC, bentuk yang sama persis dengan yang ditulis V9.
+     */
     @Test
-    @DisplayName("TC-35: softDelete mengisi deleted_at, Paket lenyap dari require dan topicsOf, barisnya tetap ada")
+    @DisplayName("TC-35: Paket yang deleted_at-nya terisi lenyap dari require dan topicsOf, barisnya tetap ada")
     void softDeleteHidesWithoutErasing() {
         ClientEntity client = data.client("SD Hapus Halus");
         PaketEntity paket = pakets.create(
                 new PaketService.PaketDraft("Latihan Terhapus", null, "Olahraga Kelas 2 Hapus"),
                 client.getId(), null);
 
-        pakets.softDelete(paket.getId(), client.getId());
+        jdbc.update("update paket set deleted_at = now() where id = ?", paket.getId());
 
         assertThatThrownBy(() -> pakets.require(paket.getId(), client.getId()))
                 .isInstanceOf(com.eduscreen.app.shared.web.ResourceNotFoundException.class);

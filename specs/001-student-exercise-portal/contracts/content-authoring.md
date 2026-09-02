@@ -19,7 +19,6 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 | POST | `/bank-soal/paket` | Client Admin, Guru | `title`, `subjectId` atau `subjectName` | `302` ke isi Paket | `400` |
 | GET | `/bank-soal/paket/{id}` | Client Admin, Guru | — | `page` isi Paket: soal dikelompokkan per Topic | `404` bila di luar Client |
 | POST | `/bank-soal/paket/{id}/topic` | Client Admin, Guru | `title` | `fragment` daftar Topic | `404`, `400` |
-| PUT | `/bank-soal/paket/{id}/urutan` | Client Admin, Guru | `topicIds[]`, `questionIds[]` dalam urutan baru | `fragment` isi Paket | `404` |
 | GET | `/bank-soal/paket/{id}/soal/baru` | Client Admin, Guru | `topicId` | `page` editor, `topicId` sebagai induk | `404` |
 | POST | `/bank-soal/paket/{id}/soal` | Client Admin, Guru | `topicId`, `type`, `bodyHtml`, `explanationHtml`, `options[]` | `302` ke detail | `400` fragmen validasi |
 | PUT | `/bank-soal/soal/{id}` | Client Admin, Guru | sama seperti POST | `fragment` detail | `404`, `400` |

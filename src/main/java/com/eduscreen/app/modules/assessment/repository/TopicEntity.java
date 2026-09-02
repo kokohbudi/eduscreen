@@ -38,6 +38,15 @@ public class TopicEntity {
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
 
+    /**
+     * Terisi berarti Topic ini ikut lenyap bersama Paket yang menaunginya.
+     *
+     * <p>Tidak ada mutator yang mengisinya: menyusun ulang, mengganti nama, dan menghapus Topic
+     * adalah kemampuan BARU yang belum dibangun, bukan kemampuan yang hilang — model sebelum
+     * ADR-0018 hanya bisa MEMBUAT Topic global. Kolomnya tetap ada karena V9 memang menuliskannya
+     * saat memindahkan data lama, dan {@code @SQLRestriction} di atas yang menyembunyikan
+     * barisnya (TC-35).
+     */
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
 
@@ -53,19 +62,6 @@ public class TopicEntity {
 
     public static TopicEntity of(UUID paketId, String title, int position) {
         return new TopicEntity(paketId, title, position);
-    }
-
-    public void rename(String title) {
-        this.title = title;
-    }
-
-    public void moveTo(int position) {
-        this.position = position;
-    }
-
-    /** Penghapusan bersifat soft delete (TC-35). */
-    public void softDelete(OffsetDateTime now) {
-        this.deletedAt = now;
     }
 
     public UUID getId() {
