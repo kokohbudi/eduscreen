@@ -3,7 +3,7 @@
 **Feature**: [spec.md](./spec.md) | **Konstitusi**: `CONSTITUTION.md` | **Glosarium**: `CONTEXT.md`
 
 Berkas ini memuat perilaku terperinci yang menjadi rujukan `FR-*` di [spec.md](./spec.md):
-**72 aturan bisnis** `BR-*` dan **54 kriteria penerimaan** `AC-*`.
+**72 aturan bisnis** `BR-*` dan **59 kriteria penerimaan** `AC-*`.
 
 Yang TIDAK ada di sini karena sudah punya rumah sendiri, agar tidak ada dua sumber kebenaran:
 
@@ -53,7 +53,7 @@ Catatan izin yang tidak jelas dari tabel:
 5. Client berstatus `ACTIVE` dengan bank soal terisi.
 
 - **BR-O01** — Onboarding tidak membuat Ruangan maupun akun Siswa. Itu pekerjaan Client Admin.
-- **BR-O02** — Subject `GLOBAL` tidak disalin; ia dibaca langsung oleh semua Client. Yang disalin adalah Topic, Question, dan Exercise.
+- **BR-O02** — Subject `GLOBAL` tidak disalin; ia dibaca langsung oleh semua Client. Yang disalin adalah Paket, Topic, Question, dan Option.
 
 ### 6.2 Eduscreen Admin — konten master
 
@@ -97,7 +97,7 @@ Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisia
 3. Tambahkan Question ke Exercise; atur urutannya.
 4. Simpan.
 
-- **BR-E01** — Exercise boleh memuat Question dari Subject dan Topic mana pun di dalam Client.
+- **BR-E01** — Exercise boleh memuat Question dari Paket dan Topic mana pun di dalam Client.
 - **BR-E02** — Exercise terlihat dan bisa diduplikasi oleh seluruh Guru di Client yang sama.
 - **BR-E03** — Exercise wajib memuat minimal 1 Question untuk bisa diterbitkan.
 - **BR-E04** — Begitu Assignment pertamanya dibuat, `lockedAt` terisi dan Exercise menjadi read-only. Untuk mengubahnya, Guru menduplikasinya menjadi Exercise baru.
@@ -375,6 +375,21 @@ Given Exercise berisi 10 Question `MULTIPLE_CHOICE`, dua di antaranya tanpa `exp
 When Guru menerbitkannya sebagai `PRACTICE`
 Then publish ditolak dengan menyebut dua Question itu
 And menerbitkannya sebagai `QUIZ` tetap diterima.
+
+### Bank soal & Paket
+
+`FR-013`, `FR-014`, `FR-015`, `FR-074`, dan `FR-075` digantikan oleh kriteria berikut:
+
+- **AC-B01**: Paket baru lahir dengan tepat satu Topic bernama `Topik 1`, sehingga soal pertama
+  bisa ditulis tanpa membuat Topic lebih dulu.
+- **AC-B02**: Question hanya boleh menunjuk Topic yang `paketId`-nya sama dengan `paketId`
+  Question itu; kombinasi lain ditolak.
+- **AC-B03**: Meminjam soal dari Paket lain menghasilkan Question baru milik Paket tujuan,
+  dengan `sourceQuestionId` menunjuk soal asal. Mengubah salinan tidak mengubah soal asal.
+- **AC-B04**: Soal yang `sourceQuestionId`-nya sudah ada di Paket tujuan tidak muncul lagi di
+  daftar pinjam Paket itu.
+- **AC-B05**: Adopsi katalog dilakukan per Paket dan menyalin Paket, seluruh Topic, seluruh
+  Question, beserta Option-nya.
 
 ### Exercise & Assignment
 
