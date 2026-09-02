@@ -410,6 +410,9 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
 - **AC-B14**: Mengadopsi Paket yang salinannya sudah ada di Client itu dihentikan sebelum
   menyalin dan membalas peringatan yang menyebut Paket mana yang sudah pernah diadopsi.
   Mengonfirmasi permintaan yang sama tetap menyalin dan melahirkan salinan kedua yang terpisah.
+- **AC-B15**: Menyimpan soal dengan "Simpan & buat lagi" mengembalikan formulir soal baru pada
+  Topic yang sama, sehingga soal berikutnya bisa langsung ditulis; menyimpan biasa kembali ke
+  halaman isi Paket.
 
 ### Exercise & Assignment
 

@@ -14,6 +14,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
@@ -109,7 +111,7 @@ class BankSoalRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-36 (TC-09, BR-P04): Paket dan soal milik Client lain dijawab 404 di seluruh rute baca Bank Soal")
+    @DisplayName("TC-36 (TC-09, BR-P04): Paket dan soal milik Client lain dijawab 404 di rute baca maupun tulis Bank Soal")
     void milikClientLainDijawab404() throws Exception {
         ClientEntity milikku = data.client("SD Bank A");
         var admin = user(data.principal(data.user(milikku, UserRole.CLIENT_ADMIN, "Admin A")));
@@ -126,6 +128,15 @@ class BankSoalRenderTest extends PostgresTestBase {
         mvc.perform(get("/bank-soal/paket/{id}/pinjam", paketLain.getId()).with(admin))
                 .andExpect(status().isNotFound());
         mvc.perform(get("/bank-soal/soal/{id}", soalLain.getId()).with(admin))
+                .andExpect(status().isNotFound());
+        // Jalur tulisnya juga: PUT dengan muatan sah tetap 404, bukan menimpa milik Client lain.
+        mvc.perform(put("/bank-soal/soal/{id}", soalLain.getId())
+                        .param("topicId", topikLain.getId().toString())
+                        .param("type", "MULTIPLE_CHOICE")
+                        .param("bodyHtml", "<p>Percobaan tulis lintas Client</p>")
+                        .param("optionBody", "<p>a</p>", "<p>b</p>")
+                        .param("correctIndex", "0")
+                        .with(admin).with(csrf()))
                 .andExpect(status().isNotFound());
     }
 
@@ -259,29 +270,10 @@ class BankSoalRenderTest extends PostgresTestBase {
         PaketEntity paket = data.paket(client, "Sejarah BankRender", "Paket Urut AC B08");
         TopicEntity topik = paketService.topicsOf(paket.getId()).get(0);
 
-        // "Simpan & buat lagi" kembali ke formulir Topic yang sama.
-        mvc.perform(post("/bank-soal/paket/{id}/soal", paket.getId())
-                        .param("topicId", topik.getId().toString())
-                        .param("type", "MULTIPLE_CHOICE")
-                        .param("bodyHtml", "<p>Soal urut pertama render</p>")
-                        .param("optionBody", "<p>a</p>", "<p>b</p>")
-                        .param("correctIndex", "0")
-                        .param("lanjut", "1")
-                        .with(admin).with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location",
-                        "/bank-soal/paket/" + paket.getId() + "/soal/baru?topicId=" + topik.getId()));
-
-        // Simpan biasa kembali ke isi Paket.
-        mvc.perform(post("/bank-soal/paket/{id}/soal", paket.getId())
-                        .param("topicId", topik.getId().toString())
-                        .param("type", "MULTIPLE_CHOICE")
-                        .param("bodyHtml", "<p>Soal urut kedua render</p>")
-                        .param("optionBody", "<p>a</p>", "<p>b</p>")
-                        .param("correctIndex", "0")
-                        .with(admin).with(csrf()))
-                .andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", "/bank-soal/paket/" + paket.getId()));
+        simpanSoal(paket, topik, "Soal urut pertama render", false, admin)
+                .andExpect(status().is3xxRedirection());
+        simpanSoal(paket, topik, "Soal urut kedua render", false, admin)
+                .andExpect(status().is3xxRedirection());
 
         String halaman = mvc.perform(get("/bank-soal/paket/{id}", paket.getId()).with(admin))
                 .andExpect(status().isOk())
@@ -289,6 +281,40 @@ class BankSoalRenderTest extends PostgresTestBase {
         assertThat(halaman.indexOf("Soal urut pertama render"))
                 .isLessThan(halaman.indexOf("Soal urut kedua render"))
                 .isGreaterThanOrEqualTo(0);
+    }
+
+    @Test
+    @DisplayName("AC-B15: \"Simpan & buat lagi\" kembali ke formulir soal baru pada Topic yang sama, simpan biasa kembali ke isi Paket")
+    void simpanBuatLagiKembaliKeFormulirTopicYangSama() throws Exception {
+        ClientEntity client = data.client("SD Bank B15");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin B15")));
+        PaketEntity paket = data.paket(client, "Geografi BankRender", "Paket Lanjut AC B15");
+        TopicEntity topik = paketService.topicsOf(paket.getId()).get(0);
+
+        simpanSoal(paket, topik, "Soal lanjut pertama render", true, admin)
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        "/bank-soal/paket/" + paket.getId() + "/soal/baru?topicId=" + topik.getId()));
+
+        simpanSoal(paket, topik, "Soal lanjut kedua render", false, admin)
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/bank-soal/paket/" + paket.getId()));
+    }
+
+    /** POST satu soal pilihan ganda sah ke formulir Paket; {@code lanjut} meniru tombol "buat lagi". */
+    private ResultActions simpanSoal(PaketEntity paket, TopicEntity topik, String body,
+                                     boolean lanjut, RequestPostProcessor admin) throws Exception {
+        var permintaan = post("/bank-soal/paket/{id}/soal", paket.getId())
+                .param("topicId", topik.getId().toString())
+                .param("type", "MULTIPLE_CHOICE")
+                .param("bodyHtml", "<p>" + body + "</p>")
+                .param("optionBody", "<p>a</p>", "<p>b</p>")
+                .param("correctIndex", "0")
+                .with(admin).with(csrf());
+        if (lanjut) {
+            permintaan = permintaan.param("lanjut", "1");
+        }
+        return mvc.perform(permintaan);
     }
 
     @Test
