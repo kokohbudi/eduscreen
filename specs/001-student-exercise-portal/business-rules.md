@@ -3,7 +3,7 @@
 **Feature**: [spec.md](./spec.md) | **Konstitusi**: `CONSTITUTION.md` | **Glosarium**: `CONTEXT.md`
 
 Berkas ini memuat perilaku terperinci yang menjadi rujukan `FR-*` di [spec.md](./spec.md):
-**72 aturan bisnis** `BR-*` dan **59 kriteria penerimaan** `AC-*`.
+**72 aturan bisnis** `BR-*` dan **72 kriteria penerimaan** `AC-*`.
 
 Yang TIDAK ada di sini karena sudah punya rumah sendiri, agar tidak ada dua sumber kebenaran:
 
@@ -383,7 +383,8 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
 
 ### Bank soal & Paket
 
-`FR-013`, `FR-014`, `FR-015`, `FR-074`, dan `FR-075` digantikan oleh kriteria berikut:
+`FR-012`, `FR-013`, `FR-014`, `FR-015`, `FR-074`, dan `FR-075` digantikan oleh kriteria
+berikut:
 
 - **AC-B01**: Paket baru lahir dengan tepat satu Topic bernama `Topik 1`, sehingga soal pertama
   bisa ditulis tanpa membuat Topic lebih dulu.
@@ -419,6 +420,11 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
   Topic yang sama, sehingga soal berikutnya bisa langsung ditulis; menyimpan biasa kembali ke
   halaman isi Paket.
 - **AC-B16**: Paket master tanpa satu pun Question ditolak terbit.
+- **AC-B17**: Menarik atau menghapus Question yang Paket induknya sedang terbit ditolak, dengan
+  pesan yang menyuruh menarik Paket itu dari katalog lebih dulu. Keduanya kembali diizinkan
+  begitu Paket ditarik. Gerbang penerbitan berlaku dua arah: tanpa ini, Paket terbit bisa
+  berubah menjadi Paket yang memuat soal draf — atau Paket terbit yang kosong, melanggar
+  AC-B16 — dan tetap bisa diadopsi sekolah.
 
 ### Exercise & Assignment
 

@@ -247,6 +247,11 @@ class CatalogAdoptionIT extends PostgresTestBase {
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
+        // Tarik Paket-nya dulu: sejak AC-B17 isi Paket yang sedang terbit tidak boleh dihapus,
+        // karena menghapus soal terakhirnya menghasilkan Paket terbit yang kosong. Penarikan
+        // Paket sendiri tidak menyentuh salinan yang sudah diadopsi (AC-B10), jadi yang dibuktikan
+        // tes ini — salinan Client tetap utuh — tetap yang itu juga.
+        masterPublishing.withdrawPaket(master.getId());
         questionService.softDelete(soal.getId(), null);
 
         assertThat(questionService.searchMaster(null, null, "unikhapus", null, PageRequest.of(0, 20))

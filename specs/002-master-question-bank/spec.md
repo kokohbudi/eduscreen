@@ -205,12 +205,20 @@ berisi lima soal adopsi dan tiga soal buatan sekolah tanpa langkah tambahan apa 
 
 **Exercise master**
 
-- **FR-071**: Eduscreen Admin MUST bisa menyusun Exercise master dari Question master mana pun,
-  berpindah bebas antar-Subject dan antar-Topic dalam satu sesi perakitan.
-- **FR-072**: Exercise master MUST memuat minimal satu Question untuk bisa diterbitkan.
-- **FR-073**: Exercise master MUST tetap bisa diubah sepanjang hidupnya; penguncian yang berlaku
-  bagi Exercise milik Client setelah Assignment pertamanya (FR-026) MUST NOT berlaku baginya, karena
-  Exercise master tidak pernah diterbitkan sebagai Assignment.
+- **FR-071** *(digantikan, ADR-0018)*: ~~Eduscreen Admin MUST bisa menyusun Exercise master dari
+  Question master mana pun, berpindah bebas antar-Subject dan antar-Topic dalam satu sesi
+  perakitan.~~ Exercise master dicabut: wadah jual Eduscreen sekarang Paket, dan Exercise kembali
+  sepenuhnya milik alur Guru. Menyusun isi sebuah Paket master dari Paket master lain dilakukan
+  lewat pinjam antar-Paket — lihat AC-B03 di `001-student-exercise-portal/business-rules.md`.
+- **FR-072** *(digantikan, ADR-0018)*: ~~Exercise master MUST memuat minimal satu Question untuk
+  bisa diterbitkan.~~ Aturannya tetap berlaku, tetapi pada satuan yang menggantikan Exercise
+  master: Paket master tanpa satu pun Question ditolak terbit — lihat AC-B16.
+- **FR-073** *(digantikan, ADR-0018)*: ~~Exercise master MUST tetap bisa diubah sepanjang
+  hidupnya; penguncian yang berlaku bagi Exercise milik Client setelah Assignment pertamanya
+  (FR-026) MUST NOT berlaku baginya, karena Exercise master tidak pernah diterbitkan sebagai
+  Assignment.~~ Exercise master dicabut. Paket master juga tidak pernah menjadi Assignment,
+  sehingga `locked_at` tidak berlaku baginya sama sekali; yang membatasi penyuntingan isinya
+  adalah keadaan terbit Paket, bukan penguncian — lihat AC-B17.
 
 **Katalog dan adopsi granular**
 
@@ -219,16 +227,21 @@ berisi lima soal adopsi dan tiga soal buatan sekolah tanpa langkah tambahan apa 
   berdampingan dengan daftar Exercise master terbit.~~ Katalog dan adopsi bergeser seluruhnya
   menjadi per Paket — Question tidak lagi ditampilkan maupun diadopsi satu per satu. Lihat AC-B05
   dan seterusnya di `001-student-exercise-portal/business-rules.md`.
-- **FR-075**: Client Admin MUST bisa memilih beberapa Question master sekaligus dan mengadopsinya
-  dalam satu tindakan.
+- **FR-075** *(digantikan, ADR-0018)*: ~~Client Admin MUST bisa memilih beberapa Question master
+  sekaligus dan mengadopsinya dalam satu tindakan.~~ Satuan adopsi bergeser menjadi Paket: Client
+  Admin memilih beberapa Paket sekaligus, dan Question tidak lagi diadopsi satu per satu — lihat
+  AC-B05. (`001-student-exercise-portal/business-rules.md` sudah mencatatnya digantikan; ini
+  penandaan di tempatnya sendiri.)
 - **FR-076**: Katalog MUST menandai konten master yang sudah pernah diadopsi Client yang sedang
   melihatnya, agar Client Admin tidak menggandakannya tanpa sadar.
 - **FR-077**: Mengadopsi konten yang sudah pernah diadopsi MUST tetap diizinkan, tetapi MUST
   didahului peringatan yang menyebut bahwa salinan sebelumnya sudah ada.
 - **FR-078**: Setiap adopsi MUST menghasilkan salinan penuh milik Client yang boleh diedit,
   dipindahkan Topic-nya, dan dihapus tanpa menyentuh konten master (FR-021).
-- **FR-079**: Setiap adopsi MUST diakhiri ringkasan yang menyebut berapa Question, Topic, dan
-  Exercise yang tersalin.
+- **FR-079** *(digantikan, ADR-0018)*: ~~Setiap adopsi MUST diakhiri ringkasan yang menyebut
+  berapa Question, Topic, dan Exercise yang tersalin.~~ Ringkasan tetap wajib, tetapi menyebut
+  Paket, Topic, dan Question: Exercise tidak pernah ikut tersalin sejak satuan adopsi menjadi
+  Paket — lihat AC-B05.
 
 **Batas kewenangan**
 

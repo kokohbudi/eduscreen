@@ -250,8 +250,12 @@ memperoleh 60, 85, lalu 70; rekap Guru menampilkan 85 dan ketiga pengerjaan teta
 
 **Taksonomi dan bank soal**
 
-- **FR-012**: Sistem MUST menyediakan taksonomi dua lapis: Subject yang memuat jenjang di
-  namanya, dan Topic di bawahnya.
+- **FR-012** *(digantikan, ADR-0018)*: ~~Sistem MUST menyediakan taksonomi dua lapis: Subject
+  yang memuat jenjang di namanya, dan Topic di bawahnya.~~ Taksonomi menjadi tiga lapis —
+  Subject (label) › Paket › Topic › Question. Subject tetap memuat jenjang di namanya (ADR-0004),
+  tetapi Topic tidak lagi menggantung padanya: ia hidup di dalam satu Paket, dan Question
+  menempel pada Topic milik Paketnya sendiri. Lihat AC-B01 dan AC-B02 di
+  `business-rules.md`.
 - **FR-013**: Subject MUST bisa berasal dari Eduscreen (berlaku untuk semua Client) atau dari
   satu Client, dengan asalnya ditandai jelas.
 - **FR-014**: Client Admin dan Guru MUST bisa membuat Topic dan Question di lingkup Client-nya.

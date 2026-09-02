@@ -217,6 +217,68 @@ class MasterContentIT extends PostgresTestBase {
         assertThat(publishing.publishPaket(paket.getId()).isPublished()).isTrue();
     }
 
+    @Test
+    @DisplayName("AC-B17: menarik Question yang Paket induknya sedang terbit ditolak, dan diizinkan lagi begitu Paket itu ditarik")
+    void tarikSoalDitolakSelamaPaketInduknyaTerbit() {
+        PaketEntity paket = data.masterPaket("Fisika Kelas 9 Gerbang Balik", "Paket gerbang tarik soal");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.publishedMasterMcq(topic, "Soal gerbang tarik");
+        publishing.publishPaket(paket.getId());
+
+        // Tanpa gerbang ini: Paket tetap terbit di katalog sementara isinya turun jadi draf, dan
+        // adopsi menyalin soal draf itu ke sekolah. findMasterBlocked pun tidak memunculkannya
+        // di dasbor, karena antrean itu hanya melihat Paket yang masih draf.
+        assertThatThrownBy(() -> publishing.unpublishQuestion(soal.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Paket gerbang tarik soal")
+                .hasMessageContaining("Tarik Paket itu dari katalog dulu");
+        assertThat(questions.findByIdAndClientId(soal.getId(), null).orElseThrow().isPublished())
+                .as("penolakan tidak boleh menyisakan perubahan separuh jalan")
+                .isTrue();
+
+        publishing.withdrawPaket(paket.getId());
+
+        assertThat(publishing.unpublishQuestion(soal.getId()).isPublished()).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-B17 (AC-B16): menghapus Question yang Paket induknya sedang terbit ditolak, dan diizinkan lagi begitu Paket itu ditarik")
+    void hapusSoalDitolakSelamaPaketInduknyaTerbit() {
+        PaketEntity paket = data.masterPaket("Fisika Kelas 9 Gerbang Hapus", "Paket gerbang hapus soal");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.publishedMasterMcq(topic, "Soal gerbang hapus unik");
+        publishing.publishPaket(paket.getId());
+
+        // Ini satu-satunya soal Paket itu: menghapusnya menghasilkan Paket TERBIT yang KOSONG,
+        // persis keadaan yang AC-B16 tolak saat penerbitan — dicapai lewat pintu belakang, dan
+        // tetap bisa diadopsi sekolah.
+        assertThatThrownBy(() -> questionService.softDelete(soal.getId(), null))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Paket gerbang hapus soal")
+                .hasMessageContaining("Tarik Paket itu dari katalog dulu");
+        assertThat(questionService.searchMaster(null, null, "gerbang hapus unik", null,
+                PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
+
+        publishing.withdrawPaket(paket.getId());
+        questionService.softDelete(soal.getId(), null);
+
+        assertThat(questionService.searchMaster(null, null, "gerbang hapus unik", null,
+                PageRequest.of(0, 20)).getTotalElements()).isZero();
+    }
+
+    @Test
+    @DisplayName("AC-B17 (TC-36): menghapus soal milik Client tidak pernah tersandung gerbang terbit, karena Paket Client tidak punya keadaan terbit")
+    void hapusSoalClientTidakTersandungGerbangTerbit() {
+        ClientEntity client = data.client("SD Gerbang Terbit Client");
+        PaketEntity paket = data.paket(client, "Matematika Kelas 4 Gerbang Client", "Paket Client gerbang");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.mcq(client, topic, "Soal client gerbang unik", 4);
+
+        questionService.softDelete(soal.getId(), client.getId());
+
+        assertThat(questions.findByIdAndClientId(soal.getId(), client.getId())).isEmpty();
+    }
+
     // hapusMasterTidakMenyentuhSalinan pindah ke CatalogAdoptionIT (AC-B09), memakai adoptPakets
     // menggantikan adoptQuestions — lihat catatan di atas paketMasterKosongDitolakTerbit.
 

@@ -33,17 +33,20 @@ public class QuestionService {
     private final QuestionOptionRepository options;
     private final TaxonomyService taxonomy;
     private final ContentSanitizer sanitizer;
+    private final MasterPublishingService publishing;
     private final ClientClock clock;
 
     public QuestionService(QuestionRepository questions,
                            QuestionOptionRepository options,
                            TaxonomyService taxonomy,
                            ContentSanitizer sanitizer,
+                           MasterPublishingService publishing,
                            ClientClock clock) {
         this.questions = questions;
         this.options = options;
         this.taxonomy = taxonomy;
         this.sanitizer = sanitizer;
+        this.publishing = publishing;
         this.clock = clock;
     }
 
@@ -229,9 +232,19 @@ public class QuestionService {
         return topic;
     }
 
+    /**
+     * Menghapus lunak sebuah Question (FR-018, TC-35).
+     *
+     * <p>Ditolak selama Paket induknya masih terbit (AC-B17). Menghapus soal terakhir sebuah
+     * Paket terbit menghasilkan Paket terbit yang KOSONG — keadaan yang AC-B16 tolak saat
+     * penerbitan, dicapai lewat pintu belakang — dan Paket itu tetap bisa diadopsi sekolah.
+     * Gerbangnya sengaja sama persis dengan yang menjaga penarikan Question, dan tinggal di satu
+     * tempat: {@link MasterPublishingService#requirePaketBelumTerbit}.
+     */
     @Transactional
     public void softDelete(UUID id, UUID clientId) {
         QuestionEntity question = require(id, clientId);
+        publishing.requirePaketBelumTerbit(question, "menghapus soal");
         // Soal hilang dari pencarian bank soal tapi tetap terbaca oleh Exercise dan sesi yang
         // sudah memakainya (FR-018) — itu ditegakkan lewat @SQLRestriction plus
         // findAllForSnapshot, bukan di sini.

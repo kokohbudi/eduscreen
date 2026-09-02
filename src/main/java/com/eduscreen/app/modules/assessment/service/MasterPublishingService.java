@@ -54,9 +54,25 @@ public class MasterPublishingService {
         return questions.save(question);
     }
 
+    /**
+     * Menarik satu Question master dari peredaran (AC-B17).
+     *
+     * <p>Ditolak selama Paket induknya masih terbit. Gerbang {@link #publishPaket} hanya menutup
+     * satu arah: ia memastikan Paket tidak bisa NAIK terbit dengan isi yang belum terbit, tapi
+     * tidak menghalangi isinya TURUN setelah Paketnya terbit. Tanpa gerbang di sini, urutannya
+     * adalah: terbitkan Paket, tarik satu soalnya, Paket tetap terbit di katalog, dan adopsi
+     * menyalin soal draf itu ke sekolah — persis keadaan yang FR-067 larang, dicapai lewat pintu
+     * belakang. {@code PaketRepository.findMasterBlocked} pun tidak memunculkannya di dasbor,
+     * karena antrean itu hanya melihat Paket yang masih draf.
+     *
+     * <p>Ditolak, bukan menarik Paketnya otomatis: satu gerbang, satu arah. Penarikan otomatis
+     * mengubah keadaan yang tidak diminta pengguna — Paket lenyap dari katalog seluruh Client
+     * sebagai efek samping dari menyunting satu soal.
+     */
     @Transactional
     public QuestionEntity unpublishQuestion(UUID id) {
         QuestionEntity question = requireMasterQuestion(id);
+        requirePaketBelumTerbit(question, "menarik soal");
         question.unpublish();
         return questions.save(question);
     }
@@ -103,6 +119,32 @@ public class MasterPublishingService {
         PaketEntity paket = requireMasterPaket(id);
         paket.withdraw();
         return pakets.save(paket);
+    }
+
+    /**
+     * Gerbang AC-B17: isi Paket master yang sedang terbit tidak boleh diturunkan atau dibuang.
+     *
+     * <p>Publik dan menerima {@code tindakan} sebagai kata kerja, karena aturannya milik dua
+     * pemanggil di dua kelas: penarikan Question ada di sini, penghapusannya ada di
+     * {@code QuestionService.softDelete}. Menyalinnya ke dua tempat berarti satu hari nanti
+     * hanya satu yang diperbaiki.
+     *
+     * <p>Konten milik sebuah Client dilewati begitu saja: Paket Client tidak punya keadaan terbit
+     * sama sekali — database menegakkannya lewat check constraint {@code paket_publish_master_only}
+     * — sehingga tidak ada yang perlu dijaga, dan membaca Paket-nya di sini justru pembacaan
+     * lintas-tenant tanpa guna (TC-36).
+     */
+    public void requirePaketBelumTerbit(QuestionEntity question, String tindakan) {
+        if (question.getClientId() != null) {
+            return;
+        }
+        pakets.findByIdAndClientIdIsNull(question.getPaketId())
+                .filter(PaketEntity::isPublished)
+                .ifPresent(paket -> {
+                    throw new IllegalArgumentException("Paket \"" + paket.getTitle()
+                            + "\" masih terbit di katalog. Tarik Paket itu dari katalog dulu "
+                            + "sebelum " + tindakan + " di dalamnya.");
+                });
     }
 
     /** Konten milik sebuah Client dan konten yang tidak ada sama-sama 404 (TC-09). */
