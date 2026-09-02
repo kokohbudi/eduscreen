@@ -3,11 +3,12 @@ package com.eduscreen.app.web;
 import com.eduscreen.app.modules.assessment.repository.ClientEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.domain.UserRole;
-import com.eduscreen.app.modules.assessment.service.ContentAdoptionService;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
+import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -40,7 +42,8 @@ class MasterContentRenderTest extends PostgresTestBase {
     @Autowired MockMvc mockMvc;
     @Autowired TestData data;
     @Autowired MasterPublishingService masterPublishing;
-    @Autowired ContentAdoptionService adoption;
+    @Autowired PaketService paketService;
+    @Autowired PaketRepository pakets;
 
     @Test
     @DisplayName("TC-13 (FR-064): ruang kerja Question master dirender utuh, halaman penuh maupun fragmen HTMX")
@@ -164,7 +167,7 @@ class MasterContentRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-14 (AC-B11, FR-074): katalog Paket dirender per Subject, lengkap dengan penanda adopsi")
+    @DisplayName("TC-13 (AC-B11, FR-074): katalog Paket dirender per Subject, lengkap dengan penanda adopsi")
     void katalogPaketDirender() throws Exception {
         ClientEntity client = data.client("SD Render");
         var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
@@ -186,11 +189,69 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(
                         org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Paket katalog masih digarap"))));
 
+        // Adopsi lewat endpoint sungguhan, bukan lewat service langsung: endpoint inilah yang
+        // merender fragmen ringkasan, dan fragmen yang salah konstruksi (ekspresi ${...}
+        // bersarang, dkk.) baru meledak persis di sini, bukan di tes layanan (TC-13).
+        mockMvc.perform(post("/katalog/adopsi").param("paketIds", terbit.getId().toString())
+                        .with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1 Paket")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Lihat di Bank Soal saya")));
+
         // Setelah diadopsi, penanda "Sudah diadopsi" muncul (AC-B11).
-        adoption.adoptPakets(client.getId(), List.of(terbit.getId()), null);
         mockMvc.perform(get("/katalog").param("subjectId", terbit.getSubjectId().toString()).with(clientAdmin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(org.hamcrest.Matchers.containsString("Sudah diadopsi")));
+    }
+
+    @Test
+    @DisplayName("AC-B14 (FR-077): adopsi kedua atas Paket yang sama dihentikan sebelum menyalin dan membalas peringatan, kiriman ulang dengan konfirmasi tetap menyalin")
+    void adopsiBerulangMembalasPeringatanSebelumMenyalin() throws Exception {
+        ClientEntity client = data.client("SD Render Ulang");
+        var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
+        PaketEntity master = data.masterPaket("Matematika Kelas 4 Render Ulang", "Paket render ulang unik");
+        TopicEntity topic = paketService.topicsOf(master.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal render ulang");
+        masterPublishing.publishPaket(master.getId());
+
+        // Adopsi pertama: langsung jalan, membalas ringkasan — tidak ada yang perlu diperingatkan.
+        mockMvc.perform(post("/katalog/adopsi").param("paketIds", master.getId().toString())
+                        .with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1 Paket")));
+
+        // Adopsi kedua atas Paket yang sama TANPA konfirmasi: berhenti sebelum menyalin, membalas
+        // peringatan yang menyebut Paket-nya dan tombol "Ya, salin lagi" — bukan lencana pasif.
+        mockMvc.perform(post("/katalog/adopsi").param("paketIds", master.getId().toString())
+                        .with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket render ulang unik")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Ya, salin lagi")));
+
+        assertThat(pakets.findByClientIdAndSubjectIdOrderByTitleAsc(client.getId(), master.getSubjectId()))
+                .hasSize(1);
+
+        // Kiriman ulang membawa confirm=true: tetap menyalin, melahirkan salinan kedua terpisah.
+        mockMvc.perform(post("/katalog/adopsi")
+                        .param("paketIds", master.getId().toString())
+                        .param("confirm", "true")
+                        .with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("1 Paket")));
+
+        assertThat(pakets.findByClientIdAndSubjectIdOrderByTitleAsc(client.getId(), master.getSubjectId()))
+                .hasSize(2);
+    }
+
+    @Test
+    @DisplayName("TC-13: menekan tombol salin tanpa mencentang apa pun membalas fragmen ringkasan nol, bukan 400 yang membuat htmx diam-diam tidak menukar apa pun")
+    void adopsiTanpaCentangMembalasRingkasanNol() throws Exception {
+        ClientEntity client = data.client("SD Render Kosong");
+        var clientAdmin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin")));
+
+        mockMvc.perform(post("/katalog/adopsi").with(clientAdmin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("0 Paket")));
     }
 
     @Test

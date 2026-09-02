@@ -142,6 +142,14 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     List<QuestionEntity> findUnpublishedInExercise(@Param("exerciseId") UUID exerciseId);
 
     /**
+     * Gerbang penerbitan Paket (AC-B12, FR-067, FR-069 setara): Question di dalamnya yang masih
+     * digarap. {@code question.paketId} sudah langsung menunjuk Paket-nya (ADR-0018), jadi tidak
+     * perlu subquery lewat tabel perantara seperti {@link #findUnpublishedInExercise}.
+     */
+    @Query("select q from QuestionEntity q where q.publishedAt is null and q.paketId = :paketId")
+    List<QuestionEntity> findUnpublishedInPaket(@Param("paketId") UUID paketId);
+
+    /**
      * Penanda "sudah pernah diadopsi" untuk katalog (FR-076, FR-077).
      *
      * <p>{@code sourceQuestionId} sudah ditulis sejak adopsi pertama sebagai jejak asal

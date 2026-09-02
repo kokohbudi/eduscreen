@@ -405,6 +405,13 @@ And menerbitkannya sebagai `QUIZ` tetap diterima.
 - **AC-B11**: Katalog menandai Paket master yang sudah pernah diadopsi Client yang sedang
   melihatnya, dan penanda itu berlaku per Client — Client lain yang belum mengadopsi Paket yang
   sama tidak melihat penanda itu.
+- **AC-B12**: Paket master yang masih memuat Question belum terbit ditolak terbit, dengan pesan
+  yang menyebut Question penyebabnya.
+- **AC-B13**: Katalog Client hanya menampilkan Question master yang sudah terbit, tersaring per
+  Subject dan per Topic.
+- **AC-B14**: Mengadopsi Paket yang salinannya sudah ada di Client itu dihentikan sebelum
+  menyalin dan membalas peringatan yang menyebut Paket mana yang sudah pernah diadopsi.
+  Mengonfirmasi permintaan yang sama tetap menyalin dan melahirkan salinan kedua yang terpisah.
 
 ### Exercise & Assignment
 

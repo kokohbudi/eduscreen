@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -63,16 +64,40 @@ public class CatalogController {
     }
 
     /**
-     * Adopsi satu atau beberapa Paket sekaligus. Peringatan "sudah pernah diadopsi" di layar
-     * katalog tidak menghalangi ini — adopsi kedua tetap melahirkan salinan kedua yang terpisah
-     * (FR-076, FR-077).
+     * Adopsi satu atau beberapa Paket sekaligus (AC-B14, FR-077).
+     *
+     * <p>Tidak mencentang apa pun dan menekan tombol MUST tidak diam-diam gagal (TC-13: HTMX
+     * hanya menukar fragmen pada respons 2xx) — {@code paketIds} karena itu opsional, dibalas
+     * ringkasan nol.
+     *
+     * <p>Kalau ada {@code paketId} yang diminta dan salinannya sudah ada di Client ini,
+     * permintaan BERHENTI sebelum menyalin dan membalas fragmen peringatan yang menyebut Paket
+     * mana yang sudah pernah diadopsi — bukan lencana pasif di sebelah checkbox (itu penanda,
+     * AC-B11), melainkan jeda yang benar-benar mendahului tindakan. Ditegakkan di server lewat
+     * penanda {@code confirm}, sengaja tanpa {@code confirm()} JavaScript: permintaan ulang yang
+     * sama disertai {@code confirm=true} tetap menyalin, melahirkan salinan kedua yang terpisah.
      */
     @PostMapping("/katalog/adopsi")
-    public String adopt(@RequestParam List<UUID> paketIds,
+    public String adopt(@RequestParam(required = false) List<UUID> paketIds,
+                        @RequestParam(defaultValue = "false") boolean confirm,
                         @AuthenticationPrincipal UserPrincipal admin,
                         Model model) {
-        model.addAttribute("ringkasan",
-                adoption.adoptPakets(admin.requireClientId(), paketIds, admin.userId()));
+        UUID clientId = admin.requireClientId();
+        if (paketIds == null || paketIds.isEmpty()) {
+            model.addAttribute("ringkasan", new ContentAdoptionService.AdoptionSummary(0, 0, 0));
+            return "katalog/index :: ringkasan";
+        }
+
+        if (!confirm) {
+            Set<UUID> sudahDiadopsi = adoption.adoptedSourcePaketIds(clientId, paketIds);
+            if (!sudahDiadopsi.isEmpty()) {
+                model.addAttribute("paketIds", paketIds);
+                model.addAttribute("paketSudahDiadopsi", pakets.findAllById(sudahDiadopsi));
+                return "katalog/index :: peringatanAdopsiUlang";
+            }
+        }
+
+        model.addAttribute("ringkasan", adoption.adoptPakets(clientId, paketIds, admin.userId()));
         return "katalog/index :: ringkasan";
     }
 }

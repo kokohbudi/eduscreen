@@ -134,7 +134,7 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-25 (FR-067, FR-074): katalog Client menyaring Question master terbit per Subject dan Topic, dan tidak pernah memuat yang masih digarap")
+    @DisplayName("AC-B13 (FR-067, FR-074): katalog Client menyaring Question master terbit per Subject dan Topic, dan tidak pernah memuat yang masih digarap")
     void katalogMenyaringPerSubjectDanTopic() {
         TopicEntity pecahan = data.globalTopic("Matematika Kelas 4", "Pecahan");
         TopicEntity gerak = data.globalTopic("Fisika Kelas 9", "Gerak Lurus");
@@ -208,6 +208,24 @@ class MasterContentIT extends PostgresTestBase {
 
         publishing.publishQuestion(draft.getId());
         assertThat(publishing.publishExercise(campuran.getId()).isPublished()).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-B12 (FR-067, FR-069): Paket master ditolak terbit selama masih memuat Question yang belum terbit, dan bisa diterbitkan begitu soal itu diterbitkan")
+    void paketMasterDitolakTerbitSelagiMasihMemuatQuestionDraf() {
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Gerbang Paket", "Paket berisi draf");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        QuestionEntity draft = data.masterMcq(topic, "Belum terbit penyebab paket");
+
+        // Tanpa gerbang ini, adoptPakets akan menyalin soal draf ini apa adanya ke setiap
+        // sekolah yang mengadopsi — ContentAdoptionService sengaja tidak menyaring status terbit
+        // per Question, jadi satu-satunya gerbang FR-067 untuk isi Paket ada di sini.
+        assertThatThrownBy(() -> publishing.publishPaket(paket.getId()))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("Belum terbit penyebab paket");
+
+        publishing.publishQuestion(draft.getId());
+        assertThat(publishing.publishPaket(paket.getId()).isPublished()).isTrue();
     }
 
     // hapusMasterTidakMenyentuhSalinan pindah ke CatalogAdoptionIT (AC-B09), memakai adoptPakets

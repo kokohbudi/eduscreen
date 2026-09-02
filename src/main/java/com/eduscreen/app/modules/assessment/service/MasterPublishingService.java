@@ -107,16 +107,29 @@ public class MasterPublishingService {
     }
 
     /**
-     * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067).
+     * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067, AC-B12).
      *
-     * <p>Sengaja tanpa gerbang isi seperti {@link #publishExercise}: Paket menyalin seluruh
-     * Question Topic-nya apa adanya saat diadopsi ({@code ContentAdoptionService}), terlepas dari
-     * keadaan terbit masing-masing Question — jadi tidak ada kombinasi "Paket terbit tapi
-     * sebagian isinya tersembunyi" yang perlu dicegah di sini.
+     * <p>Gerbang isi meniru {@link #publishExercise}: Paket yang masih memuat Question belum
+     * terbit ditolak, menyebut Question penyebabnya (FR-069 setara). Ini satu-satunya tempat
+     * FR-067 ditegakkan untuk isi Paket — {@code ContentAdoptionService.adoptPakets} sengaja
+     * menyalin seluruh Question Topic-nya apa adanya tanpa menyaring status terbit, sehingga kalau
+     * gerbangnya dipasang di sana ia akan menghasilkan salinan yang diam-diam tidak lengkap tanpa
+     * sekolah pernah tahu ada soal yang hilang. Gerbang di penerbitan gagal keras, lebih awal, dan
+     * di depan orang (Eduscreen Admin) yang bisa memperbaikinya.
      */
     @Transactional
     public PaketEntity publishPaket(UUID id) {
         PaketEntity paket = requireMasterPaket(id);
+
+        List<QuestionEntity> belumTerbit = questions.findUnpublishedInPaket(id);
+        if (!belumTerbit.isEmpty()) {
+            String penyebab = belumTerbit.stream()
+                    .map(q -> "\"" + ringkas(q.getBodyText()) + "\"")
+                    .collect(Collectors.joining(", "));
+            throw new IllegalArgumentException(
+                    "Paket belum bisa diterbitkan karena masih memuat soal yang belum terbit: " + penyebab);
+        }
+
         paket.publish(clock.now());
         return pakets.save(paket);
     }

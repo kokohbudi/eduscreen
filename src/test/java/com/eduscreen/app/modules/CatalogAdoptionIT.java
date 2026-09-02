@@ -73,7 +73,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Adopsi Paket");
         PaketEntity master = data.masterPaket("Matematika Kelas 6 Adopsi", "Paket Master");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        data.masterMcq(topicMaster, "Berapa 7 x 8?");
+        data.publishedMasterMcq(topicMaster, "Berapa 7 x 8?");
         masterPublishing.publishPaket(master.getId());
 
         ContentAdoptionService.AdoptionSummary ringkasan =
@@ -129,18 +129,23 @@ class CatalogAdoptionIT extends PostgresTestBase {
         TopicEntity topic1 = paketService.topicsOf(master.getId()).get(0);
         TopicEntity topic2 = paketService.addTopic(master.getId(), "Topik 2", null);
 
-        questionService.create(new QuestionService.QuestionDraft(
+        QuestionEntity soal1 = questionService.create(new QuestionService.QuestionDraft(
                 topic1.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal 1</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false),
                         new QuestionService.OptionDraft("<p>C</p>", false))), null, master.getId());
-        questionService.create(new QuestionService.QuestionDraft(
+        QuestionEntity soal2 = questionService.create(new QuestionService.QuestionDraft(
                 topic1.getId(), QuestionType.ESSAY, "<p>Soal 2 esai</p>", "<p>Pembahasan</p>", List.of()),
                 null, master.getId());
-        questionService.create(new QuestionService.QuestionDraft(
+        QuestionEntity soal3 = questionService.create(new QuestionService.QuestionDraft(
                 topic2.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal 3</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>X</p>", false),
                         new QuestionService.OptionDraft("<p>Y</p>", true))), null, master.getId());
+        // Paket master ditolak terbit selama isinya draf (AC-B12) — ketiganya diterbitkan lebih
+        // dulu supaya publishPaket di bawah ini lolos gerbangnya.
+        masterPublishing.publishQuestion(soal1.getId());
+        masterPublishing.publishQuestion(soal2.getId());
+        masterPublishing.publishQuestion(soal3.getId());
         masterPublishing.publishPaket(master.getId());
 
         ContentAdoptionService.AdoptionSummary ringkasan =
@@ -186,7 +191,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity clientB = data.client("SD Adopsi Tarik2");
         PaketEntity master = data.masterPaket("Matematika Kelas 5 Tarik", "Paket Ditarik");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        data.masterMcq(topicMaster, "Soal paket ditarik");
+        data.publishedMasterMcq(topicMaster, "Soal paket ditarik");
         masterPublishing.publishPaket(master.getId());
 
         adoption.adoptPakets(clientA.getId(), List.of(master.getId()), null);
@@ -214,7 +219,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Adopsi Sunting");
         PaketEntity master = data.masterPaket("Matematika Kelas 5 Sunting", "Paket Disunting");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        QuestionEntity soal = data.masterMcq(topicMaster, "Redaksi lama unikrambat");
+        QuestionEntity soal = data.publishedMasterMcq(topicMaster, "Redaksi lama unikrambat");
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
@@ -235,7 +240,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Adopsi Hapus");
         PaketEntity master = data.masterPaket("Matematika Kelas 5 Hapus", "Paket Dihapus");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        QuestionEntity soal = data.masterMcq(topicMaster, "Soal dihapus unikhapus");
+        QuestionEntity soal = data.publishedMasterMcq(topicMaster, "Soal dihapus unikhapus");
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
@@ -257,7 +262,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         ClientEntity client = data.client("SD Adopsi Ulang");
         PaketEntity master = data.masterPaket("Matematika Kelas 5 Ulang", "Paket Diadopsi Ulang");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        data.masterMcq(topicMaster, "Soal diadopsi ulang");
+        data.publishedMasterMcq(topicMaster, "Soal diadopsi ulang");
         masterPublishing.publishPaket(master.getId());
 
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
@@ -333,7 +338,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         AppUserEntity guru = data.user(client, UserRole.GURU, "Guru");
         PaketEntity master = data.masterPaket("Matematika Kelas 4 Rakit", "Paket Rakit");
         TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
-        data.masterMcq(topicMaster, "Soal dari Eduscreen");
+        data.publishedMasterMcq(topicMaster, "Soal dari Eduscreen");
         masterPublishing.publishPaket(master.getId());
         TopicEntity topicSekolah = data.topic(client, "Muatan Lokal", "Aksara Jawa");
 

@@ -38,7 +38,9 @@
         <label th:each="p : ${paket}" class="flex items-center gap-2 text-sm">
           <input type="checkbox" name="paketIds" th:value="${p.id}" class="rounded border-slate-300">
           <span th:text="${p.title}">Judul Paket</span>
-          <!-- Adopsi kedua tetap diizinkan, tapi didahului penanda ini (FR-076, FR-077). -->
+          <!-- Penanda pasif (AC-B11, FR-076), bukan peringatan: peringatan yang benar-benar
+               mendahului tindakan ada di fragmen peringatanAdopsiUlang di bawah, dibalas server
+               saat POST /katalog/adopsi mendeteksi salinan yang sudah ada (AC-B14, FR-077). -->
           <span th:if="${sudahDiadopsi.contains(p.id)}"
                 class="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-600">Sudah diadopsi</span>
         </label>
@@ -60,6 +62,32 @@
     <!-- Task 11 di plan menaut ke /bank-soal (Task 9), yang belum ada di kode ini — /soal masih
          jalur bank soal Client yang berlaku (Task 14 baru membongkarnya). -->
     <a th:href="@{/soal(subjectId=${subjectId})}" class="ml-2 underline">Lihat di Bank Soal saya →</a>
+  </div>
+
+  <!--
+    Peringatan yang benar-benar mendahului tindakan (AC-B14, FR-077), ditegakkan di server —
+    sengaja tanpa confirm() JavaScript. Dibalas POST /katalog/adopsi saat salah satu paketIds
+    yang diminta sudah pernah diadopsi Client ini DAN permintaannya belum membawa konfirmasi.
+    Tombol "Ya, salin lagi" mengirim ulang paketIds yang sama plus confirm=true; adopsi kedua
+    tetap diizinkan begitu dikonfirmasi, melahirkan salinan yang terpisah dari salinan pertama.
+  -->
+  <div th:fragment="peringatanAdopsiUlang" role="alert"
+       class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    <p class="mb-2">Sekolah Anda sudah pernah mengadopsi Paket berikut:</p>
+    <ul class="mb-3 list-disc pl-5">
+      <li th:each="p : ${paketSudahDiadopsi}" th:text="${p.title}">Judul Paket</li>
+    </ul>
+    <p class="mb-3">
+      Mengadopsi lagi menambah salinan baru, berdampingan dengan yang lama — bukan menggantinya.
+    </p>
+    <form th:attr="hx-post=@{/katalog/adopsi}" hx-target="#ringkasan-adopsi" hx-swap="innerHTML">
+      <input type="hidden" th:each="id : ${paketIds}" name="paketIds" th:value="${id}">
+      <input type="hidden" name="confirm" value="true">
+      <button type="submit"
+              class="rounded border border-amber-400 bg-white px-3 py-1.5 text-sm font-medium text-amber-900 hover:bg-amber-100">
+        Ya, salin lagi
+      </button>
+    </form>
   </div>
 
 </div>
