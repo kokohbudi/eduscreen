@@ -77,7 +77,7 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 
 **Aturan mengikat**
 
-- Perakit MUST membolehkan penambahan Question dari Subject dan Topic mana pun di dalam Client,
+- Perakit MUST membolehkan penambahan Question dari Paket dan Topic mana pun di dalam Client,
   berpindah bebas dalam satu sesi perakitan (FR-024).
 - Perakit MUST membolehkan penambahan beberapa Question terpilih maupun seluruh Question satu
   Topic dalam satu tindakan (BR-E01). Urutan yang masuk MUST mengikuti urutan yang dikirim.
@@ -115,7 +115,7 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 | GET | `/eduscreen/client` | Eduscreen Admin | — | `page` daftar Client | — |
 | POST | `/eduscreen/client` | Eduscreen Admin | `name`, `timezone`, `adminEmail`, `paketIds[]` | `302` ke detail Client | `400` |
 | GET | `/katalog` | Client Admin | `subjectId` | `page` katalog master | — |
-| POST | `/katalog/adopsi` | Client Admin | `questionIds[]` atau `exerciseIds[]` | `fragment` ringkasan salinan | `400` |
+| POST | `/katalog/adopsi` | Client Admin | `paketIds[]` | `fragment` ringkasan salinan | `400` |
 
 **Aturan mengikat**
 
@@ -123,5 +123,5 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
   merambat (FR-021, ADR-0001).
 - Onboarding MUST membuat Client, akun Client Admin pertama beserta undangannya, dan menyalin
   paket yang dipilih (FR-020).
-- Subject `GLOBAL` MUST NOT disalin — ia dibaca langsung; yang disalin adalah Topic, Question,
-  dan Exercise.
+- Subject `GLOBAL` MUST NOT disalin — ia dibaca langsung; yang disalin adalah Paket, Topic,
+  Question, dan Option.
