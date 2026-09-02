@@ -87,8 +87,17 @@ class QuestionBankIT extends PostgresTestBase {
                 .contains(pg2.getId());
     }
 
+    /**
+     * Sengaja BUKAN pengenal BR-E01: yang dibuktikan di sini adalah query filter-nya sendiri
+     * (soal Paket A muncul, soal Paket B tidak), bukan kelonggaran BR-E01 yang justru soal
+     * penambahan lintas-Paket — itu diuji terpisah lewat
+     * {@code ExerciseBuilderRenderTest#brE01TambahSoalDariPaketLainSaatPanelMenyaringPaketLain}
+     * (temuan review Task 12). Business-rules.md belum punya kriteria untuk "panel penelusuran
+     * menyaring per Paket", jadi AC-E05 ditambahkan langsung ke sana (bukan hanya diusulkan di
+     * laporan), mengikuti pola yang sama seperti AC-B16/AC-B17 di Task 10.
+     */
     @Test
-    @DisplayName("BR-E01: panel perakit menyaring per Paket, dan Paket lain tidak bocor")
+    @DisplayName("AC-E05: panel perakit menyaring hasil pencarian ke Paket yang dipilih, dan Paket lain tidak ikut tampil")
     void builderFiltersByPaket() {
         ClientEntity client = data.client("SD Perakit Paket");
         PaketEntity paketA = data.paket(client, "Matematika Kelas 4 Perakit", "Paket A");
@@ -108,6 +117,13 @@ class QuestionBankIT extends PostgresTestBase {
                 .doesNotContain("Soal di Paket B");
     }
 
+    /**
+     * Klausa yang menutup jalan di sini adalah {@code q.clientId = :clientId} pada
+     * {@code searchForBuilder} — bukan pemeriksaan kepemilikan {@code paketId} tersendiri, yang
+     * memang sengaja tidak ada (lihat javadoc {@code QuestionRepository.searchForBuilder}).
+     * Dibuktikan lumpuh-pulih di laporan Task 12: klausa {@code clientId} dilumpuhkan sementara,
+     * tes ini gagal (soal Client lain ikut muncul), lalu dipulihkan.
+     */
     @Test
     @DisplayName("TC-36: paketId milik Client lain di panel perakit menghasilkan nol hasil, bukan galat")
     void builderPaketMilikClientLainMenghasilkanNolHasil() {

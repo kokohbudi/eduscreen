@@ -457,6 +457,14 @@ Given Exercise tanpa satu pun Question
 When Guru menerbitkannya
 Then publish ditolak.
 
+**AC-E05**
+Given Guru membuka panel penelusuran bank soal di dalam perakit Exercise, dan Paket `A` maupun
+Paket `B` sama-sama memuat soal
+When ia memilih Paket `A` di panel tanpa mengganti Topic atau kata kunci
+Then hasil pencarian hanya memuat soal dari Paket `A`; soal dari Paket `B` tidak ikut tampil
+sampai Paket `A` dikosongkan atau diganti. Saringan ini murni tampilan panel — BR-E01 tetap
+mengizinkan Guru MENAMBAHKAN soal dari Paket mana pun, terlepas dari Paket yang sedang disaring.
+
 **AC-M03** (BR-M01)
 Given Guru ditugaskan di `4A` (`ACTIVE`) dan `3C` (`ARCHIVED`), serta ada Ruangan `4B` yang bukan miliknya
 When ia membuka pemilihan Ruangan tujuan

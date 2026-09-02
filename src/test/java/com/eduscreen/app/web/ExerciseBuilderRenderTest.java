@@ -68,8 +68,16 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
                 .andExpect(content().string(not(containsString("Subject"))));
     }
 
+    /**
+     * Sengaja BUKAN pengenal BR-E01: yang dibuktikan tes ini adalah penyaring panel sendiri
+     * (soal Paket A tampil, soal Paket B tidak), bukan kelonggaran BR-E01 yang justru soal
+     * penambahan lintas-Paket (lihat {@link #brE01TambahSoalDariPaketLainSaatPanelMenyaringPaketLain()}).
+     * {@code business-rules.md} belum punya kriteria untuk "panel penelusuran menyaring per
+     * Paket" sebelum Task 12 — AC-E05 ditambahkan langsung ke sana (bukan hanya diusulkan di
+     * laporan), mengikuti pola AC-B16/AC-B17 di Task 10.
+     */
     @Test
-    @DisplayName("BR-E01: panel /exercise/{id}/cari menyaring per Paket dan tidak membocorkan Paket lain, dirender tanpa galat templat")
+    @DisplayName("AC-E05: panel /exercise/{id}/cari menyaring hasil pencarian ke Paket yang dipilih, dan dirender tanpa galat templat")
     void panelCariMenyaringPerPaketDanDirender() throws Exception {
         ClientEntity client = data.client("SD Perakit Cari Render");
         AppUserEntity guruEntity = data.user(client, UserRole.GURU, "Guru Cari Render");
@@ -78,7 +86,7 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
         PaketEntity paketB = data.paket(client, "Matematika Kelas 4 Cari Render", "Paket Cari B");
         TopicEntity topicA = paketService.topicsOf(paketA.getId()).get(0);
         TopicEntity topicB = paketService.topicsOf(paketB.getId()).get(0);
-        QuestionEntity soalA = data.mcq(client, topicA, "Soal render Paket A", 4);
+        data.mcq(client, topicA, "Soal render Paket A", 4);
         data.mcq(client, topicB, "Soal render Paket B", 4);
         ExerciseEntity exercise = data.exercise(client, guruEntity, "Ulangan Cari Render", List.of());
 
@@ -90,16 +98,47 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
                 .andExpect(content().string(not(containsString("Soal render Paket B"))))
                 .andExpect(content().string(containsString(
                         "hx-post=\"/exercise/" + exercise.getId() + "/item\"")));
+    }
 
-        // BR-E01: soal lintas Paket tetap bisa ditambahkan meski panel sedang menyaring Paket A —
-        // menyaring TAMPILAN panel tidak boleh diam-diam mengubah aturan Exercise-nya sendiri.
+    /**
+     * Temuan review Task 12: versi sebelumnya menambahkan soal dari Paket YANG SAMA dengan
+     * yang sedang disaring panel, sehingga tidak membuktikan apa pun tentang BR-E01 (yang justru
+     * soal penambahan LINTAS Paket). Skenario di sini: Exercise sudah berisi soal Paket A, panel
+     * sedang menyaring Paket A, lalu Guru menambahkan soal dari Paket B — kondisi paling dekat
+     * dengan regresi nyata: seseorang mempersempit {@code addQuestion} supaya cuma menerima soal
+     * sePaket dengan isi Exercise yang sudah ada.
+     */
+    @Test
+    @DisplayName("BR-E01: menambahkan soal dari Paket lain tetap berhasil sekalipun panel penelusuran sedang menyaring Paket berbeda")
+    void brE01TambahSoalDariPaketLainSaatPanelMenyaringPaketLain() throws Exception {
+        ClientEntity client = data.client("SD Perakit Lintas Paket");
+        AppUserEntity guruEntity = data.user(client, UserRole.GURU, "Guru Lintas Paket");
+        var guru = user(data.principal(guruEntity));
+        PaketEntity paketA = data.paket(client, "Matematika Kelas 4 Lintas Paket", "Paket Lintas A");
+        PaketEntity paketB = data.paket(client, "Matematika Kelas 4 Lintas Paket", "Paket Lintas B");
+        TopicEntity topicA = paketService.topicsOf(paketA.getId()).get(0);
+        TopicEntity topicB = paketService.topicsOf(paketB.getId()).get(0);
+        QuestionEntity soalA = data.mcq(client, topicA, "Soal Paket A lintas", 4);
+        QuestionEntity soalB = data.mcq(client, topicB, "Soal Paket B lintas", 4);
+        ExerciseEntity exercise = data.exercise(client, guruEntity, "Ulangan Lintas Paket", List.of(soalA));
+
+        // Guru sedang menelusuri Paket A di panel...
+        mvc.perform(get("/exercise/{id}/cari", exercise.getId())
+                        .param("paketId", paketA.getId().toString())
+                        .with(guru))
+                .andExpect(status().isOk());
+
+        // ...tapi tetap bisa menambahkan soal dari Paket B: saringan TAMPILAN panel tidak pernah
+        // membatasi soal apa yang boleh masuk Exercise (BR-E01) — biarpun Exercise ini sudah
+        // berisi soal Paket A, POST /exercise/{id}/item tidak menolaknya.
         mvc.perform(post("/exercise/{id}/item", exercise.getId())
-                        .param("questionId", soalA.getId().toString())
+                        .param("questionId", soalB.getId().toString())
                         .with(guru).with(csrf()))
                 .andExpect(status().isOk());
+
         assertThat(exerciseService.itemsOf(exercise.getId()))
                 .extracting(item -> item.getQuestionId())
-                .contains(soalA.getId());
+                .contains(soalA.getId(), soalB.getId());
     }
 
     @Test

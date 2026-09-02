@@ -107,6 +107,12 @@
     soal/daftar.html: panel ini SELALU berada dalam konteks satu Exercise (exerciseId tidak
     pernah null di sini), jadi tidak perlu variabel basePath/itemPath yang menopang dua konteks
     sekaligus seperti soal/daftar.html — dan menyaringnya per Paket, bukan Subject (ADR-0018).
+
+    Kerangka tabel dan pola th:block/th:replace di bawah memang serupa soal/daftar.html — dua
+    tabel hasil pencarian soal wajar terlihat mirip. Duplikasi ini SENGAJA dibiarkan, bukan
+    diekstrak jadi fragmen bersama: soal/daftar.html dan rute /soal yang melayaninya dijadwalkan
+    dicabut di task pembersihan terakhir rangkaian ini, jadi fragmen bersama yang dibuat sekarang
+    hanya akan dibongkar lagi tak lama kemudian. Berkas ini yang akan bertahan.
   -->
   <div th:fragment="hasil" id="hasil-soal">
     <table class="w-full border-collapse text-sm">
@@ -118,9 +124,10 @@
           <th class="py-2">Aksi</th>
         </tr>
       </thead>
-      <!-- th:each dibungkus th:block, bukan ditaruh bersama th:replace di elemen yang sama:
-           th:replace berjalan lebih dulu (presedensi 100 vs 200), sehingga fragmennya akan
-           dipanggil sebelum variabel iterasinya sempat terikat (temuan Task 9/10). -->
+      <!-- Satu tag tidak boleh menanggung th:each dan th:replace sekaligus: Thymeleaf menjalankan
+           th:replace lebih dulu (presedensi 100, mendahului th:each di 200), jadi ${pertanyaan}
+           belum terikat saat fragmennya dipanggil. th:block di sini cuma pembungkus perulangan;
+           th:replace-nya pindah ke <tbody> satu baris di bawah supaya urutan eksekusinya benar. -->
       <th:block th:each="pertanyaan : ${hasil}">
         <tbody th:replace="~{::barisHasil}"></tbody>
       </th:block>
@@ -139,10 +146,12 @@
     </div>
     <p th:if="${hasil.totalElements == 0}" class="text-sm text-slate-500">Belum ada soal yang cocok.</p>
 
-    <!-- Menambah beberapa soal sekaligus. hx-include menyapu seluruh centang di halaman ini;
-         HTMX tidak mengirim checkbox yang tidak tercentang, jadi tidak perlu penyaringan sendiri.
-         Kiriman kosong dijawab tanpa perubahan, bukan 400 — mencentang nol soal lalu menekan
-         tombol adalah salah pencet, bukan galat. -->
+    <!-- Tombol tambah borongan: hx-include menyapu setiap checkbox questionIds tercentang di
+         panel ini, di mana pun posisinya di dalam form. HTMX begitu saja tidak menyertakan
+         checkbox yang tidak dicentang ke request, jadi tidak ada yang perlu disaring manual di
+         sini. Menekan tombol tanpa mencentang apa pun adalah salah pencet Guru, bukan permintaan
+         cacat — endpoint-nya sendiri (POST /exercise/{id}/item/terpilih) yang membalas tanpa
+         perubahan untuk kiriman kosong, bukan 400. -->
     <button th:if="${hasil.totalElements > 0}" type="button"
             th:attr="hx-post=@{/exercise/{id}/item/terpilih(id=${exerciseId})}"
             hx-include="[name='questionIds']" hx-target="#daftar-item" hx-swap="outerHTML"
@@ -152,8 +161,12 @@
   </div>
 
   <!--
-    Satu baris hasil pencarian, dipisah jadi fragmen supaya th:each di atas tidak bersanding
-    th:replace pada elemen yang sama (alasan sama seperti komentar di fragmen "hasil").
+    Satu baris hasil pencarian sebagai fragmen tersendiri: tanpa pemisahan ini th:each pada
+    fragmen "hasil" di atas tidak bisa memanggilnya lewat th:replace (lihat komentar di sana).
+    Baris ini hanya berisi cuplikan soal, tipe, dan tombol "+ Tambah ke Exercise" — tidak ada
+    checkbox terbit/tarik/hapus milik ruang kerja master maupun bank soal biasa, karena panel
+    perakit ini cuma satu tujuan: pindahkan soal dari hasil pencarian ke Exercise yang sedang
+    dirakit.
   -->
   <tbody th:fragment="barisHasil" th:id="|hasil-soal-${pertanyaan.id}|" class="border-b border-slate-100 align-top">
     <tr>
