@@ -175,8 +175,18 @@ Glosarium menyebut tenant sebagai **Client** (`CONTEXT.md`). Kode dan skema data
 
 **Aturan:**
 
-- **TC-13** — Tidak ada SPA. Halaman dirender server; HTMX menukar fragment. Tidak ada React, Vue, atau kerangka klien lain yang masuk tanpa ADR baru.
-- **TC-14** — Auto-save memanggil endpoint yang mengembalikan **fragment**, bukan JSON, agar satu jalur render melayani muat awal maupun pembaruan parsial.
+- **TC-13** — Tidak ada SPA. **Muat pertama sebuah URL selalu dirender server.** Tidak ada React, Vue, atau kerangka klien lain yang masuk tanpa ADR baru; Alpine adalah satu-satunya alat render klien yang diizinkan (ADR-0019).
+- **TC-14** — Pembaruan parsial memakai salah satu dari dua jalur, dan pilihannya disengaja (ADR-0019):
+  **fragment** bila satu jalur render lebih berharga daripada keadaan klien — auto-save jawaban, halaman
+  pengerjaan Siswa, hitung mundur Timer wajib memakai ini; **JSON** bila pemuatan dipicu tindakan pengguna
+  di halaman yang sudah terbuka dan keadaan klien harus bertahan lintas pemuatan. Endpoint JSON menegakkan
+  otorisasi dan penyaringan tenant yang sama dengan jalur SSR-nya, dan membalas status HTTP yang benar
+  beserta pesan galat yang bisa ditampilkan.
+- **TC-14a** — Permukaan yang memakai jalur JSON wajib membawa **tes kontrak JSON** (bentuk balasan,
+  penyaringan tenant, bentuk galat) **dan** tes yang menyentuh halamannya di peramban sungguhan. Selama
+  yang kedua belum ada, tes render atas keadaan awal SSR-nya wajib memuat catatan eksplisit bahwa bagian
+  klien tidak terjaga. Tes render `MockMvc` tidak menangkap galat render di sisi klien, dan dua galat
+  templat pernah lolos seluruh tes layanan di proyek ini sebelum meledak di halaman.
 - **TC-15** — Hitung mundur Timer adalah komponen Alpine yang murni menampilkan; sisa waktu yang berlaku selalu datang dari server dan disinkronkan berkala. Jam klien tidak pernah menjadi rujukan (BR-T03).
 - **TC-16** — Kolom bertipe `JSONB` dipakai hanya bila bentuk datanya benar-benar tidak tetap. `SessionAnswer` berbentuk tetap — `selectedOptionId`, `essayText`, `isCorrect`, `essayScore` — jadi ia memakai kolom biasa. JSONB di sana akan membuang integritas referensial dan menyulitkan agregasi nilai tanpa imbalan apa pun.
 - **TC-17** — Migrasi skema berjalan lewat **Flyway** dengan berkas SQL murni bernomor, dijalankan otomatis saat start. Migrasi adalah sumber kebenaran skema; entity JPA divalidasi terhadapnya. `ddl-auto` selain `validate` dilarang di luar pengembangan lokal.
@@ -240,7 +250,7 @@ Lihat `docs/adr/0011-sanitasi-konten-saat-tulis.md`.
 
 - **TC-29** — Pengguna tetap login lewat sesi di sisi server dengan cookie `HttpOnly; Secure; SameSite=Lax`. Perlindungan session fixation aktif. Saat Keycloak masuk, yang berubah hanya langkah autentikasi awal menjadi OIDC authorization code; mekanisme sesinya tetap.
 - **TC-30** — Permintaan HTMX yang tidak terautentikasi dibalas `401` berisi header `HX-Redirect`, **bukan** `302`. HTMX mengikuti pengalihan biasa dan akan menempelkan halaman login ke dalam slot fragmen — misalnya ke tengah lembar soal yang sedang dikerjakan.
-- **TC-31** — Satu `@ControllerAdvice` merender seluruh galat sebagai fragmen kecil dengan status HTTP yang benar. Tidak ada penanganan galat yang hidup di JavaScript klien.
+- **TC-31** — Satu `@ControllerAdvice` merender seluruh galat sebagai fragmen kecil dengan status HTTP yang benar. Logika keputusan galat tidak pernah hidup di JavaScript klien; klien hanya boleh **menampilkan** pesan yang dikirim server, tidak menentukan sendiri apa artinya (ADR-0019).
 - **TC-32** — Selama Session berstatus `IN_PROGRESS`, halaman pengerjaan mengirim heartbeat ringan berkala agar sesi login tidak mati di tengah ujian. Timeout global tetap pendek; hanya halaman pengerjaan yang memperpanjang, sehingga sesi Client Admin dan Guru tidak ikut berumur panjang.
 
   Tanpa ini, Siswa yang membaca teks bacaan panjang selama 35 menit tanpa menekan apa pun tidak mengirim satu permintaan pun, dan sesinya mati meski Timer ujiannya masih tersisa.
@@ -312,7 +322,8 @@ Lihat `docs/adr/0013-topologi-satu-instance.md`, `docs/adr/0014-impor-sinkron-be
 | TC-11 | Endpoint Session wajib punya tes lintas-Siswa dan lintas-Client |
 | TC-12 | Batas waktu memakai waktu server |
 | TC-13 | Tanpa SPA |
-| TC-14 | Auto-save mengembalikan fragment |
+| TC-14 | Pembaruan parsial: fragment atau JSON, dipilih sadar |
+| TC-14a | Permukaan JSON wajib punya tes kontrak dan tes peramban |
 | TC-15 | Hitung mundur hanya tampilan |
 | TC-16 | JSONB hanya untuk data yang benar-benar tak tetap |
 | TC-17 | Flyway SQL murni; `ddl-auto` hanya `validate` |
