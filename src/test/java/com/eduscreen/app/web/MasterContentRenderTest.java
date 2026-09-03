@@ -470,9 +470,11 @@ class MasterContentRenderTest extends PostgresTestBase {
                         .param("aksi", "hapus")
                         .param("questionIds", tetap.getId().toString())
                         .with(admin).with(csrf()))
-                // Paket terbit tanpa versi kerja: NeedsVersionChoiceException → 409 (ADR-0021),
-                // sama dengan tombol per baris.
-                .andExpect(status().isConflict());
+                // Paket terbit tanpa versi kerja: NeedsVersionChoiceException ditangkap controller
+                // dan dialihkan ke halaman Paket yang memuat pilihan versi (ADR-0021).
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.startsWith("/eduscreen/bank-soal/paket/" + paket.getId())));
     }
 
     @Test
@@ -645,5 +647,108 @@ class MasterContentRenderTest extends PostgresTestBase {
                         org.hamcrest.Matchers.containsString("hx-post=\"/bank-soal/soal/"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("/eduscreen/"))));
+    }
+    @Test
+    @DisplayName("TC-13 (AC-B12, ADR-0021): Paket terbit tampil beku dengan pilihan versi baru; versi baru membuka versi kerja 2 tanpa menyalin soal")
+    void paketBekuMenawarkanVersiBaru() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Versi", "Paket render versi unik");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.publishedMasterMcq(topic, "Soal render versi unik");
+        masterPublishing.publishPaket(paket.getId());
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Versi 1")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("beku")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "action=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/versi-baru\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "action=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/instance-baru\"")));
+
+        // Menulis ke Paket beku lewat form biasa: dialihkan balik ke halaman Paket, bukan 409 telanjang.
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal", paket.getId())
+                        .param("topicTitle", topic.getTitle()).param("type", "ESSAY")
+                        .param("bodyHtml", "<p>Soal yang tidak boleh masuk</p>")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location",
+                        org.hamcrest.Matchers.startsWith("/eduscreen/bank-soal/paket/" + paket.getId())));
+        // Lewat HTMX: HX-Redirect, supaya klien memuat ulang halaman yang memuat pilihannya.
+        mockMvc.perform(delete("/eduscreen/bank-soal/soal/{id}", soal.getId())
+                        .header("HX-Request", "true").with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("HX-Redirect",
+                        org.hamcrest.Matchers.startsWith("/eduscreen/bank-soal/paket/" + paket.getId())));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/versi-baru", paket.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/eduscreen/bank-soal/paket/" + paket.getId()));
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Versi 2")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("versi kerja")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal render versi unik")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(
+                        "action=\"/eduscreen/bank-soal/paket/" + paket.getId() + "/versi-baru\""))));
+    }
+
+    @Test
+    @DisplayName("TC-13 (AC-B05, ADR-0021): instance baru dari layar melahirkan Paket master lain yang memuat soal yang sama")
+    void instanceBaruDariLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Instance", "Paket render instance asal");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal render instance unik");
+        masterPublishing.publishPaket(paket.getId());
+
+        MvcResult hasil = mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/instance-baru", paket.getId())
+                        .param("title", "Paket render instance turunan")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andReturn();
+        String tujuan = hasil.getResponse().getHeader("Location");
+        assertThat(tujuan).startsWith("/eduscreen/bank-soal/paket/").doesNotContain(paket.getId().toString());
+
+        mockMvc.perform(get(URI.create(tujuan)).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Paket render instance turunan")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal render instance unik")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("versi kerja")));
+    }
+
+    @Test
+    @DisplayName("TC-14 (AC-B17, ADR-0021): editor soal master terbit menyimpan sebagai revisi — fragmen detail memuat soal baru, halaman Paket memuat teks barunya")
+    void editorSoalTerbitMenyimpanRevisi() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Matematika Kelas 4 Render Revisi", "Paket render revisi");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity soal = data.publishedMasterMcq(topic, "Soal render revisi lama");
+        masterPublishing.publishPaket(paket.getId());
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/versi-baru", paket.getId())
+                .with(admin).with(csrf())).andExpect(status().is3xxRedirection());
+
+        mockMvc.perform(get("/eduscreen/bank-soal/soal/{id}", soal.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "hx-put=\"/eduscreen/bank-soal/soal/" + soal.getId() + "/revisi\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Simpan sebagai revisi")));
+
+        String detail = mockMvc.perform(put("/eduscreen/bank-soal/soal/{id}/revisi", soal.getId())
+                        .param("topicTitle", topic.getTitle()).param("type", "MULTIPLE_CHOICE")
+                        .param("bodyHtml", "<p>Soal render revisi baru</p>")
+                        .param("optionBody", "<p>A</p>", "<p>B</p>").param("correctIndex", "0")
+                        .with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal render revisi baru")))
+                .andReturn().getResponse().getContentAsString();
+        assertThat(detail).doesNotContain("/soal/" + soal.getId() + "/revisi");
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal render revisi baru")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Soal render revisi lama"))));
     }
 }

@@ -5,23 +5,30 @@ import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
+import com.eduscreen.app.modules.assessment.service.NeedsVersionChoiceException;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
+import com.eduscreen.app.modules.assessment.service.PaketVersionService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -74,6 +81,7 @@ public class MasterContentController {
     private final PaketRepository paketRepository;
     private final PaketBorrowService borrow;
     private final MasterPublishingService publishing;
+    private final PaketVersionService versions;
 
     public MasterContentController(QuestionService questions,
                                    QuestionRepository questionRepository,
@@ -81,7 +89,8 @@ public class MasterContentController {
                                    PaketService pakets,
                                    PaketRepository paketRepository,
                                    PaketBorrowService borrow,
-                                   MasterPublishingService publishing) {
+                                   MasterPublishingService publishing,
+                                   PaketVersionService versions) {
         this.questions = questions;
         this.questionRepository = questionRepository;
         this.taxonomy = taxonomy;
@@ -89,6 +98,22 @@ public class MasterContentController {
         this.paketRepository = paketRepository;
         this.borrow = borrow;
         this.publishing = publishing;
+        this.versions = versions;
+    }
+
+    /**
+     * Paket master yang seluruh versinya sudah terbit menolak tulisan (ADR-0021). Bukan 409
+     * telanjang: pengguna dialihkan ke halaman Paket, yang memuat pilihan "versi baru" atau
+     * "instance baru" di bagian atasnya. Permintaan HTMX dialihkan lewat {@code HX-Redirect}
+     * supaya klien memuat ulang halaman penuh, bukan menukar satu baris dengan halaman.
+     */
+    @ExceptionHandler(NeedsVersionChoiceException.class)
+    public ResponseEntity<Void> pilihVersiDulu(NeedsVersionChoiceException e, HttpServletRequest request) {
+        String tujuan = BASE_PATH + "/paket/" + e.getPaketId() + "?beku";
+        if ("true".equals(request.getHeader("HX-Request"))) {
+            return ResponseEntity.ok().header("HX-Redirect", tujuan).build();
+        }
+        return ResponseEntity.status(HttpStatus.SEE_OTHER).header("Location", tujuan).build();
     }
 
     /**
@@ -167,11 +192,29 @@ public class MasterContentController {
     public String isiPaket(@PathVariable UUID id, Model model) {
         PaketEntity paket = pakets.require(id, MASTER);
         model.addAttribute("paket", paket);
+        // Versi yang sedang dibaca: versi kerja, atau versi terbit terakhir bila semuanya beku.
+        // Templat memakainya untuk menampilkan nomor versi dan menawarkan pilihan versi baru.
+        model.addAttribute("versi", pakets.versionOf(id));
         model.addAttribute("topics", pakets.topicsOf(id));
         model.addAttribute("soalPerTopic", questions.groupByTopic(id));
         model.addAttribute("jumlahDraf", publishing.draftQuestionsOf(id).size());
         isiJalur(model);
         return "bank/isi";
+    }
+
+    /** Versi kerja baru dari versi terbit terakhir; penempatannya disalin, soalnya tidak (ADR-0021). */
+    @PostMapping("/eduscreen/bank-soal/paket/{id}/versi-baru")
+    public String versiBaru(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user) {
+        versions.newVersion(id, user.userId());
+        return "redirect:" + BASE_PATH + "/paket/" + id;
+    }
+
+    /** Paket master lain yang berbagi soal yang sama; berangkat ke ruang kerja Paket barunya. */
+    @PostMapping("/eduscreen/bank-soal/paket/{id}/instance-baru")
+    public String instanceBaru(@PathVariable UUID id, @RequestParam String title,
+                               @AuthenticationPrincipal UserPrincipal user) {
+        PaketEntity baru = versions.newInstance(id, title, user.userId());
+        return "redirect:" + BASE_PATH + "/paket/" + baru.getId();
     }
 
     @PostMapping("/eduscreen/bank-soal/paket/{id}/topic")
@@ -228,6 +271,30 @@ public class MasterContentController {
         model.addAttribute("soal", soal);
         model.addAttribute("opsi", questions.optionsOf(soal.getId()));
         return "soal/editor :: pratinjauPanel";
+    }
+
+    /**
+     * Soal master terbit beku: editor menyimpannya sebagai revisi — baris baru yang menggantikan
+     * di versi kerja (ADR-0021). Balasannya fragmen detail SOAL BARU, jadi simpan berikutnya dari
+     * editor yang sama sudah menyunting revisinya, bukan mencoba merevisi ulang baris lama.
+     */
+    @PutMapping("/eduscreen/bank-soal/soal/{id}/revisi")
+    public String revisiSoal(@PathVariable UUID id,
+                             @RequestParam String topicTitle,
+                             @RequestParam QuestionType type,
+                             @RequestParam String bodyHtml,
+                             @RequestParam(required = false) String explanationHtml,
+                             @RequestParam(required = false) List<String> optionBody,
+                             @RequestParam(defaultValue = "-1") int correctIndex,
+                             Model model) {
+        questions.require(id, MASTER);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), MASTER);
+        UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, MASTER).getId();
+        QuestionEntity baru = questions.revise(id,
+                QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
+                paket.getId());
+        isiEditor(paket, baru, topicId, model);
+        return "soal/editor :: detail";
     }
 
     @PutMapping("/eduscreen/bank-soal/soal/{id}")
@@ -472,6 +539,8 @@ public class MasterContentController {
                 .map(TopicEntity::getTitle)
                 .findFirst()
                 .orElse(""));
+        // Soal master terbit beku: editor menyimpannya sebagai revisi, bukan menimpa (ADR-0021).
+        model.addAttribute("revisi", soal != null && soal.isPublished());
         model.addAttribute("basePath", BASE_PATH);
     }
 

@@ -25,7 +25,7 @@
       <!-- Menyimpan ke jalur per-Paket: paketId ada di URL, bukan disimpulkan dari Topic (AC-B02). -->
       <form th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal(id=${paket.id})}"
             method="post" class="space-y-4"
-            th:attr="hx-put=${soal == null} ? null : @{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${soal.id})},
+            th:attr="hx-put=${soal == null} ? null : @{__${basePath ?: '/bank-soal'}__/soal/{id}__${(revisi ?: false) ? '/revisi' : ''}__(id=${soal.id})},
                      hx-target=${soal != null} ? '#soal-editor' : null,
                      hx-swap=${soal != null} ? 'outerHTML' : null"
             x-data="soalEditor()" x-init="pasangEditor($el)"
@@ -133,7 +133,14 @@
             Simpan &amp; selesai
           </button>
         </div>
-        <button th:unless="${soal == null}" type="submit" class="btn btn-primary">
+        <!-- Soal master terbit beku (ADR-0021): yang tersimpan adalah revisi, baris baru yang
+             menggantikannya di versi kerja Paket. Baris lama tetap dibaca versi terbit dan sesi. -->
+        <p th:if="${revisi ?: false}" class="alert mb-2" role="note">
+          Soal ini sudah terbit dan beku. Perubahan disimpan sebagai <b>revisi</b>: soal baru yang
+          menggantikannya di versi kerja Paket, sementara versi yang sudah terbit tetap utuh.
+        </p>
+        <button th:unless="${soal == null}" type="submit" class="btn btn-primary"
+                th:text="${(revisi ?: false)} ? 'Simpan sebagai revisi' : 'Simpan'">
           Simpan
         </button>
 

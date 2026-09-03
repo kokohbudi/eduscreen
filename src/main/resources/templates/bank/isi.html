@@ -20,6 +20,42 @@
     </p>
 
     <!--
+      Versi Paket master (ADR-0021). Versi terbit beku: isinya sedang dibaca sekolah, jadi
+      mengubahnya menuntut pilihan — versi baru (penempatan disalin, soal dibagi) atau instance
+      baru (Paket lain berbagi soal yang sama). MasterContentController mengalihkan setiap
+      tulisan ke Paket beku kembali ke sini (?beku), tempat pilihannya ditawarkan.
+    -->
+    <section th:if="${(master ?: false) and versi != null}" class="card mb-4"
+             th:classappend="${versi.draft} ? '' : 'border-warn/60'">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="font-medium" th:text="|Versi ${versi.nomor}|">Versi 1</span>
+        <span th:if="${versi.draft}" class="badge">versi kerja</span>
+        <span th:unless="${versi.draft}" class="badge badge-warn">terbit, beku</span>
+      </div>
+      <div th:unless="${versi.draft}" class="mt-3 space-y-3">
+        <p class="text-sm text-ink-2">
+          Isi versi ini sedang dibaca sekolah dan tidak bisa diubah. Untuk mengubahnya, buat
+          versi baru — sekolah memilih sendiri kapan pindah ke versi itu — atau buat instance
+          baru sebagai Paket terpisah yang berbagi soal yang sama.
+        </p>
+        <div class="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <form method="post" th:action="@{__${basePath}__/paket/{id}/versi-baru(id=${paket.id})}">
+            <button type="submit" class="btn btn-primary">Buat versi baru</button>
+          </form>
+          <form method="post" th:action="@{__${basePath}__/paket/{id}/instance-baru(id=${paket.id})}"
+                class="flex flex-wrap items-end gap-2">
+            <div>
+              <label for="judulInstance" class="label">Judul instance baru</label>
+              <input id="judulInstance" name="title" type="text" required class="input"
+                     th:value="|${paket.title} (salinan)|">
+            </div>
+            <button type="submit" class="btn btn-secondary">Buat instance baru</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!--
       Jalan pintas untuk Paket besar: menerbitkan 200 soal lewat tombol per baris tidak masuk akal
       (AC-B19). Hanya di ruang kerja master — Paket milik Client tidak punya keadaan terbit sama
       sekali. Form biasa, bukan HTMX: yang berubah setiap baris di setiap Topic sekaligus.
@@ -384,13 +420,13 @@
          Paket 30 soal dengan 3 Topic tidak layak menambah satu klik lagi (ADR-0018). -->
     <!--
       `massal` (AC-B26): centang beberapa soal di satu Topic lalu terbitkan/tarik/hapus sekaligus.
-      Di ruang kerja master hanya selama Paket belum terbit — Paket terbit menolak tarik maupun
-      hapus per soal (AC-B17), jadi menawarkan aksi massalnya cuma menjanjikan 409. Di Bank Soal
+      Di ruang kerja master hanya selama ada versi kerja — versi terbit beku (AC-B17, ADR-0021),
+      jadi menawarkan aksi massalnya cuma menjanjikan pengalihan ke pilihan versi. Di Bank Soal
       Client selalu ada (aksinya cuma Hapus). Variabel lokal ini juga terbaca di fragmen
       barisSoal di bawah, yang memunculkan kotak centangnya.
     -->
     <section th:each="t : ${topics}"
-             th:with="soalTopic=${soalPerTopic[t.id]},massal=${(master ?: false) ? !paket.published : true}"
+             th:with="soalTopic=${soalPerTopic[t.id]},massal=${(master ?: false) ? (versi != null and versi.draft) : true}"
              class="card mb-4">
       <div class="mb-3 flex items-center justify-between">
         <h2 class="card-title" th:text="${t.title}">Topic</h2>
