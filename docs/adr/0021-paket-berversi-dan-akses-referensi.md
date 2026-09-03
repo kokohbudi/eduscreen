@@ -55,6 +55,13 @@ pernah mendarat diam-diam di tengah semester — alasan asli ADR-0001 tetap terp
   ada di versi terbit ditolak; menghapusnya hanya membuang dari versi kerja.
 - Versi terbit boleh memuat item soal draf (ADR-0020 tetap); sekolah hanya melihat item yang
   soalnya terbit.
+- Operasi tulis atas soal master — ubah, revisi, hapus, pindah Topic — selalu berkonteks satu
+  Paket (`paketId` di tautan dan form editor): sejak soal bisa berada di banyak Paket, "soal ini"
+  saja tidak cukup menentukan penempatan mana yang dimaksud. Hapus hanya membuang penempatan di
+  Paket itu; baris soal dihapus lunak bila tidak ada penempatan tersisa di mana pun. Soal yang
+  sudah digantikan tidak direvisi lagi dari Paket lain — rantai riwayat satu arah.
+- Akses hanya bisa dipakai selama Paket master masih terbit; Paket yang ditarik berhenti
+  dipakai baru walau aksesnya belum dicabut, dan hidup lagi begitu diterbitkan ulang.
 - Predikat ACCESSIBLE (`QuestionRepository`): soal milik Client, atau soal master terbit yang
   ditempatkan di versi yang terlihat Client (`PaketAccessService.visibleVersionIds`, parameter
   eksplisit — TC-36). Versi-lah yang menentukan, bukan `superseded_by_id`: sekolah di versi 1
