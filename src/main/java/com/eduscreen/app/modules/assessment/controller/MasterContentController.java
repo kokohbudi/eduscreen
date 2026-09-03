@@ -253,10 +253,16 @@ public class MasterContentController {
                 : "redirect:" + BASE_PATH + "/paket/" + id;
     }
 
+    /**
+     * {@code paketId} wajib bermakna sejak soal master bisa hidup di banyak Paket (ADR-0021):
+     * tanpa itu Paket yang disunting ditentukan penempatan pertama yang kebetulan ditemukan.
+     * Tautan dari halaman isi Paket selalu membawanya; tanpa parameter jatuh ke penempatan mana
+     * pun demi tautan lama.
+     */
     @GetMapping("/eduscreen/bank-soal/soal/{id}")
-    public String ubahSoal(@PathVariable UUID id, Model model) {
+    public String ubahSoal(@PathVariable UUID id, @RequestParam(required = false) UUID paketId, Model model) {
         QuestionEntity soal = questions.require(id, MASTER);
-        Placement penempatan = questions.requirePlacement(id);
+        Placement penempatan = questions.requirePlacement(id, paketId);
         // require pada Paket induk: soal di bawah Paket yang sudah dihapus lunak ikut 404.
         PaketEntity paket = pakets.require(penempatan.getPaketId(), MASTER);
         isiEditor(paket, soal, penempatan.getTopicId(), model);
@@ -286,9 +292,10 @@ public class MasterContentController {
                              @RequestParam(required = false) String explanationHtml,
                              @RequestParam(required = false) List<String> optionBody,
                              @RequestParam(defaultValue = "-1") int correctIndex,
+                             @RequestParam(required = false) UUID paketId,
                              Model model) {
         questions.require(id, MASTER);
-        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), MASTER);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id, paketId).getPaketId(), MASTER);
         UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, MASTER).getId();
         QuestionEntity baru = questions.revise(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
@@ -305,9 +312,10 @@ public class MasterContentController {
                              @RequestParam(required = false) String explanationHtml,
                              @RequestParam(required = false) List<String> optionBody,
                              @RequestParam(defaultValue = "-1") int correctIndex,
+                             @RequestParam(required = false) UUID paketId,
                              Model model) {
         questions.require(id, MASTER);
-        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), MASTER);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id, paketId).getPaketId(), MASTER);
         UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, MASTER).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
@@ -484,7 +492,7 @@ public class MasterContentController {
             switch (aksi) {
                 case "terbit" -> publishing.publishQuestion(qid);
                 case "tarik" -> publishing.unpublishQuestion(qid);
-                case "hapus" -> questions.softDelete(qid, MASTER);
+                case "hapus" -> questions.softDelete(qid, MASTER, id);
                 default -> throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
             }
         }
@@ -513,8 +521,10 @@ public class MasterContentController {
      * tidak punya jalan menghapus konten master dari layar mana pun.
      */
     @DeleteMapping("/eduscreen/bank-soal/soal/{id}")
-    public String hapusSoal(@PathVariable UUID id, Model model) {
-        questions.softDelete(id, MASTER);
+    public String hapusSoal(@PathVariable UUID id, @RequestParam(required = false) UUID paketId, Model model) {
+        // Halaman isi Paket selalu mengirim paketId; hasil pencarian lintas-Paket tidak, dan di
+        // sana penempatan pertama yang dipakai.
+        questions.softDelete(id, MASTER, paketId != null ? paketId : questions.requirePlacement(id).getPaketId());
         model.addAttribute("pesan", "Soal master dihapus. Salinan yang sudah diadopsi Client tidak terpengaruh.");
         return "bank/isi :: konfirmasiHapus";
     }
@@ -582,6 +592,9 @@ public class MasterContentController {
         Placement tempat = questions.requirePlacement(soal.getId());
         List<QuestionEntity> saudara = questionRepository.findByVersionAndTopicOrdered(
                 MASTER, tempat.getVersionId(), tempat.getTopicId());
+        // Nomor dari penempatan pertama yang ditemukan; soal master bisa berada di lebih dari
+        // satu Paket (ADR-0021), jadi nomor ini hanya tepat untuk baris yang ditukar HTMX di
+        // halaman Paket yang memuat penempatan itu — pemuatan ulang halaman menomori dari nol.
         for (int i = 0; i < saudara.size(); i++) {
             if (saudara.get(i).getId().equals(soal.getId())) {
                 return i + 1;

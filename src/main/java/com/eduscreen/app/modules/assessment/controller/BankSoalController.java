@@ -1,6 +1,7 @@
 package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.repository.PaketAccessEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
@@ -18,6 +19,7 @@ import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -124,6 +126,11 @@ public class BankSoalController {
     @PostMapping("/bank-soal/akses/{id}/versi")
     public String pindahVersi(@PathVariable UUID id, @RequestParam UUID versionId,
                               @AuthenticationPrincipal UserPrincipal user) {
+        // /bank-soal/** terbuka untuk Guru juga; memindahkan versi milik Client Admin (BR-O06).
+        // Ditolak sebagai 404 lewat GlobalExceptionAdvice, sama seperti sasaran lain (TC-09).
+        if (user.role() != UserRole.CLIENT_ADMIN) {
+            throw new AccessDeniedException("Hanya Client Admin yang memindahkan versi");
+        }
         PaketAccessEntity akses = access.switchVersion(id, versionId, user.requireClientId());
         return "redirect:/bank-soal/paket/" + akses.getPaketId();
     }
@@ -254,10 +261,11 @@ public class BankSoalController {
 
     @GetMapping("/bank-soal/soal/{id}")
     public String ubahSoal(@PathVariable UUID id,
+                           @RequestParam(required = false) UUID paketId,
                            @AuthenticationPrincipal UserPrincipal user, Model model) {
         UUID clientId = user.requireClientId();
         QuestionEntity soal = questions.require(id, clientId);
-        Placement penempatan = questions.requirePlacement(id);
+        Placement penempatan = questions.requirePlacement(id, paketId);
         // require pada Paket induk: soal di bawah Paket yang sudah dihapus lunak ikut 404.
         PaketEntity paket = pakets.require(penempatan.getPaketId(), clientId);
         isiEditor(paket, soal, penempatan.getTopicId(), model);
@@ -286,10 +294,11 @@ public class BankSoalController {
                              @RequestParam(required = false) String explanationHtml,
                              @RequestParam(required = false) List<String> optionBody,
                              @RequestParam(defaultValue = "-1") int correctIndex,
+                             @RequestParam(required = false) UUID paketId,
                              @AuthenticationPrincipal UserPrincipal user, Model model) {
         UUID clientId = user.requireClientId();
         questions.require(id, clientId);
-        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), clientId);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id, paketId).getPaketId(), clientId);
         UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, user.requireClientId()).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml,
@@ -317,14 +326,16 @@ public class BankSoalController {
             throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
         }
         for (UUID qid : questionIds == null ? List.<UUID>of() : questionIds) {
-            questions.softDelete(qid, clientId);
+            questions.softDelete(qid, clientId, id);
         }
         return "redirect:/bank-soal/paket/" + id;
     }
 
     @DeleteMapping("/bank-soal/soal/{id}")
-    public String hapusSoal(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user, Model model) {
-        questions.softDelete(id, user.requireClientId());
+    public String hapusSoal(@PathVariable UUID id,
+                            @RequestParam(required = false) UUID paketId,
+                            @AuthenticationPrincipal UserPrincipal user, Model model) {
+        questions.softDelete(id, user.requireClientId(), paketId);
         model.addAttribute("pesan", "Soal dihapus dari bank soal.");
         return "bank/isi :: konfirmasiHapus";
     }

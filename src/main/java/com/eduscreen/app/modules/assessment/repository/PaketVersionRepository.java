@@ -22,6 +22,9 @@ public interface PaketVersionRepository extends JpaRepository<PaketVersionEntity
 
     Optional<PaketVersionEntity> findFirstByPaketIdAndPublishedAtIsNotNullOrderByNomorDesc(UUID paketId);
 
+    /** Versi terbit tertentu dari Paket tertentu — sasaran pindah akses; selain itu kosong (TC-36). */
+    Optional<PaketVersionEntity> findByIdAndPaketIdAndPublishedAtIsNotNull(UUID id, UUID paketId);
+
     @Query("select coalesce(max(v.nomor), 0) + 1 from PaketVersionEntity v where v.paketId = :paketId")
     int nextNomor(@Param("paketId") UUID paketId);
 

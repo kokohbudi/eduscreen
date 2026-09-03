@@ -294,13 +294,13 @@ class MasterContentIT extends PostgresTestBase {
         publishing.publishPaket(paket.getId());
 
         // Tanpa versi kerja tidak ada tempat menghapus: pilihan versi baru/instance baru dulu.
-        assertThatThrownBy(() -> questionService.softDelete(soal.getId(), null))
+        assertThatThrownBy(() -> questionService.softDelete(soal.getId(), null, paket.getId()))
                 .isInstanceOf(NeedsVersionChoiceException.class);
         assertThat(questionService.searchMaster(null, null, "gerbang hapus unik", null,
                 PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
 
         PaketVersionEntity v2 = versionService.newVersion(paket.getId(), null);
-        questionService.softDelete(soal.getId(), null);
+        questionService.softDelete(soal.getId(), null, paket.getId());
 
         // Hilang dari versi kerja, tetap hidup di versi 1 yang beku — dan karena itu masih
         // muncul di pencarian ruang kerja sebagai isi versi terbit.

@@ -44,6 +44,11 @@ public class PaketItemEntity {
     }
 
     public PaketItemEntity(PaketVersionEntity version, TopicEntity topic, QuestionEntity question, int position) {
+        // Arah yang tidak diperiksa database (FK MATCH SIMPLE, lihat V11): soal master tidak
+        // pernah ditempatkan langsung di versi milik Client — sekolah membacanya lewat akses.
+        if (question.getClientId() == null && version.getClientId() != null) {
+            throw new IllegalArgumentException("Soal master tidak bisa ditempatkan di Paket milik Client");
+        }
         this.id = UuidV7.randomUuid();
         this.paketVersionId = version.getId();
         this.clientId = question.getClientId();

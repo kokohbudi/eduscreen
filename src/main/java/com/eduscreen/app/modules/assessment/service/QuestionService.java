@@ -198,7 +198,18 @@ public class QuestionService {
      */
     @Transactional(readOnly = true)
     public Placement requirePlacement(UUID questionId) {
+        return requirePlacement(questionId, null);
+    }
+
+    /**
+     * Penempatan soal di Paket tertentu — wajib bagi jalur tulis soal master, yang sejak
+     * ADR-0021 bisa berada di banyak Paket. {@code paketId} null mengambil penempatan mana pun
+     * (soal sekolah hanya punya satu).
+     */
+    @Transactional(readOnly = true)
+    public Placement requirePlacement(UUID questionId, UUID paketId) {
         return items.findPlacements(List.of(questionId)).stream()
+                .filter(p -> paketId == null || p.getPaketId().equals(paketId))
                 .findFirst()
                 .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
     }
@@ -367,6 +378,11 @@ public class QuestionService {
         if (!lama.isPublished()) {
             throw new IllegalArgumentException("Soal yang belum terbit diubah langsung, bukan direvisi");
         }
+        // Rantai riwayat satu arah: soal yang sudah digantikan tidak direvisi lagi dari tempat
+        // lain, supaya supersededById tidak ditimpa dan riwayat tetap bisa ditelusuri.
+        if (lama.isSuperseded()) {
+            throw new IllegalStateException("Soal ini sudah digantikan revisi. Sunting revisinya, bukan baris lama.");
+        }
         TopicEntity topic = requireTopicOf(draft.topicId(), paketId, null);
         PaketVersionEntity version = pakets.draftOf(paketId);
         PaketItemEntity item = items.findByPaketVersionIdAndQuestionId(version.getId(), id)
@@ -430,17 +446,36 @@ public class QuestionService {
      */
     @Transactional
     public void softDelete(UUID id, UUID clientId) {
+        softDelete(id, clientId, null);
+    }
+
+    /**
+     * Menghapus soal dari SATU Paket: penempatannya di versi kerja Paket itu dibuang (Paket
+     * tanpa versi kerja menuntut pilihan dulu, {@link NeedsVersionChoiceException}). Baris
+     * soalnya sendiri baru dihapus lunak bila tidak ada lagi penempatan di mana pun — Paket
+     * lain yang berbagi soal itu (instance, ADR-0021) dan versi terbit tidak tersentuh.
+     *
+     * <p>{@code paketId} null hanya untuk soal sekolah (satu Paket): seluruh penempatan di versi
+     * kerja dibuang. Soal master wajib menyebut Paketnya.
+     */
+    @Transactional
+    public void softDelete(UUID id, UUID clientId, UUID paketId) {
         QuestionEntity question = require(id, clientId);
-        if (clientId == null && items.countPublishedPlacements(id) > 0) {
-            for (UUID paketId : items.paketIdsContaining(id)) {
-                pakets.draftOf(paketId);
-            }
+        if (paketId != null) {
+            pakets.require(paketId, clientId);
+            PaketVersionEntity draft = pakets.draftOf(paketId);
+            items.findByPaketVersionIdAndQuestionId(draft.getId(), id).ifPresent(items::delete);
+        } else if (clientId == null) {
+            throw new IllegalArgumentException("Menghapus soal master wajib menyebut Paketnya");
+        } else {
             items.deleteDraftItemsOf(id);
-            return;
         }
-        question.softDelete(clock.now());
-        questions.save(question);
-        items.deleteDraftItemsOf(id);
+        if (items.findPlacements(List.of(id)).isEmpty()) {
+            // Soal hilang dari pencarian bank soal tapi tetap terbaca oleh Exercise dan sesi yang
+            // sudah memakainya (FR-018) — @SQLRestriction plus findAllForSnapshot.
+            question.softDelete(clock.now());
+            questions.save(question);
+        }
     }
 
     private void applyExplanation(QuestionEntity question, String explanationHtmlRaw) {

@@ -167,6 +167,40 @@ class PaketVersionIT extends PostgresTestBase {
         assertThat(items.findByVersionAndTopicOrdered(draf.getId(), topicBaru.get(0).getId()))
                 .extracting(PaketItemEntity::getQuestionId).containsExactly(s.soal().getId());
         assertThat(questions.count()).isEqualTo(soalSebelum);
+
+        // Hapus di instance baru hanya membuang penempatan di sana: Paket asal dan barisnya utuh.
+        questionService.softDelete(s.soal().getId(), null, baru.getId());
+        assertThat(items.questionIdsOf(draf.getId())).isEmpty();
+        assertThat(items.questionIdsOf(v1(s.paket()))).containsExactly(s.soal().getId());
+        assertThat(questions.findById(s.soal().getId())).isPresent();
+    }
+
+    @Test
+    @DisplayName("AC-B18 (ADR-0021): jumlah soal per Paket master dihitung dari versi yang dibaca — Paket beku tidak tampil bersoal nol")
+    void jumlahSoalPaketBeku() {
+        Siap s = paketTerbit("Hitung");
+
+        assertThat(questions.countMasterByPaket()).filteredOn(c -> c.getPaketId().equals(s.paket().getId()))
+                .extracting(QuestionRepository.PaketCount::getJumlah).containsExactly(1L);
+
+        versionService.newVersion(s.paket().getId(), null);
+        questionService.create(draf(s.topic().getId(), "Soal Hitung dua"), null, s.paket().getId());
+        assertThat(questions.countMasterByPaket()).filteredOn(c -> c.getPaketId().equals(s.paket().getId()))
+                .extracting(QuestionRepository.PaketCount::getJumlah).as("versi kerja yang dibaca").containsExactly(2L);
+    }
+
+    @Test
+    @DisplayName("AC-B17 (ADR-0021): soal yang sudah digantikan tidak bisa direvisi lagi dari Paket lain — rantai riwayat satu arah")
+    void revisiGandaDitolak() {
+        Siap s = paketTerbit("Rantai");
+        PaketEntity instance = versionService.newInstance(s.paket().getId(), "Paket Rantai instance", null);
+        versionService.newVersion(s.paket().getId(), null);
+        TopicEntity topicInstance = pakets.topicsOf(instance.getId()).get(0);
+        questionService.revise(s.soal().getId(), draf(s.topic().getId(), "Soal Rantai v2"), s.paket().getId());
+
+        assertThatThrownBy(() -> questionService.revise(s.soal().getId(), draf(topicInstance.getId(), "Soal Rantai lain"),
+                instance.getId()))
+                .isInstanceOf(IllegalStateException.class);
     }
 
     @Test
@@ -175,7 +209,7 @@ class PaketVersionIT extends PostgresTestBase {
         Siap s = paketTerbit("Hapus");
         PaketVersionEntity v2 = versionService.newVersion(s.paket().getId(), null);
 
-        questionService.softDelete(s.soal().getId(), null);
+        questionService.softDelete(s.soal().getId(), null, s.paket().getId());
 
         assertThat(items.questionIdsOf(v2.getId())).isEmpty();
         assertThat(items.questionIdsOf(v1(s.paket()))).containsExactly(s.soal().getId());

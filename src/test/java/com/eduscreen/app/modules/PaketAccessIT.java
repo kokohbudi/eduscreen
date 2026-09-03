@@ -131,6 +131,15 @@ class PaketAccessIT extends PostgresTestBase {
         assertThat(access.usable(sekolah.getId())).isEmpty();
         assertThat(access.activeFor(sekolah.getId())).isEmpty();
 
+        // Paket yang ditarik Eduscreen berhenti dipakai baru, walau aksesnya masih aktif (AC-B10).
+        access.grant(sekolah.getId(), m.paket().getId(), null, null);
+        publishing.withdrawPaket(m.paket().getId());
+        assertThat(access.usable(sekolah.getId())).isEmpty();
+        assertThatThrownBy(() -> questionService.requireReadable(m.soal().getId(), sekolah.getId()))
+                .isInstanceOf(ResourceNotFoundException.class);
+        publishing.publishPaket(m.paket().getId());
+        assertThat(access.usable(sekolah.getId())).as("terbit lagi: akses yang sama hidup lagi").hasSize(1);
+
         // Soal master tidak pernah bisa ditulisi sekolah, akses atau tidak (TC-36).
         assertThatThrownBy(() -> questionService.require(m.soal().getId(), sekolah.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);

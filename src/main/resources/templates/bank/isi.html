@@ -570,7 +570,7 @@
             <span>Pratinjau</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
           </button>
-          <a role="menuitem" th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}" class="menu-item">
+          <a role="menuitem" th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id},paketId=${paket != null ? paket.id : null})}" class="menu-item">
             <span>Ubah</span>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
           </a>
@@ -594,7 +594,7 @@
                Pesan konfirmasinya saja yang beda, karena hanya konten master yang punya salinan
                hasil adopsi untuk disebut. -->
           <button role="menuitem" type="button"
-                  th:attr="hx-delete=@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})},
+                  th:attr="hx-delete=@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id},paketId=${paket != null ? paket.id : null})},
                            hx-target=|#soal-${q.id}|,
                            hx-confirm=${(master ?: false)} ? 'Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh.' : 'Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh.'"
                   hx-swap="outerHTML" class="menu-item menu-item-danger">
@@ -610,7 +610,7 @@
         <span class="sr-only">Ubah</span>
       </a>
       <button th:unless="${(master ?: false) or (readOnly ?: false)}" type="button"
-              th:attr="hx-delete=@{/bank-soal/soal/{id}(id=${q.id})},hx-target=|#soal-${q.id}|"
+              th:attr="hx-delete=@{/bank-soal/soal/{id}(id=${q.id},paketId=${paket != null ? paket.id : null})},hx-target=|#soal-${q.id}|"
               hx-swap="outerHTML"
               hx-confirm="Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh."
               class="btn btn-secondary btn-sm btn-icon shrink-0 text-danger"

@@ -29,6 +29,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -57,6 +58,9 @@ class ContentIdorTest extends PostgresTestBase {
     @Autowired TestData data;
     @Autowired QuestionRepository questions;
     @Autowired ImageService images;
+    @Autowired com.eduscreen.app.modules.assessment.service.PaketService paketService;
+    @Autowired com.eduscreen.app.modules.assessment.service.MasterPublishingService masterPublishing;
+    @Autowired com.eduscreen.app.modules.assessment.service.PaketAccessService access;
 
     @Test
     @DisplayName("TC-09: Question Client lain dan Question yang tidak ada membalas 404 dengan body identik")
@@ -292,5 +296,59 @@ class ContentIdorTest extends PostgresTestBase {
             mockMvc.perform(get("/eduscreen/client").with(user(data.principal(pengguna))))
                     .andExpect(status().isForbidden());
         }
+    }
+
+    @Test
+    @DisplayName("TC-41 (ADR-0021): endpoint versi dan akses ditolak lintas-Client dan lintas-peran — 404 identik, tidak ada yang berubah")
+    void endpointVersiDanAksesLintasClient() throws Exception {
+        Tenants tenants = data.twoTenants();
+        var masterPaket = data.masterPaket("Matematika Kelas 4 idor versi", "Paket idor versi");
+        var topic = paketService.topicsOf(masterPaket.getId()).get(0);
+        var soalMaster = data.publishedMasterMcq(topic, "Soal idor versi");
+        masterPublishing.publishPaket(masterPaket.getId());
+        var akses = access.grant(tenants.a().client().getId(), masterPaket.getId(), null, null);
+        var versi = paketService.versionOf(masterPaket.getId());
+
+        // Guru A: /bank-soal terbuka untuknya, tapi memindahkan versi milik Client Admin (BR-O06).
+        mockMvc.perform(post("/bank-soal/akses/{id}/versi", akses.getId())
+                        .param("versionId", versi.getId().toString())
+                        .with(user(data.principal(tenants.a().guru()))).with(csrf()))
+                .andExpect(status().isNotFound());
+        // Client Admin B: akses milik A tidak ada baginya.
+        mockMvc.perform(post("/bank-soal/akses/{id}/versi", akses.getId())
+                        .param("versionId", versi.getId().toString())
+                        .with(user(data.principal(tenants.b().admin()))).with(csrf()))
+                .andExpect(status().isNotFound());
+        // Guru B: Paket master tanpa akses tidak bisa dipasang ke Exercise-nya.
+        mockMvc.perform(post("/exercise/{id}/item/paket", tenants.b().exercise().getId())
+                        .param("paketId", masterPaket.getId().toString())
+                        .with(user(data.principal(tenants.b().guru()))).with(csrf()))
+                .andExpect(status().isNotFound());
+        // Guru B: Paket sekolah A pun tidak.
+        mockMvc.perform(post("/exercise/{id}/item/paket", tenants.b().exercise().getId())
+                        .param("paketId", data.paketOf(tenants.a().topic()).getId().toString())
+                        .with(user(data.principal(tenants.b().guru()))).with(csrf()))
+                .andExpect(status().isNotFound());
+
+        // Eduscreen Admin: rute versi dan revisi hanya untuk Paket/soal master; milik Client → 404.
+        var eduscreen = user(data.principal(data.eduscreenAdmin()));
+        var paketClient = data.paketOf(tenants.a().topic());
+        var soalClient = tenants.a().questions().get(0);
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/versi-baru", paketClient.getId())
+                        .with(eduscreen).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/instance-baru", paketClient.getId())
+                        .param("title", "Rampas").with(eduscreen).with(csrf()))
+                .andExpect(status().isNotFound());
+        mockMvc.perform(put("/eduscreen/bank-soal/soal/{id}/revisi", soalClient.getId())
+                        .param("topicTitle", "x").param("type", "ESSAY").param("bodyHtml", "<p>rampas</p>")
+                        .with(eduscreen).with(csrf()))
+                .andExpect(status().isNotFound());
+        assertEquals("Soal 1 SD Alfa", data.questionsInPaket(paketClient.getId()).get(0).getBodyText());
+        // Soal master masih di versinya, akses A masih menunjuk versi 1.
+        assertEquals(versi.getId(), access.activeFor(tenants.a().client().getId()).get(0).getVersionId());
+        assertTrue(access.usable(tenants.a().client().getId()).stream()
+                .anyMatch(a -> a.getPaketId().equals(masterPaket.getId())));
+        assertFalse(soalMaster.isSuperseded());
     }
 }

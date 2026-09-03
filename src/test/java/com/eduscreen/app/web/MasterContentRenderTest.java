@@ -96,7 +96,7 @@ class MasterContentRenderTest extends PostgresTestBase {
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
                         "hx-post=\"/eduscreen/bank-soal/soal/" + soal.getId() + "/terbit\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "/eduscreen/bank-soal/soal/" + soal.getId() + "\"")))
+                        "/eduscreen/bank-soal/soal/" + soal.getId() + "?paketId=" + paket.getId() + "\"")))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("basePath"))))
                 // Penjaga kedua, gejala yang berbeda: yang di atas menangkap `basePath` yang

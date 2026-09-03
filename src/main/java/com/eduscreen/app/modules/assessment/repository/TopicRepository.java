@@ -54,6 +54,9 @@ public interface TopicRepository extends JpaRepository<TopicEntity, UUID> {
     @Query("select coalesce(max(t.position), -1) + 1 from TopicEntity t where t.paketId = :paketId")
     int nextPosition(@Param("paketId") UUID paketId);
 
+    /** Topic yang Paketnya termasuk daftar yang sudah lolos pemeriksaan akses; di luar itu kosong (TC-36). */
+    Optional<TopicEntity> findByIdAndPaketIdIn(UUID id, Collection<UUID> paketIds);
+
     /**
      * Topic dari sekumpulan Paket yang sudah lolos pemeriksaan pemilik/akses di pemanggil
      * ({@code PaketAccessService.readableTopicsIn}); {@code paketIds} tidak pernah kosong.

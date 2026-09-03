@@ -253,11 +253,19 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
             + "and q.clientId = :clientId group by v.paketId")
     List<PaketCount> countByPaket(@Param("clientId") UUID clientId);
 
-    /** Padanan {@link #countByPaket} untuk ruang kerja Eduscreen: seluruh Paket master. */
+    /**
+     * Padanan {@link #countByPaket} untuk ruang kerja Eduscreen: seluruh Paket master, dihitung
+     * dari versi yang DIBACA — versi kerja bila ada, kalau tidak versi terbit terakhir
+     * ({@code PaketService.versionOf}). Paket master yang seluruh versinya beku tidak boleh
+     * tampil bersoal nol.
+     */
     @Query("select v.paketId as paketId, count(q) as jumlah "
             + "from QuestionEntity q, PaketItemEntity i, PaketVersionEntity v "
-            + "where i.questionId = q.id and i.paketVersionId = v.id and v.publishedAt is null "
-            + "and q.clientId is null group by v.paketId")
+            + "where i.questionId = q.id and i.paketVersionId = v.id and q.clientId is null "
+            + "and (v.publishedAt is null or (v.nomor = (select max(x.nomor) from PaketVersionEntity x "
+            + "  where x.paketId = v.paketId and x.publishedAt is not null) "
+            + "  and not exists (select d from PaketVersionEntity d where d.paketId = v.paketId and d.publishedAt is null))) "
+            + "group by v.paketId")
     List<PaketCount> countMasterByPaket();
 
     interface PaketCount {

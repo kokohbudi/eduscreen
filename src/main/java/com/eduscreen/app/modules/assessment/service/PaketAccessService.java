@@ -94,8 +94,7 @@ public class PaketAccessService {
                 ? accesses.findById(accessId)
                 : accesses.findByIdAndClientIdAndRevokedAtIsNull(accessId, clientId))
                 .orElseThrow(() -> new ResourceNotFoundException("Akses tidak ditemukan"));
-        PaketVersionEntity versi = versions.findById(versionId)
-                .filter(v -> !v.isDraft() && v.getPaketId().equals(akses.getPaketId()))
+        PaketVersionEntity versi = versions.findByIdAndPaketIdAndPublishedAtIsNotNull(versionId, akses.getPaketId())
                 .orElseThrow(() -> new ResourceNotFoundException("Versi tidak ditemukan"));
         akses.switchTo(versi);
         return accesses.save(akses);
@@ -178,15 +177,18 @@ public class PaketAccessService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paket tidak ditemukan"));
     }
 
-    /** Padanan {@link #visibleVersionOf} untuk Topic: Topic asing menghasilkan kosong, bukan galat. */
+    /**
+     * Padanan {@link #visibleVersionOf} untuk Topic: Topic asing menghasilkan kosong, bukan galat.
+     * Disaring di dalam query lewat daftar Paket yang terlihat (TC-36), bukan dibaca dulu lalu
+     * ditolak di Java.
+     */
     public Optional<PaketVersionEntity> visibleVersionOfTopic(UUID topicId, UUID clientId) {
-        return topics.findById(topicId).flatMap(t -> {
-            try {
-                return Optional.of(visibleVersionOf(t.getPaketId(), clientId));
-            } catch (ResourceNotFoundException tidakTerlihat) {
-                return Optional.empty();
-            }
-        });
+        List<UUID> paketIds = readablePakets(clientId).stream().map(PaketEntity::getId).toList();
+        if (paketIds.isEmpty()) {
+            return Optional.empty();
+        }
+        return topics.findByIdAndPaketIdIn(topicId, paketIds)
+                .map(t -> visibleVersionOf(t.getPaketId(), clientId));
     }
 
     /** Topic seluruh Paket yang terlihat Client di satu Subject — dropdown penyaring bank soal. */

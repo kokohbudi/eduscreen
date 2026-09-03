@@ -71,9 +71,10 @@ public class PaketBorrowService {
         }
         PaketVersionEntity version = pakets.draftOf(target.getId());
         Set<UUID> sudahAda = new HashSet<>(questions.findSourceIdsInVersion(version.getId()));
+        List<UUID> terlihat = clientId == null ? List.of() : access.visibleVersionIds(clientId);
         int tersalin = 0;
         for (UUID id : questionIds) {
-            QuestionEntity asal = bacaMilikClient(id, clientId);
+            QuestionEntity asal = bacaMilikClient(id, clientId, terlihat);
             if (asal == null || sudahAda.contains(asal.getId())) {
                 continue;
             }
@@ -131,10 +132,10 @@ public class PaketBorrowService {
      * dimiliki — satu-satunya jalan soal master menjadi baris milik sekolah, saat sekolah memang
      * ingin mengubahnya (ADR-0021). Kedua cabang menyaring pemilik DI DALAM query.
      */
-    private QuestionEntity bacaMilikClient(UUID id, UUID clientId) {
+    private QuestionEntity bacaMilikClient(UUID id, UUID clientId, List<UUID> versionIds) {
         return (clientId == null
                 ? questions.findByIdAndClientIdIsNull(id)
-                : questions.findAccessibleById(id, clientId, access.visibleVersionIds(clientId)))
+                : questions.findAccessibleById(id, clientId, versionIds))
                 .orElse(null);
     }
 
