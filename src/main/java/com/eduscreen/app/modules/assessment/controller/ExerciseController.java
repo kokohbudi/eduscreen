@@ -3,9 +3,9 @@ package com.eduscreen.app.modules.assessment.controller;
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
-import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.service.ExerciseService;
+import com.eduscreen.app.modules.assessment.service.PaketAccessService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.shared.security.UserPrincipal;
 import org.springframework.data.domain.PageRequest;
@@ -42,12 +42,12 @@ public class ExerciseController {
 
     private final ExerciseService exercises;
     private final QuestionService questions;
-    private final PaketRepository pakets;
+    private final PaketAccessService access;
 
-    public ExerciseController(ExerciseService exercises, QuestionService questions, PaketRepository pakets) {
+    public ExerciseController(ExerciseService exercises, QuestionService questions, PaketAccessService access) {
         this.exercises = exercises;
         this.questions = questions;
-        this.pakets = pakets;
+        this.access = access;
     }
 
     @GetMapping("/exercise")
@@ -84,7 +84,9 @@ public class ExerciseController {
         model.addAttribute("type", null);
         model.addAttribute("sembunyikanTerpasang", false);
         model.addAttribute("exerciseId", id);
-        model.addAttribute("pakets", pakets.findByClientIdOrderByTitleAsc(clientId));
+        // Paket milik sekolah ∪ Paket master yang aksesnya dimiliki (ADR-0021): perakit menelusuri
+        // keduanya lewat panel yang sama.
+        model.addAttribute("pakets", access.readablePakets(clientId));
         return "exercise/builder";
     }
 
@@ -189,6 +191,22 @@ public class ExerciseController {
         return "exercise/builder :: item";
     }
 
+    /**
+     * Menambahkan seluruh isi satu Paket sekaligus — Paket milik sekolah maupun Paket master
+     * lewat aksesnya (skenario "ambil Paket bulat-bulat", ADR-0021). Balasannya daftar item,
+     * sama seperti tambah per Topic.
+     */
+    @PostMapping("/exercise/{id}/item/paket")
+    public String addPaket(@PathVariable UUID id,
+                           @RequestParam UUID paketId,
+                           @AuthenticationPrincipal UserPrincipal user,
+                           Model model) {
+        UUID clientId = user.requireClientId();
+        exercises.addPaket(id, paketId, clientId);
+        muatItem(id, clientId, model);
+        return "exercise/builder :: item";
+    }
+
     @PutMapping("/exercise/{id}/urutan")
     public String reorder(@PathVariable UUID id,
                           @RequestParam List<UUID> questionIds,
@@ -207,15 +225,17 @@ public class ExerciseController {
     }
 
     /**
-     * Batang soal dimuat satu per satu lewat {@link QuestionService#require} per item — jumlah
-     * item satu Exercise kecil (puluhan, bukan ribuan), jadi N+1 di sini tidak sepadan menambah
-     * satu method repository baru hanya untuk perakit.
+     * Batang soal dimuat satu per satu per item — jumlah item satu Exercise kecil (puluhan, bukan
+     * ribuan), jadi N+1 di sini tidak sepadan menambah satu method repository baru hanya untuk
+     * perakit. Dibaca lewat {@code findAllForSnapshot}-nya perakit: {@code requireReadable} —
+     * soal master yang aksesnya sudah lewat tetap tampil di Exercise yang sudah memuatnya
+     * (FR-068), jadi yang gagal dibaca dilewati, bukan menggagalkan seluruh halaman.
      */
     private void muatItem(UUID exerciseId, UUID clientId, Model model) {
         List<ExerciseItemEntity> item = exercises.itemsOf(exerciseId);
         Map<UUID, QuestionEntity> soal = new LinkedHashMap<>();
-        for (ExerciseItemEntity satu : item) {
-            soal.put(satu.getQuestionId(), questions.require(satu.getQuestionId(), clientId));
+        for (QuestionEntity q : questions.snapshotOf(item.stream().map(ExerciseItemEntity::getQuestionId).toList())) {
+            soal.put(q.getId(), q);
         }
         model.addAttribute("exercise", exercises.require(exerciseId, clientId));
         model.addAttribute("item", item);

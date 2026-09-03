@@ -25,7 +25,48 @@ import java.util.UUID;
  */
 public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> {
 
+    /**
+     * Soal yang boleh DIPAKAI Client (dipasang ke Exercise, disalin, dibaca di perakit): miliknya
+     * sendiri, atau soal master terbit yang ditempatkan di salah satu versi yang terlihat Client
+     * itu ({@code PaketAccessService.visibleVersionIds}, ADR-0021). Versi-lah yang menentukan,
+     * bukan {@code supersededById}: sekolah yang masih di versi 1 tetap membaca baris yang di
+     * versi 2 sudah digantikan revisi. Menulis/menghapus tetap lewat {@link #findByIdAndClientId}:
+     * soal master tidak pernah bisa ditulisi sekolah.
+     */
+    String ACCESSIBLE = "(q.clientId = :clientId or (q.clientId is null and q.publishedAt is not null "
+            + "and exists (select i from PaketItemEntity i "
+            + "where i.questionId = q.id and i.paketVersionId in :versionIds)))";
+
     Optional<QuestionEntity> findByIdAndClientId(UUID id, UUID clientId);
+
+    @Query("select q from QuestionEntity q where q.id = :id and " + ACCESSIBLE)
+    Optional<QuestionEntity> findAccessibleById(@Param("id") UUID id, @Param("clientId") UUID clientId,
+                                                @Param("versionIds") Collection<UUID> versionIds);
+
+    @Query("select q from QuestionEntity q where q.id in :ids and " + ACCESSIBLE)
+    List<QuestionEntity> findAccessibleByIdIn(@Param("clientId") UUID clientId,
+                                              @Param("versionIds") Collection<UUID> versionIds,
+                                              @Param("ids") Collection<UUID> ids);
+
+    /**
+     * Isi satu Topic di satu versi yang sudah dipastikan terlihat Client ({@code visibleVersionOf}):
+     * soal milik Client apa adanya, soal master hanya yang terbit.
+     */
+    @Query("select q from QuestionEntity q, PaketItemEntity i "
+            + "where i.questionId = q.id and i.paketVersionId = :versionId and i.topicId = :topicId "
+            + "and (q.clientId = :clientId or (q.clientId is null and q.publishedAt is not null)) "
+            + "order by i.position asc")
+    List<QuestionEntity> findAccessibleInTopic(@Param("clientId") UUID clientId,
+                                               @Param("versionId") UUID versionId,
+                                               @Param("topicId") UUID topicId);
+
+    /** Seluruh isi satu versi yang terlihat Client, urut Topic lalu posisi — "Tambah seluruh Paket". */
+    @Query("select q from QuestionEntity q, PaketItemEntity i, TopicEntity t "
+            + "where i.questionId = q.id and i.topicId = t.id and i.paketVersionId = :versionId "
+            + "and (q.clientId = :clientId or (q.clientId is null and q.publishedAt is not null)) "
+            + "order by t.position asc, i.position asc")
+    List<QuestionEntity> findAccessibleInVersion(@Param("clientId") UUID clientId,
+                                                 @Param("versionId") UUID versionId);
 
     /**
      * Padanan {@link #findByIdAndClientId} untuk konten master: pemiliknya harus Eduscreen.
@@ -72,19 +113,26 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * <p>{@code subjectId} ditambahkan untuk panel pinjam ({@code BankSoalController#panelPinjam},
      * AC-B19): satu-satunya penyaring yang belum ada di sini sebelumnya, dan sengaja ditambahkan
      * ke query yang sudah ada ini alih-alih melahirkan query kelima.
+     *
+     * <p>Sejak ADR-0021 hasilnya juga memuat soal master dari Paket yang aksesnya dimiliki
+     * Client: soal terbit yang ditempatkan di versi yang ditunjuk akses ({@code versionIds}).
+     * Soal milik Client sendiri tidak dibatasi versi.
      */
-    @Query("select q from QuestionEntity q where q.clientId = :clientId "
+    @Query("select q from QuestionEntity q where "
+            + "(q.clientId = :clientId or (q.clientId is null and q.publishedAt is not null)) "
             + "and (:type is null or q.type = :type) "
             + "and q.id not in :excludeIds "
             + "and lower(q.bodyText) like :pattern "
             + "and exists (select i from PaketItemEntity i, PaketVersionEntity v, PaketEntity p "
             + "  where i.questionId = q.id and i.paketVersionId = v.id and v.paketId = p.id "
+            + "  and (q.clientId = :clientId or i.paketVersionId in :versionIds) "
             + "  and (:subjectId is null or p.subjectId = :subjectId) "
             + "  and (:paketId is null or p.id = :paketId) "
             + "  and (:topicId is null or i.topicId = :topicId)) "
             + "order by q.createdAt desc")
     Page<QuestionEntity> searchForBuilder(
             @Param("clientId") UUID clientId,
+            @Param("versionIds") Collection<UUID> versionIds,
             @Param("subjectId") UUID subjectId,
             @Param("paketId") UUID paketId,
             @Param("topicId") UUID topicId,

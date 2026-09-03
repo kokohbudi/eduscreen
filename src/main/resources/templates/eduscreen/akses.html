@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Akses Paket')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Akses Paket', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <!--
+      Akses Paket master per sekolah (ADR-0021). Satu baris akses = sekolah membaca satu versi
+      terbit Paket sampai tanggal tertentu; tidak ada satu pun soal yang disalin. Sekolah tidak
+      punya jalan mengambil sendiri — hanya layar ini yang memberi (Pasal 3, FR-067).
+    -->
+    <form method="get" th:action="@{/eduscreen/akses}" class="card mb-4 flex flex-wrap items-end gap-2">
+      <div class="w-full sm:w-72">
+        <label for="clientIdPilih" class="label">Sekolah</label>
+        <select id="clientIdPilih" name="clientId" onchange="this.form.submit()" class="select">
+          <option value="">-- Pilih sekolah --</option>
+          <option th:each="c : ${clients}" th:value="${c.id}" th:text="${c.name}"
+                  th:selected="${clientId != null and clientId == c.id}">Sekolah</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-secondary">Tampilkan</button>
+    </form>
+
+    <th:block th:if="${client != null}">
+      <section class="card mb-4">
+        <h2 class="card-title mb-3" th:text="|Beri Paket ke ${client.name}|">Beri Paket</h2>
+        <form method="post" th:action="@{/eduscreen/akses}" class="flex flex-wrap items-end gap-2">
+          <input type="hidden" name="clientId" th:value="${client.id}">
+          <div class="flex-1">
+            <label for="paketIdBeri" class="label">Paket master terbit</label>
+            <select id="paketIdBeri" name="paketId" required class="select">
+              <option th:each="p : ${paketTerbit}" th:value="${p.id}" th:text="${p.title}">Paket</option>
+            </select>
+          </div>
+          <div>
+            <label for="validUntil" class="label">Berlaku sampai (opsional)</label>
+            <input type="date" id="validUntil" name="validUntil" class="input">
+          </div>
+          <button type="submit" class="btn btn-primary">Beri akses</button>
+        </form>
+        <p th:if="${#lists.isEmpty(paketTerbit)}" class="mt-2 text-sm text-ink-2">Belum ada Paket master terbit.</p>
+      </section>
+
+      <section class="card p-0">
+        <h2 class="card-title border-b border-line px-5 py-4">Akses aktif</h2>
+        <table class="table">
+          <thead>
+            <tr>
+              <th scope="col">Paket</th>
+              <th scope="col">Versi</th>
+              <th scope="col">Berlaku sampai</th>
+              <th scope="col"><span class="sr-only">Aksi</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr th:each="a : ${akses}" th:with="p=${paketById.get(a.paketId)},v=${versiById.get(a.versionId)}">
+              <td class="font-medium" th:text="${p != null ? p.title : '(Paket dihapus)'}">Paket</td>
+              <td>
+                <!-- Pindah versi: hanya ke versi terbit Paket yang sama. -->
+                <form method="post" th:action="@{/eduscreen/akses/{id}/versi(id=${a.id})}"
+                      class="flex items-center gap-2">
+                  <input type="hidden" name="clientId" th:value="${client.id}">
+                  <select name="versionId" class="select" onchange="this.form.submit()"
+                          th:attr="aria-label=|Versi ${p != null ? p.title : ''}|">
+                    <option th:each="vt : ${versiTerbit.get(a.paketId)}" th:value="${vt.id}"
+                            th:text="|Versi ${vt.nomor}|" th:selected="${vt.id == a.versionId}">Versi</option>
+                  </select>
+                </form>
+              </td>
+              <td class="text-ink-2">
+                <span th:if="${a.validUntil == null}">Tanpa batas</span>
+                <span th:unless="${a.validUntil == null}"
+                      th:text="${#temporals.format(a.validUntil, 'd MMM yyyy')}">Tanggal</span>
+                <span th:if="${a.validUntil != null and a.validUntil.isBefore(sekarang)}"
+                      class="badge badge-warn ml-1">kedaluwarsa</span>
+              </td>
+              <td class="text-right">
+                <form method="post" th:action="@{/eduscreen/akses/{id}/cabut(id=${a.id})}"
+                      onsubmit="return confirm('Cabut akses Paket ini? Exercise yang sudah dirakit sekolah tidak terpengaruh.')">
+                  <input type="hidden" name="clientId" th:value="${client.id}">
+                  <button type="submit" class="btn btn-secondary btn-sm text-danger">Cabut</button>
+                </form>
+              </td>
+            </tr>
+            <tr th:if="${#lists.isEmpty(akses)}">
+              <td colspan="4" class="py-8 text-center text-ink-2">Sekolah ini belum diberi Paket.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+    </th:block>
+
+  </div>
+</div>
+</body>
+</html>

@@ -43,7 +43,10 @@ public class PaketEntity {
     @Column(name = "published_at")
     private OffsetDateTime publishedAt;
 
-    /** Jejak asal saja; tidak pernah dipakai untuk sinkronisasi (ADR-0001). */
+    /**
+     * Jejak asal salinan adopsi lama (ADR-0001, sebelum ADR-0021). Tidak ditulis lagi: sekolah
+     * membaca Paket master lewat {@code paket_access}, bukan salinan. Dibiarkan untuk data lama.
+     */
     @Column(name = "source_paket_id")
     private UUID sourcePaketId;
 
@@ -86,13 +89,6 @@ public class PaketEntity {
 
     public static PaketEntity master(UUID subjectId, String title, UUID createdBy) {
         return new PaketEntity(null, subjectId, title, createdBy);
-    }
-
-    public static PaketEntity adoptedFrom(UUID clientId, UUID subjectId, String title,
-                                          UUID createdBy, UUID sourcePaketId) {
-        PaketEntity copy = forClient(clientId, subjectId, title, createdBy);
-        copy.sourcePaketId = sourcePaketId;
-        return copy;
     }
 
     public void publish(OffsetDateTime now) {

@@ -4,10 +4,9 @@ import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
 import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
-import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
-import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -31,21 +30,18 @@ public class ExerciseService {
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository items;
     private final QuestionRepository questions;
-    private final TopicRepository topics;
-    private final PaketVersionRepository versions;
+    private final PaketAccessService access;
     private final ClientClock clock;
 
     public ExerciseService(ExerciseRepository exercises,
                            ExerciseItemRepository items,
                            QuestionRepository questions,
-                           TopicRepository topics,
-                           PaketVersionRepository versions,
+                           PaketAccessService access,
                            ClientClock clock) {
         this.exercises = exercises;
         this.items = items;
         this.questions = questions;
-        this.topics = topics;
-        this.versions = versions;
+        this.access = access;
         this.clock = clock;
     }
 
@@ -88,11 +84,11 @@ public class ExerciseService {
     @Transactional
     public void addQuestion(UUID exerciseId, UUID questionId, UUID clientId) {
         ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
-        // Soal harus milik Client yang sama; soal milik Client lain atau tidak ada sama-sama
-        // menghasilkan 404 (TC-09, TC-36). Sengaja TIDAK ada validasi Subject/Topic apa pun di
-        // sini: Exercise boleh memuat soal lintas Subject dan Topic mana pun di dalam Client,
-        // Guru berpindah bebas antar Topic dalam satu sesi perakitan (BR-E01, AC-E02, FR-024).
-        questions.findByIdAndClientId(questionId, clientId)
+        // Soal harus terlihat Client ini: miliknya sendiri, atau soal master lewat akses Paket
+        // (ADR-0021); di luar itu, termasuk yang tidak ada, sama-sama 404 (TC-09, TC-36). Sengaja
+        // TIDAK ada validasi Subject/Topic apa pun di sini: Exercise boleh memuat soal lintas
+        // Subject dan Topic mana pun (BR-E01, AC-E02, FR-024).
+        questions.findAccessibleById(questionId, clientId, access.visibleVersionIds(clientId))
                 .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
 
         if (items.findByExerciseIdAndQuestionId(exerciseId, questionId).isPresent()) {
@@ -123,7 +119,7 @@ public class ExerciseService {
         }
         ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
         Set<UUID> sah = new HashSet<>();
-        for (QuestionEntity soal : questions.findByClientIdAndIdIn(clientId, questionIds)) {
+        for (QuestionEntity soal : questions.findAccessibleByIdIn(clientId, access.visibleVersionIds(clientId), questionIds)) {
             sah.add(soal.getId());
         }
         return append(exercise, questionIds.stream().filter(sah::contains).toList());
@@ -132,10 +128,10 @@ public class ExerciseService {
     /**
      * Menambahkan seluruh Question satu Topic sekaligus (BR-E01).
      *
-     * <p>Topic milik Paket master maupun Paket Client lain tidak perlu ditolak eksplisit:
-     * {@code findWritable} menjoin Paket dan menyaring {@code clientId}, sehingga Topic asing
-     * tidak ditemukan dan pemanggilan berakhir 0 tanpa membocorkan apa pun (TC-36). Jalur
-     * satu-satunya ke konten master tetap adopsi oleh Client Admin (FR-081).
+     * <p>Topic yang tidak terlihat Client — milik Client lain, atau Paket master tanpa akses —
+     * tidak perlu ditolak eksplisit: {@code visibleVersionOfTopic} kosong dan pemanggilan berakhir
+     * 0 tanpa membocorkan apa pun (TC-36). Topic Paket master dibaca lewat versi yang ditunjuk
+     * akses sekolah (ADR-0021), hanya soal terbitnya.
      *
      * <p>Soal yang sudah terpasang dilewati, jadi menekan tombol dua kali tidak menggandakan
      * apa pun. Sengaja tidak memanggil {@link #addQuestion} per soal: itu akan menembakkan satu
@@ -146,12 +142,27 @@ public class ExerciseService {
     @Transactional
     public int addTopic(UUID exerciseId, UUID topicId, UUID clientId) {
         ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
-        List<UUID> ids = topics.findWritable(topicId, clientId)
-                .flatMap(topic -> versions.findDraft(topic.getPaketId())
-                        .map(v -> questions.findByVersionAndTopicOrdered(clientId, v.getId(), topic.getId())))
+        List<UUID> ids = access.visibleVersionOfTopic(topicId, clientId)
+                .map(v -> questions.findAccessibleInTopic(clientId, v.getId(), topicId))
                 .orElse(List.of())
                 .stream().map(QuestionEntity::getId).toList();
         return append(exercise, ids);
+    }
+
+    /**
+     * Menambahkan seluruh isi satu Paket sekaligus, urut Topic dan posisi (skenario "Guru ambil
+     * Paket bulat-bulat", ADR-0021): Paket miliknya sendiri lewat versi kerjanya, Paket master
+     * lewat versi yang ditunjuk aksesnya — hanya soal terbit. Tidak ada satu pun baris soal
+     * yang lahir: Exercise menunjuk soal master langsung. Paket yang tidak terlihat → 404.
+     *
+     * @return jumlah soal yang benar-benar baru ditambahkan
+     */
+    @Transactional
+    public int addPaket(UUID exerciseId, UUID paketId, UUID clientId) {
+        ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
+        PaketVersionEntity versi = access.visibleVersionOf(paketId, clientId);
+        return append(exercise, questions.findAccessibleInVersion(clientId, versi.getId())
+                .stream().map(QuestionEntity::getId).toList());
     }
 
     /**

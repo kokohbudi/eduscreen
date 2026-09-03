@@ -50,7 +50,7 @@ public class SecurityConfig {
                 // sementara yang menentukan sebuah objek boleh disentuh adalah clientId dan
                 // keanggotaan Ruangan, dan itu masuk ke klausa query (TC-08, TC-09).
                 .requestMatchers("/eduscreen", "/eduscreen/**").hasRole("EDUSCREEN_ADMIN")
-                .requestMatchers("/admin", "/admin/**", "/katalog", "/katalog/**")
+                .requestMatchers("/admin", "/admin/**")
                     .hasRole("CLIENT_ADMIN")
                 .requestMatchers("/guru", "/guru/**").hasRole("GURU")
                 .requestMatchers("/siswa", "/siswa/**").hasRole("SISWA")

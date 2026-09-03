@@ -20,6 +20,32 @@
     </p>
 
     <!--
+      Paket Eduscreen di Bank Soal sekolah (ADR-0021): hanya-baca. Sekolah membaca versi yang
+      ditunjuk aksesnya; mengubah isinya berarti menyalin soalnya ke Paket sekolah lewat panel
+      Pinjam di Paket sekolah itu. Kalau ada versi terbit lebih baru, Client Admin bisa pindah —
+      Exercise yang sudah dirakit tidak tersentuh.
+    -->
+    <section th:if="${readOnly ?: false}" class="card mb-4 border-accent/40">
+      <div class="flex flex-wrap items-center gap-2">
+        <span class="badge">Paket Eduscreen</span>
+        <span class="font-medium" th:text="|Versi ${versi.nomor}|">Versi 1</span>
+        <span class="text-sm text-ink-2" th:if="${akses != null and akses.validUntil != null}"
+              th:text="|berlaku sampai ${#temporals.format(akses.validUntil, 'd MMM yyyy')}|">sampai</span>
+      </div>
+      <p class="mt-2 text-sm text-ink-2">
+        Isi Paket ini hanya bisa dibaca dan dipasang ke Exercise. Untuk mengubah sebuah soal,
+        salin dulu ke Paket sekolah lewat panel Pinjam di Paket itu.
+      </p>
+      <form th:if="${akses != null and versiTerbaru != null and versiTerbaru.nomor > versi.nomor}"
+            method="post" th:action="@{/bank-soal/akses/{id}/versi(id=${akses.id})}" class="mt-3"
+            sec:authorize="hasRole('CLIENT_ADMIN')">
+        <input type="hidden" name="versionId" th:value="${versiTerbaru.id}">
+        <button type="submit" class="btn btn-secondary btn-sm"
+                th:text="|Pindah ke versi ${versiTerbaru.nomor}|">Pindah ke versi baru</button>
+      </form>
+    </section>
+
+    <!--
       Versi Paket master (ADR-0021). Versi terbit beku: isinya sedang dibaca sekolah, jadi
       mengubahnya menuntut pilihan — versi baru (penempatan disalin, soal dibagi) atau instance
       baru (Paket lain berbagi soal yang sama). MasterContentController mengalihkan setiap
@@ -74,7 +100,7 @@
       dan membuat yang belum. Tombol ini karena itu berangkat tanpa topicId — Paket yang masih
       kosong pun punya jalan menulis soal pertamanya.
     -->
-    <p class="mb-4">
+    <p class="mb-4" th:unless="${readOnly ?: false}">
       <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id})}"
          class="btn btn-secondary">+ Soal di Topic baru</a>
     </p>
@@ -426,11 +452,12 @@
       barisSoal di bawah, yang memunculkan kotak centangnya.
     -->
     <section th:each="t : ${topics}"
-             th:with="soalTopic=${soalPerTopic[t.id]},massal=${(master ?: false) ? (versi != null and versi.draft) : true}"
+             th:with="soalTopic=${soalPerTopic[t.id]},massal=${(master ?: false) ? (versi != null and versi.draft) : !(readOnly ?: false)}"
              class="card mb-4">
       <div class="mb-3 flex items-center justify-between">
         <h2 class="card-title" th:text="${t.title}">Topic</h2>
-        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id},topicId=${t.id})}"
+        <a th:unless="${readOnly ?: false}"
+           th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id},topicId=${t.id})}"
            class="btn btn-secondary btn-sm">
           + Soal
         </a>
@@ -576,13 +603,13 @@
           </button>
         </div>
       </div>
-      <a th:unless="${master ?: false}"
+      <a th:unless="${(master ?: false) or (readOnly ?: false)}"
          th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
          class="btn btn-secondary btn-sm btn-icon shrink-0" title="Ubah" aria-label="Ubah">
         <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
         <span class="sr-only">Ubah</span>
       </a>
-      <button th:unless="${master ?: false}" type="button"
+      <button th:unless="${(master ?: false) or (readOnly ?: false)}" type="button"
               th:attr="hx-delete=@{/bank-soal/soal/{id}(id=${q.id})},hx-target=|#soal-${q.id}|"
               hx-swap="outerHTML"
               hx-confirm="Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh."

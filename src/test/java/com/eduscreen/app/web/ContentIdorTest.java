@@ -182,7 +182,7 @@ class ContentIdorTest extends PostgresTestBase {
     // BR-P04, TC-41).
 
     @Test
-    @DisplayName("TC-41 (FR-081): Guru, Siswa, dan Client Admin ditolak di ruang kerja konten master; Guru dan Siswa juga ditolak di katalog")
+    @DisplayName("TC-41 (FR-081): Guru, Siswa, dan Client Admin ditolak di ruang kerja konten master dan di layar akses Paket")
     void peranClientDitolakDiRuangKerjaMaster() throws Exception {
         Tenants tenants = data.twoTenants();
 
@@ -194,10 +194,15 @@ class ContentIdorTest extends PostgresTestBase {
                     .andExpect(status().isForbidden());
         }
 
-        // Adopsi adalah kewenangan Client Admin; Guru meracik dari Question yang sudah ada di
-        // Client-nya, bukan menarik sendiri dari katalog (FR-081, BR-E01).
-        for (var pengguna : java.util.List.of(tenants.a().guru(), tenants.a().siswa())) {
-            mockMvc.perform(get("/katalog").with(user(data.principal(pengguna))))
+        // Akses Paket diberi Eduscreen Admin; tidak ada peran sekolah yang bisa mengambil sendiri
+        // (Pasal 3, ADR-0021), termasuk Client Admin.
+        for (var pengguna : java.util.List.of(
+                tenants.a().guru(), tenants.a().siswa(), tenants.a().admin())) {
+            mockMvc.perform(get("/eduscreen/akses").with(user(data.principal(pengguna))))
+                    .andExpect(status().isForbidden());
+            mockMvc.perform(post("/eduscreen/akses").param("clientId", tenants.a().client().getId().toString())
+                            .param("paketId", UUID.randomUUID().toString())
+                            .with(user(data.principal(pengguna))).with(csrf()))
                     .andExpect(status().isForbidden());
         }
     }

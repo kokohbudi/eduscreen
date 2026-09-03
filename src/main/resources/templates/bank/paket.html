@@ -121,6 +121,38 @@
       </span>
     </div>
     </form>
+    <!--
+      Paket Eduscreen yang aksesnya dimiliki sekolah (ADR-0021): hanya-baca, dibaca lewat versi
+      yang ditunjuk akses. Hanya di Bank Soal Client; ruang kerja master tidak punya kelompok ini.
+    -->
+    <section th:if="${!(master ?: false) and !#lists.isEmpty(paketEduscreen ?: {})}" class="card mt-6 p-0">
+      <h2 class="card-title border-b border-line px-5 py-4">Paket Eduscreen</h2>
+      <table class="table table-hover">
+        <thead>
+          <tr>
+            <th>Paket</th>
+            <th>Subject</th>
+            <th class="w-20 text-right">Soal</th>
+            <th class="w-40">Berlaku sampai</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="pe : ${paketEduscreen}" th:with="a=${aksesByPaket.get(pe.id)}">
+            <td class="font-medium">
+              <a th:href="@{/bank-soal/paket/{id}(id=${pe.id})}" th:text="${pe.title}" class="hover:text-accent">Paket</a>
+            </td>
+            <td class="text-ink-2" th:text="${namaSubject.get(pe.subjectId)}">Subject</td>
+            <td class="text-right tabular-nums" th:text="${jumlahSoal.getOrDefault(pe.id, 0)}">0</td>
+            <td class="text-ink-2">
+              <span th:if="${a == null or a.validUntil == null}">Tanpa batas</span>
+              <span th:unless="${a == null or a.validUntil == null}"
+                    th:text="${#temporals.format(a.validUntil, 'd MMM yyyy')}">Tanggal</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
     <p th:if="${#lists.isEmpty(pakets)}" class="empty mt-4">
       <span th:if="${#strings.isEmpty(cariPaket)}">
         Belum ada Paket<span th:if="${subject != null}" th:text="' di ' + ${subject.name}"></span>.

@@ -38,16 +38,16 @@ public class EduscreenAdminController {
     @GetMapping("/eduscreen/client")
     public String clients(Model model) {
         model.addAttribute("clients", clients.all());
-        // Paket master yang bisa disalin saat onboarding, lintas Subject (ADR-0018): hanya yang
-        // sudah TERBIT. Paket yang masih digarap tidak boleh ikut mendarat di sekolah baru lewat
+        // Paket master yang bisa diberikan saat onboarding, lintas Subject (ADR-0018, ADR-0021):
+        // hanya yang sudah TERBIT. Paket yang masih digarap tidak boleh terbaca sekolah baru lewat
         // pintu belakang onboarding (FR-067).
         model.addAttribute("paket", pakets.findAllMasterPublished());
         return "eduscreen/client";
     }
 
     /**
-     * Membuat Client, akun Client Admin pertamanya beserta undangan, lalu menyalin paket terpilih
-     * (FR-020).
+     * Membuat Client, akun Client Admin pertamanya beserta undangan, lalu memberi akses ke Paket
+     * terpilih (FR-020, ADR-0021).
      *
      * <p>Onboarding sengaja <b>tidak</b> membuat Ruangan maupun akun Siswa: keduanya milik Client
      * Admin, yang tahu susunan kelasnya (BR-O01).

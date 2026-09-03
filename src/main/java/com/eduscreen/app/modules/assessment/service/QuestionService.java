@@ -39,6 +39,7 @@ public class QuestionService {
     private final QuestionOptionRepository options;
     private final PaketItemRepository items;
     private final PaketService pakets;
+    private final PaketAccessService access;
     private final TaxonomyService taxonomy;
     private final ContentSanitizer sanitizer;
     private final MasterPublishingService publishing;
@@ -48,6 +49,7 @@ public class QuestionService {
                            QuestionOptionRepository options,
                            PaketItemRepository items,
                            PaketService pakets,
+                           PaketAccessService access,
                            TaxonomyService taxonomy,
                            ContentSanitizer sanitizer,
                            MasterPublishingService publishing,
@@ -56,6 +58,7 @@ public class QuestionService {
         this.options = options;
         this.items = items;
         this.pakets = pakets;
+        this.access = access;
         this.taxonomy = taxonomy;
         this.sanitizer = sanitizer;
         this.publishing = publishing;
@@ -87,8 +90,8 @@ public class QuestionService {
     public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID subjectId, UUID paketId, UUID topicId,
                                                  QuestionType type, Collection<UUID> excluded, String q,
                                                  Pageable pageable) {
-        return questions.searchForBuilder(clientId, subjectId, paketId, topicId, type,
-                excludeOrSentinel(excluded), ExerciseService.likePattern(q), pageable);
+        return questions.searchForBuilder(clientId, access.visibleVersionIds(clientId), subjectId, paketId,
+                topicId, type, excludeOrSentinel(excluded), ExerciseService.likePattern(q), pageable);
     }
 
     /**
@@ -150,6 +153,36 @@ public class QuestionService {
         return perTopic;
     }
 
+    /**
+     * Isi satu versi sebagaimana terlihat Client, dikelompokkan per Topic: soal miliknya apa
+     * adanya, soal master hanya yang terbit (ADR-0021). Untuk halaman Paket Eduscreen di Bank
+     * Soal sekolah; versinya sudah dipastikan terlihat lewat {@code PaketAccessService}.
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, List<QuestionEntity>> groupByTopicReadable(UUID clientId, UUID versionId) {
+        Map<UUID, QuestionEntity> byId = questions.findAccessibleInVersion(clientId, versionId).stream()
+                .collect(Collectors.toMap(QuestionEntity::getId, Function.identity(), (a, b) -> a, LinkedHashMap::new));
+        Map<UUID, List<QuestionEntity>> perTopic = new LinkedHashMap<>();
+        for (PaketItemEntity item : items.findByVersionOrdered(versionId)) {
+            QuestionEntity soal = byId.get(item.getQuestionId());
+            if (soal != null) {
+                perTopic.computeIfAbsent(item.getTopicId(), k -> new ArrayList<>()).add(soal);
+            }
+        }
+        return perTopic;
+    }
+
+    /**
+     * Soal yang sudah terpasang di Exercise milik Client, dibaca apa adanya — termasuk soal master
+     * yang aksesnya sudah lewat dan soal yang sudah dihapus lunak (FR-068, BR-Q04). Id datang dari
+     * {@code exercise_item} Exercise yang sudah lolos {@code ExerciseService.require}, jadi sudah
+     * tenant-aman; jangan pakai untuk id yang datang dari luar.
+     */
+    @Transactional(readOnly = true)
+    public List<QuestionEntity> snapshotOf(Collection<UUID> questionIds) {
+        return questionIds.isEmpty() ? List.of() : questions.findAllForSnapshot(questionIds);
+    }
+
     /** Seluruh id soal di versi kerja satu Paket — daftar kecuali panel pinjam (AC-B20). */
     @Transactional(readOnly = true)
     public List<UUID> questionIdsIn(UUID paketId) {
@@ -202,9 +235,20 @@ public class QuestionService {
         return new QuestionDraft(topicId, type, bodyHtml, explanationHtml, opsi);
     }
 
+    /** Soal yang boleh DITULIS pemanggil: miliknya sendiri. Milik lain dan tidak ada sama-sama 404 (TC-09). */
     @Transactional(readOnly = true)
     public QuestionEntity require(UUID id, UUID clientId) {
         return questions.findByIdAndClientId(id, clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
+    }
+
+    /**
+     * Soal yang boleh DIBACA Client: miliknya, atau soal master lewat akses Paket (ADR-0021).
+     * Untuk perakit Exercise dan pratinjau — bukan untuk editor.
+     */
+    @Transactional(readOnly = true)
+    public QuestionEntity requireReadable(UUID id, UUID clientId) {
+        return questions.findAccessibleById(id, clientId, access.visibleVersionIds(clientId))
                 .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
     }
 

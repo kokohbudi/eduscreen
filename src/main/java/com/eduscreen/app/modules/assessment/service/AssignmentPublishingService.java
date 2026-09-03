@@ -162,7 +162,10 @@ public class AssignmentPublishingService {
         }
 
         if (assignment.getMode() == AssignmentMode.PRACTICE) {
-            List<QuestionEntity> content = questions.findByClientIdAndIdIn(clientId, questionIds);
+            // Id datang dari item Exercise milik Client ini sendiri, jadi sudah tenant-aman; tidak
+            // disaring akses Paket lagi — akses yang kedaluwarsa tidak boleh membuat soal esai
+            // lolos validasi diam-diam (ADR-0021).
+            List<QuestionEntity> content = questions.findAllById(questionIds);
             List<String> essays = new ArrayList<>();
             List<String> withoutExplanation = new ArrayList<>();
             for (QuestionEntity question : content) {

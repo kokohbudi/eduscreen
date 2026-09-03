@@ -17,6 +17,8 @@ import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.modules.assessment.service.ClientOnboardingService;
+import com.eduscreen.app.modules.assessment.service.PaketAccessService;
+import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -42,6 +44,12 @@ class ClientOnboardingIT extends PostgresTestBase {
     @Autowired
     private ClientOnboardingService onboardingService;
     @Autowired
+    private PaketAccessService access;
+    @Autowired
+    private QuestionService questionService;
+    @Autowired
+    private com.eduscreen.app.modules.assessment.service.PaketVersionService versionService;
+    @Autowired
     private SubjectRepository subjectRepository;
     @Autowired
     private TopicRepository topicRepository;
@@ -59,12 +67,10 @@ class ClientOnboardingIT extends PostgresTestBase {
     /**
      * Paket master: satu Subject GLOBAL, satu Topic di bawahnya, lima Question (bukan 20 seperti
      * di spec) beserta Option. Jumlahnya diperkecil karena yang diuji di sini adalah ATURAN
-     * penyalinannya (copy-on-adopt, non-sinkronisasi), bukan skalanya — 20 baris tidak
-     * membuktikan apa pun yang tidak sudah dibuktikan lima baris.
+     * aksesnya (referensi, bukan salinan — ADR-0021), bukan skalanya.
      *
-     * <p>Paket, bukan lagi Exercise, adalah satuan adopsi sejak ADR-0018 (§6.1 business-rules) —
-     * onboarding menyalin Paket beserta Topic dan Question-nya, Exercise tidak pernah jadi objek
-     * adopsi.
+     * <p>Paket adalah satuan akses sejak ADR-0018 (§6.1 business-rules); Exercise tidak pernah
+     * jadi objeknya.
      */
     private PaketEntity buatPaketMaster(String namaSubject) {
         SubjectEntity subject = subjectRepository.save(SubjectEntity.global(namaSubject));
@@ -85,47 +91,34 @@ class ClientOnboardingIT extends PostgresTestBase {
             }
         }
 
-        // Gerbang adopsi ada di tingkat Paket sejak ADR-0018 (FR-067): Paket yang masih digarap
-        // tidak boleh mendarat di sekolah baru lewat pintu belakang onboarding.
+        // Gerbang akses ada di tingkat Paket (FR-067): Paket yang masih digarap tidak boleh
+        // terbaca sekolah baru lewat pintu belakang onboarding. Versi kerjanya dibekukan sebagai
+        // versi 1 (ADR-0021) — akses menunjuk versi terbit.
         paket.publish(java.time.OffsetDateTime.now());
+        versionService.freeze(testData.versionOf(topic));
         return paketRepository.save(paket);
     }
 
     @Test
-    @DisplayName("AC-O01: onboarding menyalin paket master ke Client, dan menyunting master setelahnya tidak mengubah salinan Client")
-    void ac_o01_onboardingMenyalinPaketMasterSecaraLepasDariAsalnya() {
+    @DisplayName("AC-O01 (ADR-0021): onboarding memberi akses ke Paket master, bukan salinan — sekolah baru membaca soal master apa adanya, nol baris soal baru")
+    void ac_o01_onboardingMemberiAksesBukanSalinan() {
         PaketEntity masterPaket = buatPaketMaster("Matematika Kelas 4 O01");
-        List<QuestionEntity> masterQuestions =
-                testData.questionsInPaket(masterPaket.getId());
+        List<QuestionEntity> masterQuestions = testData.questionsInPaket(masterPaket.getId());
         assertThat(masterQuestions).hasSize(5);
+        long soalSebelum = questionRepository.count();
 
         ClientOnboardingService.OnboardingRequest request = new ClientOnboardingService.OnboardingRequest(
                 "SD Onboarding O01", "Asia/Jakarta", testData.uniqueEmail("admin.o01"),
                 "Admin O01", List.of(masterPaket.getId()));
         ClientEntity clientBaru = onboardingService.onboard(request);
 
-        // Client mendapat Paket dan Question ber-clientId miliknya sendiri, sejumlah yang sama
-        // dengan Paket master yang dipilih.
-        List<PaketEntity> paketClient = paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(
-                clientBaru.getId(), masterPaket.getSubjectId());
-        assertThat(paketClient).hasSize(1);
-        PaketEntity paketSalinan = paketClient.get(0);
-        assertThat(paketSalinan.getSourcePaketId()).isEqualTo(masterPaket.getId());
-
-        List<QuestionEntity> questionsSalinan =
-                testData.questionsInPaket(paketSalinan.getId());
-        assertThat(questionsSalinan).hasSize(masterQuestions.size());
-
-        // Menyunting Question MASTER setelah onboarding tidak boleh mengubah salinan Client:
-        // adopsi adalah copy-on-adopt, bukan referensi (ADR-0001).
-        QuestionEntity masterUntukDiubah = masterQuestions.get(0);
-        masterUntukDiubah.setBodyHtml("<p>DIUBAH SETELAH ONBOARDING</p>");
-        questionRepository.save(masterUntukDiubah);
-
-        List<QuestionEntity> questionsSalinanSetelahEdit =
-                testData.questionsInPaket(paketSalinan.getId());
-        assertThat(questionsSalinanSetelahEdit)
-                .noneMatch(q -> q.getBodyHtml().contains("DIUBAH SETELAH ONBOARDING"));
+        // Tidak ada Paket maupun soal yang lahir milik Client: hanya satu baris akses.
+        assertThat(paketRepository.findByClientIdOrderByTitleAsc(clientBaru.getId())).isEmpty();
+        assertThat(questionRepository.count()).isEqualTo(soalSebelum);
+        assertThat(access.masterPaketsFor(clientBaru.getId()))
+                .extracting(PaketEntity::getId).containsExactly(masterPaket.getId());
+        assertThat(questionService.requireReadable(masterQuestions.get(0).getId(), clientBaru.getId()).getId())
+                .isEqualTo(masterQuestions.get(0).getId());
 
         // BR-O01: onboarding sengaja TIDAK membuat Ruangan maupun akun Siswa — hanya Client Admin
         // yang tahu struktur kelasnya sendiri, jadi dialah yang membuatnya setelah login.
@@ -138,8 +131,8 @@ class ClientOnboardingIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-O02: paket master di bawah Subject GLOBAL tidak melahirkan Subject baru, dan Paket salinan tetap menunjuk Subject global yang sama")
-    void ac_o02_tidakAdaSubjectBaruDanPaketSalinanMenunjukSubjectGlobalYangSama() {
+    @DisplayName("AC-O02 (BR-O02): Subject GLOBAL tidak pernah disalin ke sekolah baru; Paket master tetap milik Eduscreen di Subject yang sama")
+    void ac_o02_tidakAdaSubjectBaruDanTidakAdaPaketSalinan() {
         PaketEntity masterPaket = buatPaketMaster("Matematika Kelas 4 O02");
         UUID subjectGlobalId = masterPaket.getSubjectId();
 
@@ -148,17 +141,11 @@ class ClientOnboardingIT extends PostgresTestBase {
                 "Admin O02", List.of(masterPaket.getId()));
         ClientEntity clientBaru = onboardingService.onboard(request);
 
-        // Subject GLOBAL tidak pernah disalin (BR-O02): menyalinnya hanya akan menggandakan data
-        // yang sudah dibaca langsung oleh semua Client tanpa tujuan apa pun.
         assertThat(subjectRepository.findByClientIdOrderByNameAsc(clientBaru.getId())).isEmpty();
-
-        // Paket salinan milik sekolah baru tetap menunjuk subjectId GLOBAL yang persis sama —
-        // hanya Paket beserta Topic dan Question-nya yang disalin, Subject induknya tidak
-        // (ADR-0018).
-        List<PaketEntity> paketClient = paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(
-                clientBaru.getId(), subjectGlobalId);
-        assertThat(paketClient).hasSize(1);
-        assertThat(paketClient.get(0).getSubjectId()).isEqualTo(subjectGlobalId);
-        assertThat(paketClient.get(0).getClientId()).isEqualTo(clientBaru.getId());
+        assertThat(paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(clientBaru.getId(), subjectGlobalId))
+                .isEmpty();
+        assertThat(paketRepository.findById(masterPaket.getId()).orElseThrow().getClientId()).isNull();
+        assertThat(access.readablePakets(clientBaru.getId()))
+                .extracting(PaketEntity::getSubjectId).containsExactly(subjectGlobalId);
     }
 }

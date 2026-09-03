@@ -4,7 +4,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -89,10 +88,4 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
             + "  and q.publishedAt is not null) "
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterReadyToPublish();
-
-    /** Paket yang sudah pernah diadopsi Client ini, untuk menandai katalog (FR-076). */
-    @Query("select distinct p.sourcePaketId from PaketEntity p "
-            + "where p.clientId = :clientId and p.sourcePaketId in :ids")
-    List<UUID> findAdoptedSourceIds(@Param("clientId") UUID clientId,
-                                    @Param("ids") Collection<UUID> ids);
 }

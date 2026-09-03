@@ -35,15 +35,17 @@ import java.util.UUID;
 public class PaketBorrowService {
 
     private final PaketService pakets;
+    private final PaketAccessService access;
     private final TopicRepository topics;
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
     private final PaketItemRepository items;
 
-    public PaketBorrowService(PaketService pakets, TopicRepository topics,
+    public PaketBorrowService(PaketService pakets, PaketAccessService access, TopicRepository topics,
                               QuestionRepository questions, QuestionOptionRepository options,
                               PaketItemRepository items) {
         this.pakets = pakets;
+        this.access = access;
         this.topics = topics;
         this.questions = questions;
         this.options = options;
@@ -85,18 +87,20 @@ public class PaketBorrowService {
     /**
      * Menyalin seluruh soal satu Topic sumber sekaligus, urut posisinya di Paket asal.
      *
-     * <p>Topic sumber milik pemilik lain, atau tidak ada, menghasilkan nol tersalin tanpa galat
-     * (TC-36): {@code findWritable}/{@code findWritableMaster} menyaring pemilik lewat join ke
-     * Paket, jadi keduanya sama-sama kosong.
+     * <p>Topic sumber yang tidak terlihat pemanggil — milik Client lain, Paket master tanpa
+     * akses, atau tidak ada — menghasilkan nol tersalin tanpa galat (TC-36). Ruang kerja master
+     * ({@code clientId} null) membaca Topic Paket master mana pun; sekolah membaca Topic Paket
+     * miliknya dan Topic Paket master yang aksesnya dimiliki (ADR-0021), hanya soal terbitnya.
      */
     @Transactional
     public int borrowTopic(UUID targetPaketId, UUID targetTopicId, UUID sourceTopicId,
                            UUID clientId, UUID actor) {
         List<UUID> ids = (clientId == null
                 ? topics.findWritableMaster(sourceTopicId)
-                : topics.findWritable(sourceTopicId, clientId))
-                .map(sumber -> questions.findByVersionAndTopicOrdered(
-                        clientId, pakets.versionOf(sumber.getPaketId()).getId(), sumber.getId()))
+                        .map(sumber -> questions.findByVersionAndTopicOrdered(
+                                null, pakets.versionOf(sumber.getPaketId()).getId(), sumber.getId()))
+                : access.visibleVersionOfTopic(sourceTopicId, clientId)
+                        .map(v -> questions.findAccessibleInTopic(clientId, v.getId(), sourceTopicId)))
                 .orElse(List.of())
                 .stream()
                 .map(QuestionEntity::getId)
@@ -122,13 +126,15 @@ public class PaketBorrowService {
     }
 
     /**
-     * Null bila soal itu milik Client lain: nol hasil, bukan galat yang membocorkan (TC-36).
-     * Kedua cabang menyaring pemilik DI DALAM query.
+     * Null bila soal itu tidak terlihat pemanggil: nol hasil, bukan galat yang membocorkan
+     * (TC-36). Sekolah boleh menyalin soal miliknya dan soal master dari Paket yang aksesnya
+     * dimiliki — satu-satunya jalan soal master menjadi baris milik sekolah, saat sekolah memang
+     * ingin mengubahnya (ADR-0021). Kedua cabang menyaring pemilik DI DALAM query.
      */
     private QuestionEntity bacaMilikClient(UUID id, UUID clientId) {
         return (clientId == null
                 ? questions.findByIdAndClientIdIsNull(id)
-                : questions.findByIdAndClientId(id, clientId))
+                : questions.findAccessibleById(id, clientId, access.visibleVersionIds(clientId)))
                 .orElse(null);
     }
 

@@ -1,13 +1,16 @@
 package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.repository.PaketAccessEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
+import com.eduscreen.app.modules.assessment.service.PaketAccessService;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
@@ -60,16 +63,19 @@ public class BankSoalController {
     private final QuestionService questions;
     private final QuestionRepository questionRepository;
     private final TaxonomyService taxonomy;
+    private final PaketAccessService access;
 
     public BankSoalController(PaketService pakets, PaketRepository paketRepository,
                               PaketBorrowService borrow, QuestionService questions,
-                              QuestionRepository questionRepository, TaxonomyService taxonomy) {
+                              QuestionRepository questionRepository, TaxonomyService taxonomy,
+                              PaketAccessService access) {
         this.pakets = pakets;
         this.paketRepository = paketRepository;
         this.borrow = borrow;
         this.questions = questions;
         this.questionRepository = questionRepository;
         this.taxonomy = taxonomy;
+        this.access = access;
     }
 
     /**
@@ -96,9 +102,30 @@ public class BankSoalController {
         Map<UUID, Long> jumlahSoal = new HashMap<>();
         questionRepository.countByPaket(clientId)
                 .forEach(c -> jumlahSoal.put(c.getPaketId(), c.getJumlah()));
+        // Kelompok kedua: Paket Eduscreen yang aksesnya dimiliki sekolah (ADR-0021). Dibaca lewat
+        // versi yang ditunjuk akses; jumlah soalnya = soal terbit di versi itu.
+        Map<UUID, PaketAccessEntity> aksesByPaket = new HashMap<>();
+        access.usable(clientId).forEach(a -> aksesByPaket.put(a.getPaketId(), a));
+        List<PaketEntity> paketEduscreen = saringJudul(access.masterPaketsFor(clientId).stream()
+                .filter(p -> subjectId == null || p.getSubjectId().equals(subjectId)).toList(), cariPaket);
+        paketEduscreen.forEach(p -> jumlahSoal.put(p.getId(),
+                questionRepository.countPublishedInVersion(aksesByPaket.get(p.getId()).getVersionId())));
+        model.addAttribute("paketEduscreen", paketEduscreen);
+        model.addAttribute("aksesByPaket", aksesByPaket);
         model.addAttribute("jumlahSoal", jumlahSoal);
         model.addAttribute("namaSubject", namaSubject(subjects));
         return "bank/paket";
+    }
+
+    /**
+     * Client Admin memindahkan sekolahnya ke versi terbit lain dari Paket Eduscreen (ADR-0021).
+     * Exercise yang sudah dirakit tidak tersentuh; hanya pemakaian baru yang membaca versi itu.
+     */
+    @PostMapping("/bank-soal/akses/{id}/versi")
+    public String pindahVersi(@PathVariable UUID id, @RequestParam UUID versionId,
+                              @AuthenticationPrincipal UserPrincipal user) {
+        PaketAccessEntity akses = access.switchVersion(id, versionId, user.requireClientId());
+        return "redirect:/bank-soal/paket/" + akses.getPaketId();
     }
 
     /**
@@ -123,7 +150,8 @@ public class BankSoalController {
         model.addAttribute("q", q);
         model.addAttribute("status", null);
         model.addAttribute("subjects", taxonomy.visibleSubjects(clientId));
-        model.addAttribute("topics", subjectId != null ? taxonomy.topicsOwnedBy(subjectId, clientId) : List.of());
+        // Topic Paket sekolah dan Paket Eduscreen yang aksesnya dimiliki (ADR-0021).
+        model.addAttribute("topics", subjectId != null ? access.readableTopicsIn(subjectId, clientId) : List.of());
         return "bank/cari";
     }
 
@@ -139,15 +167,32 @@ public class BankSoalController {
         return "redirect:/bank-soal/paket/" + paket.getId();
     }
 
-    /** Tingkat 2: isi Paket, soal dikelompokkan per Topic. */
+    /**
+     * Tingkat 2: isi Paket, soal dikelompokkan per Topic.
+     *
+     * <p>Paket Eduscreen yang aksesnya dimiliki sekolah tampil di sini juga, hanya-baca
+     * (ADR-0021): isinya versi yang ditunjuk akses, soal terbitnya saja, tanpa satu pun aksi
+     * tulis. Paket yang tidak terlihat — milik Client lain, master tanpa akses — 404 (TC-09).
+     */
     @GetMapping("/bank-soal/paket/{id}")
     public String isiPaket(@PathVariable UUID id,
                            @AuthenticationPrincipal UserPrincipal user,
                            Model model) {
-        PaketEntity paket = pakets.require(id, user.requireClientId());
+        UUID clientId = user.requireClientId();
+        PaketEntity paket = access.requireReadable(id, clientId);
         model.addAttribute("paket", paket);
         model.addAttribute("topics", pakets.topicsOf(id));
-        model.addAttribute("soalPerTopic", questions.groupByTopic(id));
+        if (paket.getClientId() == null) {
+            PaketVersionEntity versi = access.visibleVersionOf(id, clientId);
+            model.addAttribute("readOnly", true);
+            model.addAttribute("versi", versi);
+            model.addAttribute("akses", access.usableAccess(id, clientId).orElse(null));
+            model.addAttribute("versiTerbaru", access.latestPublished(id).orElse(versi));
+            model.addAttribute("soalPerTopic", questions.groupByTopicReadable(clientId, versi.getId()));
+        } else {
+            model.addAttribute("readOnly", false);
+            model.addAttribute("soalPerTopic", questions.groupByTopic(id));
+        }
         return "bank/isi";
     }
 
@@ -167,7 +212,7 @@ public class BankSoalController {
     public String topicOptions(@PathVariable UUID id,
                                @AuthenticationPrincipal UserPrincipal user,
                                Model model) {
-        pakets.require(id, user.requireClientId());
+        access.requireReadable(id, user.requireClientId());
         model.addAttribute("topics", pakets.topicsOf(id));
         return "bank/isi :: opsiTopic";
     }
@@ -321,7 +366,10 @@ public class BankSoalController {
         UUID clientId = user.requireClientId();
         pakets.require(id, clientId);
 
-        List<PaketEntity> paketLain = paketRepository.findByClientIdOrderByTitleAsc(clientId).stream()
+        // Sumber pinjam: Paket sekolah lain ∪ Paket Eduscreen yang aksesnya dimiliki (ADR-0021) —
+        // menyalin soal master ke Paket sekolah adalah satu-satunya jalan soal master jadi baris
+        // milik sekolah, saat sekolah memang ingin mengubahnya.
+        List<PaketEntity> paketLain = access.readablePakets(clientId).stream()
                 .filter(p -> !p.getId().equals(id))
                 .toList();
         Map<UUID, PaketEntity> paketById = paketLain.stream()
@@ -347,7 +395,7 @@ public class BankSoalController {
         // sekaligus oracle keberadaan: id asing membalas tidak kosong, id yang tidak ada membalas
         // kosong, keduanya 200 — persis yang TC-09 larang bisa dibedakan.
         List<TopicEntity> filterTopics = filterPaketId != null
-                ? pakets.topicsOf(pakets.require(filterPaketId, clientId).getId())
+                ? pakets.topicsOf(access.requireReadable(filterPaketId, clientId).getId())
                 : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));

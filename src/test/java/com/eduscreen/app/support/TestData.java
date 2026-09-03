@@ -186,9 +186,15 @@ public class TestData {
         return topics.save(TopicEntity.of(paket.getId(), topicName, 0));
     }
 
-    /** Versi kerja Paket yang menaungi sebuah Topic. */
+    /** Versi yang dibaca untuk Paket yang menaungi sebuah Topic: versi kerja, atau versi terbit terakhir. */
     public PaketVersionEntity versionOf(TopicEntity topic) {
-        return versions.findDraft(topic.getPaketId()).orElseThrow();
+        return versionOf(topic.getPaketId());
+    }
+
+    public PaketVersionEntity versionOf(UUID paketId) {
+        return versions.findDraft(paketId)
+                .or(() -> versions.findFirstByPaketIdAndPublishedAtIsNotNullOrderByNomorDesc(paketId))
+                .orElseThrow();
     }
 
     /** Penempatan sebuah soal: Paket, versi, Topic, posisi (ADR-0021). */
@@ -204,8 +210,7 @@ public class TestData {
 
     /** Isi versi kerja satu Paket, urut Topic lalu posisi — padanan halaman isi Paket. */
     public List<QuestionEntity> questionsInPaket(UUID paketId) {
-        PaketVersionEntity version = versions.findDraft(paketId).orElseThrow();
-        return inOrder(items.findByVersionOrdered(version.getId()));
+        return inOrder(items.findByVersionOrdered(versionOf(paketId).getId()));
     }
 
     /** Isi satu Topic di versi kerja Paketnya, urut posisi. */

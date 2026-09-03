@@ -24,4 +24,9 @@ public interface PaketVersionRepository extends JpaRepository<PaketVersionEntity
 
     @Query("select coalesce(max(v.nomor), 0) + 1 from PaketVersionEntity v where v.paketId = :paketId")
     int nextNomor(@Param("paketId") UUID paketId);
+
+    /** Versi kerja seluruh Paket milik satu Client — bagian "milik sendiri" dari versi yang terlihat (TC-36). */
+    @Query("select v.id from PaketVersionEntity v, PaketEntity p where v.paketId = p.id "
+            + "and v.clientId = :clientId and v.publishedAt is null")
+    List<UUID> findDraftIdsByClient(@Param("clientId") UUID clientId);
 }

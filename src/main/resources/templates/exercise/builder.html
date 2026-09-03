@@ -94,6 +94,15 @@
                   class="btn btn-secondary btn-sm">
             Tambah semua soal Topic ini
           </button>
+          <!-- Seluruh Paket sekaligus (ADR-0021): Paket sekolah maupun Paket Eduscreen lewat akses.
+               Pola yang sama dengan tombol Topic — hanya berangkat kalau ada Paket terpilih. -->
+          <button type="button"
+                  th:attr="hx-post=@{/exercise/{id}/item/paket(id=${exercise.id})}"
+                  hx-include="#paketIdBuilder" hx-target="#daftar-item" hx-swap="outerHTML"
+                  hx-trigger="click[document.getElementById('paketIdBuilder').value]"
+                  class="btn btn-secondary btn-sm">
+            Tambah seluruh Paket ini
+          </button>
         </form>
 
         <div id="hasil-soal" th:replace="~{::hasil}"></div>

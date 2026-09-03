@@ -4,6 +4,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,4 +53,12 @@ public interface TopicRepository extends JpaRepository<TopicEntity, UUID> {
 
     @Query("select coalesce(max(t.position), -1) + 1 from TopicEntity t where t.paketId = :paketId")
     int nextPosition(@Param("paketId") UUID paketId);
+
+    /**
+     * Topic dari sekumpulan Paket yang sudah lolos pemeriksaan pemilik/akses di pemanggil
+     * ({@code PaketAccessService.readableTopicsIn}); {@code paketIds} tidak pernah kosong.
+     */
+    @Query("select t from TopicEntity t, PaketEntity p where t.paketId = p.id and p.id in :paketIds "
+            + "order by t.title asc")
+    List<TopicEntity> findInPakets(@Param("paketIds") Collection<UUID> paketIds);
 }

@@ -14,8 +14,8 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Onboarding satu Client baru: pembuatan Client, akun Client Admin pertama, dan penyalinan
- * paket master yang dipilih dalam satu langkah (FR-020, §6.1 business-rules).
+ * Onboarding satu Client baru: pembuatan Client, akun Client Admin pertama, dan pemberian
+ * akses ke Paket master yang dipilih dalam satu langkah (FR-020, §6.1 business-rules, ADR-0021).
  */
 @Service
 public class ClientOnboardingService {
@@ -28,14 +28,14 @@ public class ClientOnboardingService {
 
     private final ClientRepository clients;
     private final UserManagementService userManagement;
-    private final ContentAdoptionService adoption;
+    private final PaketAccessService access;
 
     public ClientOnboardingService(ClientRepository clients,
                                    UserManagementService userManagement,
-                                   ContentAdoptionService adoption) {
+                                   PaketAccessService access) {
         this.clients = clients;
         this.userManagement = userManagement;
-        this.adoption = adoption;
+        this.access = access;
     }
 
     public record OnboardingRequest(String name, String timezone, String adminEmail,
@@ -60,11 +60,12 @@ public class ClientOnboardingService {
         AppUserEntity admin = userManagement.create(
                 client.getId(), request.adminEmail(), request.adminFullName(), UserRole.CLIENT_ADMIN);
 
-        if (request.paketIds() != null && !request.paketIds().isEmpty()) {
-            // Salinan Paket master lahir milik Client Admin yang baru dibuat: dialah yang akan
-            // menyusun dan menerbitkannya lebih lanjut. Paket, bukan lagi Exercise, adalah
-            // satuan adopsi sejak ADR-0018 — Exercise tidak pernah jadi objek adopsi.
-            adoption.adoptPakets(client.getId(), request.paketIds(), admin.getId());
+        if (request.paketIds() != null) {
+            // Akses, bukan salinan (ADR-0021): sekolah membaca versi terbit terakhir tiap Paket
+            // master yang dipilih; tanpa batas waktu, Eduscreen Admin bisa mengaturnya kemudian.
+            for (UUID paketId : request.paketIds()) {
+                access.grant(client.getId(), paketId, null, admin.getId());
+            }
         }
 
         return client;
