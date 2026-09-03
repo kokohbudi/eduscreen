@@ -66,15 +66,16 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
      * sini: hasil adopsinya sama-sama nol soal.
      *
      * <p>Predikatnya sengaja disalin dari gerbang {@code MasterPublishingService.publishPaket}
-     * ({@code QuestionRepository.countPublishedInPaket}), bukan memanggilnya per Paket dalam
+     * ({@code QuestionRepository.countPublishedInVersion}), bukan memanggilnya per Paket dalam
      * sebuah perulangan: satu query untuk seluruh Paket master, bukan N+1.
      *
      * <p>Sejak ADR-0020 Paket yang memuat draf TIDAK lagi macet — ia bisa terbit dengan soal yang
      * sudah siap saja. Yang menyandera penerbitan tinggal satu: tidak ada isi yang siap.
      */
     @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
-            + "and not exists (select q.id from QuestionEntity q where q.paketId = p.id "
-            + "and q.publishedAt is not null) "
+            + "and not exists (select q.id from QuestionEntity q, PaketItemEntity i, PaketVersionEntity v "
+            + "  where i.questionId = q.id and i.paketVersionId = v.id and v.paketId = p.id "
+            + "  and q.publishedAt is not null) "
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterBlocked();
 
@@ -83,8 +84,9 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
      * siap terbit (AC-B16, BR-O05). Komplemen persis {@link #findMasterBlocked}.
      */
     @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
-            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id "
-            + "and q.publishedAt is not null) "
+            + "and exists (select q.id from QuestionEntity q, PaketItemEntity i, PaketVersionEntity v "
+            + "  where i.questionId = q.id and i.paketVersionId = v.id and v.paketId = p.id "
+            + "  and q.publishedAt is not null) "
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterReadyToPublish();
 

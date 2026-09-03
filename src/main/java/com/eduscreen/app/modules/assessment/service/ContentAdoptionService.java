@@ -1,7 +1,11 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
@@ -42,15 +46,21 @@ public class ContentAdoptionService {
 
     private final TopicRepository topics;
     private final PaketRepository pakets;
+    private final PaketVersionRepository versions;
+    private final PaketItemRepository items;
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
 
     public ContentAdoptionService(TopicRepository topics,
                                   PaketRepository pakets,
+                                  PaketVersionRepository versions,
+                                  PaketItemRepository items,
                                   QuestionRepository questions,
                                   QuestionOptionRepository options) {
         this.topics = topics;
         this.pakets = pakets;
+        this.versions = versions;
+        this.items = items;
         this.questions = questions;
         this.options = options;
     }
@@ -89,6 +99,9 @@ public class ContentAdoptionService {
 
             PaketEntity copy = pakets.save(PaketEntity.adoptedFrom(
                     clientId, master.getSubjectId(), master.getTitle(), actor, master.getId()));
+            PaketVersionEntity copyVersion = versions.save(PaketVersionEntity.draft(copy, 1, actor));
+            PaketVersionEntity masterVersion = versions.findDraft(master.getId())
+                    .orElseThrow(() -> new IllegalStateException("Paket master tanpa versi kerja"));
             jumlahPaket++;
 
             for (TopicEntity topicMaster : topics.findByPaketIdOrderByPositionAsc(master.getId())) {
@@ -98,8 +111,10 @@ public class ContentAdoptionService {
 
                 // Hanya soal TERBIT yang ikut menyeberang: sejak ADR-0020 Paket terbit boleh menyisakan
                 // draf di dalamnya, dan draf itu pekerjaan yang belum selesai — bukan isi katalog.
-                for (QuestionEntity q : questions.findPublishedByTopicIdOrderByPositionAsc(topicMaster.getId())) {
-                    salinQuestion(q, copy, topicCopy, actor);
+                for (PaketItemEntity item : items.findPublishedByVersionAndTopicOrdered(
+                        masterVersion.getId(), topicMaster.getId())) {
+                    QuestionEntity q = questions.findById(item.getQuestionId()).orElseThrow();
+                    salinQuestion(q, item.getPosition(), copy, copyVersion, topicCopy, actor);
                     jumlahQuestion++;
                 }
             }
@@ -120,17 +135,19 @@ public class ContentAdoptionService {
      * {@code nextPosition}, karena Topic tujuan pinjam bisa saja sudah berisi soal lain; konteks
      * itu tidak berlaku di sini.
      */
-    private void salinQuestion(QuestionEntity master, PaketEntity paket, TopicEntity topic, UUID actor) {
+    private void salinQuestion(QuestionEntity master, int position, PaketEntity paket,
+                               PaketVersionEntity version, TopicEntity topic, UUID actor) {
         QuestionEntity copy = new QuestionEntity(
-                paket.getClientId(), paket.getId(), topic.getId(), master.getType(),
-                master.getBodyHtml(), master.getBodyText());
+                paket.getClientId(), master.getType(), master.getBodyHtml(), master.getBodyText());
         copy.setExplanationHtml(master.getExplanationHtml());
         copy.setExplanationText(master.getExplanationText());
         // Jejak adopsi saja (ADR-0001): tidak ada sinkronisasi lanjutan dari master ini.
         copy.setSourceQuestionId(master.getId());
         copy.setCreatedBy(actor);
-        copy.moveTo(master.getPosition());
         questions.save(copy);
+        // Posisi master dipertahankan apa adanya, bukan dihitung ulang: Topic tujuan baru lahir
+        // dan kosong, dan celah posisi master (soal di tengah pernah dihapus) ikut terbawa utuh.
+        items.save(new PaketItemEntity(version, topic, copy, position));
 
         for (QuestionOptionEntity o : options.findByQuestionIdOrderByPositionAsc(master.getId())) {
             options.save(new QuestionOptionEntity(

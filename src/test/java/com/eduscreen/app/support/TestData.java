@@ -27,7 +27,12 @@ import com.eduscreen.app.modules.assessment.repository.RuanganRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.SubjectRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.modules.assessment.service.PaketService;
@@ -72,6 +77,8 @@ public class TestData {
     private final RuanganMemberRepository members;
     private final SubjectRepository subjects;
     private final PaketRepository pakets;
+    private final PaketVersionRepository versions;
+    private final PaketItemRepository items;
     private final TopicRepository topics;
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
@@ -86,6 +93,8 @@ public class TestData {
                     RuanganMemberRepository members,
                     SubjectRepository subjects,
                     PaketRepository pakets,
+                    PaketVersionRepository versions,
+                    PaketItemRepository items,
                     TopicRepository topics,
                     QuestionRepository questions,
                     QuestionOptionRepository options,
@@ -99,6 +108,8 @@ public class TestData {
         this.members = members;
         this.subjects = subjects;
         this.pakets = pakets;
+        this.versions = versions;
+        this.items = items;
         this.topics = topics;
         this.questions = questions;
         this.options = options;
@@ -171,7 +182,64 @@ public class TestData {
         SubjectEntity subject = subjects.save(SubjectEntity.forClient(client.getId(), subjectName));
         PaketEntity paket = pakets.save(
                 PaketEntity.forClient(client.getId(), subject.getId(), topicName, null));
+        versions.save(PaketVersionEntity.draft(paket, 1, null));
         return topics.save(TopicEntity.of(paket.getId(), topicName, 0));
+    }
+
+    /** Versi kerja Paket yang menaungi sebuah Topic. */
+    public PaketVersionEntity versionOf(TopicEntity topic) {
+        return versions.findDraft(topic.getPaketId()).orElseThrow();
+    }
+
+    /** Penempatan sebuah soal: Paket, versi, Topic, posisi (ADR-0021). */
+    public Placement placementOf(QuestionEntity question) {
+        return items.findPlacements(List.of(question.getId())).stream().findFirst().orElseThrow();
+    }
+
+    /** Versi kerja untuk Paket yang dirakit manual lewat repository (bukan PaketService). */
+    @Transactional
+    public PaketVersionEntity draftVersion(PaketEntity paket) {
+        return versions.save(PaketVersionEntity.draft(paket, 1, null));
+    }
+
+    /** Isi versi kerja satu Paket, urut Topic lalu posisi — padanan halaman isi Paket. */
+    public List<QuestionEntity> questionsInPaket(UUID paketId) {
+        PaketVersionEntity version = versions.findDraft(paketId).orElseThrow();
+        return inOrder(items.findByVersionOrdered(version.getId()));
+    }
+
+    /** Isi satu Topic di versi kerja Paketnya, urut posisi. */
+    public List<QuestionEntity> questionsInTopic(UUID topicId) {
+        TopicEntity topic = topics.findById(topicId).orElseThrow();
+        return inOrder(items.findByVersionAndTopicOrdered(versionOf(topic).getId(), topicId));
+    }
+
+    private List<QuestionEntity> inOrder(List<PaketItemEntity> penempatan) {
+        List<QuestionEntity> urut = new ArrayList<>();
+        for (PaketItemEntity item : penempatan) {
+            questions.findById(item.getQuestionId()).ifPresent(urut::add);
+        }
+        return urut;
+    }
+
+    public int positionOf(QuestionEntity question) {
+        return placementOf(question).getPosition();
+    }
+
+    public UUID topicIdOf(QuestionEntity question) {
+        return placementOf(question).getTopicId();
+    }
+
+    public UUID paketIdOf(QuestionEntity question) {
+        return placementOf(question).getPaketId();
+    }
+
+    /** Menempatkan soal yang sudah ada di ekor sebuah Topic. */
+    @Transactional
+    public PaketItemEntity place(QuestionEntity question, TopicEntity topic) {
+        PaketVersionEntity version = versionOf(topic);
+        return items.save(new PaketItemEntity(version, topic, question,
+                items.nextPosition(version.getId(), topic.getId())));
     }
 
     /** Subject yang menaungi sebuah Topic, diturunkan dari Paket induknya (ADR-0018). */
@@ -193,8 +261,8 @@ public class TestData {
     @Transactional
     public QuestionEntity mcq(ClientEntity client, TopicEntity topic, String body, int optionCount) {
         QuestionEntity question = questions.save(new QuestionEntity(
-                client.getId(), topic.getPaketId(), topic.getId(), QuestionType.MULTIPLE_CHOICE,
-                "<p>" + body + "</p>", body));
+                client.getId(), QuestionType.MULTIPLE_CHOICE, "<p>" + body + "</p>", body));
+        place(question, topic);
         for (int i = 0; i < optionCount; i++) {
             QuestionOptionEntity option = new QuestionOptionEntity(
                     question.getId(), "<p>Pilihan " + i + "</p>", "Pilihan " + i, i == 0, i);
@@ -214,9 +282,10 @@ public class TestData {
 
     @Transactional
     public QuestionEntity essay(ClientEntity client, TopicEntity topic, String body) {
-        return questions.save(new QuestionEntity(
-                client.getId(), topic.getPaketId(), topic.getId(), QuestionType.ESSAY,
-                "<p>" + body + "</p>", body));
+        QuestionEntity question = questions.save(new QuestionEntity(
+                client.getId(), QuestionType.ESSAY, "<p>" + body + "</p>", body));
+        place(question, topic);
+        return question;
     }
 
     public UUID correctOptionOf(QuestionEntity question) {
@@ -300,6 +369,7 @@ public class TestData {
         SubjectEntity subject = subjects.save(SubjectEntity.global(
                 subjectName + " " + COUNTER.incrementAndGet()));
         PaketEntity paket = pakets.save(PaketEntity.master(subject.getId(), topicName, null));
+        versions.save(PaketVersionEntity.draft(paket, 1, null));
         return topics.save(TopicEntity.of(paket.getId(), topicName, 0));
     }
 
@@ -307,8 +377,8 @@ public class TestData {
     @Transactional
     public QuestionEntity masterMcq(TopicEntity topic, String body) {
         QuestionEntity question = questions.save(new QuestionEntity(
-                null, topic.getPaketId(), topic.getId(), QuestionType.MULTIPLE_CHOICE,
-                "<p>" + body + "</p>", body));
+                null, QuestionType.MULTIPLE_CHOICE, "<p>" + body + "</p>", body));
+        place(question, topic);
         for (int i = 0; i < 4; i++) {
             options.save(new QuestionOptionEntity(question.getId(),
                     "<p>Pilihan " + i + "</p>", "Pilihan " + i, i == 0, i));

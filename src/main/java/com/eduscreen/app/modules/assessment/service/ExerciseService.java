@@ -4,8 +4,10 @@ import com.eduscreen.app.modules.assessment.repository.ExerciseEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemEntity;
 import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
 import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
+import com.eduscreen.app.modules.assessment.repository.TopicRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.data.domain.Page;
@@ -29,15 +31,21 @@ public class ExerciseService {
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository items;
     private final QuestionRepository questions;
+    private final TopicRepository topics;
+    private final PaketVersionRepository versions;
     private final ClientClock clock;
 
     public ExerciseService(ExerciseRepository exercises,
                            ExerciseItemRepository items,
                            QuestionRepository questions,
+                           TopicRepository topics,
+                           PaketVersionRepository versions,
                            ClientClock clock) {
         this.exercises = exercises;
         this.items = items;
         this.questions = questions;
+        this.topics = topics;
+        this.versions = versions;
         this.clock = clock;
     }
 
@@ -124,10 +132,10 @@ public class ExerciseService {
     /**
      * Menambahkan seluruh Question satu Topic sekaligus (BR-E01).
      *
-     * <p>Topic GLOBAL milik Eduscreen tidak perlu ditolak eksplisit: soal master ber-{@code
-     * client_id} null, sehingga query yang menyaring {@code clientId} Guru mengembalikan kosong
-     * dan pemanggilan itu berakhir 0 tanpa membocorkan apa pun (TC-36). Jalur satu-satunya ke
-     * konten master tetap adopsi oleh Client Admin (FR-081).
+     * <p>Topic milik Paket master maupun Paket Client lain tidak perlu ditolak eksplisit:
+     * {@code findWritable} menjoin Paket dan menyaring {@code clientId}, sehingga Topic asing
+     * tidak ditemukan dan pemanggilan berakhir 0 tanpa membocorkan apa pun (TC-36). Jalur
+     * satu-satunya ke konten master tetap adopsi oleh Client Admin (FR-081).
      *
      * <p>Soal yang sudah terpasang dilewati, jadi menekan tombol dua kali tidak menggandakan
      * apa pun. Sengaja tidak memanggil {@link #addQuestion} per soal: itu akan menembakkan satu
@@ -138,8 +146,12 @@ public class ExerciseService {
     @Transactional
     public int addTopic(UUID exerciseId, UUID topicId, UUID clientId) {
         ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
-        return append(exercise, questions.findByClientIdAndTopicIdOrderByCreatedAtAsc(clientId, topicId)
-                .stream().map(QuestionEntity::getId).toList());
+        List<UUID> ids = topics.findWritable(topicId, clientId)
+                .flatMap(topic -> versions.findDraft(topic.getPaketId())
+                        .map(v -> questions.findByVersionAndTopicOrdered(clientId, v.getId(), topic.getId())))
+                .orElse(List.of())
+                .stream().map(QuestionEntity::getId).toList();
+        return append(exercise, ids);
     }
 
     /**

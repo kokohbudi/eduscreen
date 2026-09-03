@@ -1,6 +1,9 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
+import com.eduscreen.app.modules.assessment.repository.PaketItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
@@ -47,6 +50,7 @@ public class QuestionImportService {
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
     private final TopicRepository topics;
+    private final PaketItemRepository items;
     private final PaketService pakets;
     private final ContentSanitizer sanitizer;
     private final ClientClock clock;
@@ -58,6 +62,7 @@ public class QuestionImportService {
                                  QuestionRepository questions,
                                  QuestionOptionRepository options,
                                  TopicRepository topics,
+                                 PaketItemRepository items,
                                  PaketService pakets,
                                  ContentSanitizer sanitizer,
                                  ClientClock clock) {
@@ -65,6 +70,7 @@ public class QuestionImportService {
         this.questions = questions;
         this.options = options;
         this.topics = topics;
+        this.items = items;
         this.pakets = pakets;
         this.sanitizer = sanitizer;
         this.clock = clock;
@@ -155,31 +161,32 @@ public class QuestionImportService {
         // Posisi awal dihitung sekali untuk seluruh berkas, lalu berjalan naik per baris:
         // soal impor mendarat berurutan di ekor Topic, tidak menumpuk di posisi soal yang
         // sudah ada (AC-B08).
-        int position = questions.nextPosition(topic.getId());
+        PaketVersionEntity version = pakets.versionOf(paketId);
+        int position = items.nextPosition(version.getId(), topic.getId());
         int saved = 0;
         for (QuestionImportParser.RawRow row : pending.rows()) {
-            saveQuestion(row, paketId, topic.getId(), clientId, author, position++);
+            saveQuestion(row, version, topic, clientId, author, position++);
             saved++;
         }
         return new ImportSummary(saved);
     }
 
-    private void saveQuestion(QuestionImportParser.RawRow row, UUID paketId, UUID topicId,
+    private void saveQuestion(QuestionImportParser.RawRow row, PaketVersionEntity version, TopicEntity topic,
                               UUID clientId, UUID author, int position) {
         QuestionType type = "PG".equals(row.type()) ? QuestionType.MULTIPLE_CHOICE : QuestionType.ESSAY;
 
         // Konten impor melewati sanitasi yang SAMA dengan editor manual (TC-22) — tidak ada
         // jalur pintas untuk berkas. Rumus matematika masuk sebagai LaTeX berdelimiter dan
         // tidak dirender di server (TC-24); sanitasi HTML tidak menyentuhnya.
-        QuestionEntity question = new QuestionEntity(clientId, paketId, topicId, type,
+        QuestionEntity question = new QuestionEntity(clientId, type,
                 sanitizer.sanitize(row.body()), sanitizer.toPlainText(row.body()));
-        question.moveTo(position);
         question.setCreatedBy(author);
         if (row.explanation() != null && !row.explanation().isBlank()) {
             question.setExplanationHtml(sanitizer.sanitize(row.explanation()));
             question.setExplanationText(sanitizer.toPlainText(row.explanation()));
         }
         questions.save(question);
+        items.save(new PaketItemEntity(version, topic, question, position));
 
         if (type == QuestionType.MULTIPLE_CHOICE) {
             char correctLetter = row.answerKey().charAt(0);

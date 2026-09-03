@@ -85,7 +85,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
                 client.getId(), master.getSubjectId()).get(0);
         assertThat(salinan.getSourcePaketId()).isEqualTo(master.getId());
-        List<QuestionEntity> questionSalinan = questions.findByPaketIdOrderByPositionAsc(salinan.getId());
+        List<QuestionEntity> questionSalinan = data.questionsInPaket(salinan.getId());
         assertThat(questionSalinan).hasSize(1);
 
         // Salinan Option lengkap — jumlahnya dan mana yang benar (FR-016) — bukan sekadar
@@ -114,7 +114,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
 
         PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
                 client.getId(), master.getSubjectId()).get(0);
-        assertThat(questions.findByPaketIdOrderByPositionAsc(salinan.getId()))
+        assertThat(data.questionsInPaket(salinan.getId()))
                 .extracting(QuestionEntity::getBodyText)
                 .containsExactly("Soal terbit yang ikut adopsi");
     }
@@ -186,10 +186,10 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(topicSalinan).extracting(TopicEntity::getPosition).containsExactly(0, 1);
 
         List<QuestionEntity> questionTopic1Salinan =
-                questions.findByTopicIdOrderByPositionAsc(topicSalinan.get(0).getId());
+                data.questionsInTopic(topicSalinan.get(0).getId());
         assertThat(questionTopic1Salinan).extracting(QuestionEntity::getBodyText)
                 .containsExactly("Soal 1", "Soal 2 esai");
-        assertThat(questionTopic1Salinan).extracting(QuestionEntity::getPosition).containsExactly(0, 1);
+        assertThat(questionTopic1Salinan).extracting(data::positionOf).containsExactly(0, 1);
 
         List<QuestionOptionEntity> opsiSoal1 =
                 options.findByQuestionIdOrderByPositionAsc(questionTopic1Salinan.get(0).getId());
@@ -200,7 +200,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(options.findByQuestionIdOrderByPositionAsc(questionTopic1Salinan.get(1).getId())).isEmpty();
 
         List<QuestionEntity> questionTopic2Salinan =
-                questions.findByTopicIdOrderByPositionAsc(topicSalinan.get(1).getId());
+                data.questionsInTopic(topicSalinan.get(1).getId());
         assertThat(questionTopic2Salinan).extracting(QuestionEntity::getBodyText).containsExactly("Soal 3");
         List<QuestionOptionEntity> opsiSoal3 =
                 options.findByQuestionIdOrderByPositionAsc(questionTopic2Salinan.get(0).getId());
@@ -233,7 +233,7 @@ class CatalogAdoptionIT extends PostgresTestBase {
             List<PaketEntity> paketClient = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
                     client.getId(), master.getSubjectId());
             assertThat(paketClient).hasSize(1);
-            assertThat(questions.findByPaketIdOrderByPositionAsc(paketClient.get(0).getId())).hasSize(1);
+            assertThat(data.questionsInPaket(paketClient.get(0).getId())).hasSize(1);
         }
     }
 
@@ -306,9 +306,9 @@ class CatalogAdoptionIT extends PostgresTestBase {
         assertThat(paketClient).allSatisfy(p -> assertThat(p.getSourcePaketId()).isEqualTo(master.getId()));
 
         // Masing-masing salinan punya Question sendiri, bukan berbagi baris yang sama.
-        List<UUID> questionIdSalinan1 = questions.findByPaketIdOrderByPositionAsc(paketClient.get(0).getId())
+        List<UUID> questionIdSalinan1 = data.questionsInPaket(paketClient.get(0).getId())
                 .stream().map(QuestionEntity::getId).toList();
-        List<UUID> questionIdSalinan2 = questions.findByPaketIdOrderByPositionAsc(paketClient.get(1).getId())
+        List<UUID> questionIdSalinan2 = data.questionsInPaket(paketClient.get(1).getId())
                 .stream().map(QuestionEntity::getId).toList();
         assertThat(questionIdSalinan1).hasSize(1);
         assertThat(questionIdSalinan2).hasSize(1);

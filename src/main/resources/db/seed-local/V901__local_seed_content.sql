@@ -7,26 +7,45 @@
 --
 -- Isinya sengaja soal matematika kelas 4 yang jawabannya bisa diperiksa siapa pun, sehingga
 -- kesalahan penilaian terlihat tanpa perlu membuka kunci jawaban di berkas ini.
+--
+-- Bentuk data mengikuti V11: Subject › Paket › versi kerja › Topic; soal ditempatkan lewat
+-- paket_item, bukan kolom di question (ADR-0018, ADR-0021).
 
 insert into subject (id, name, origin, client_id) values
     ('01920000-0000-7000-8000-000000000050', 'Matematika Kelas 4', 'CLIENT', '01920000-0000-7000-8000-000000000001');
 
-insert into topic (id, subject_id, name, origin, client_id) values
-    ('01920000-0000-7000-8000-000000000051', '01920000-0000-7000-8000-000000000050', 'Aljabar Dasar', 'CLIENT', '01920000-0000-7000-8000-000000000001');
+insert into paket (id, client_id, title, subject_id, created_by) values
+    ('01920000-0000-7000-8000-000000000055', '01920000-0000-7000-8000-000000000001', 'Aljabar Dasar',
+     '01920000-0000-7000-8000-000000000050', '01920000-0000-7000-8000-000000000012');
 
-insert into question (id, client_id, topic_id, type, body_html, body_text, explanation_html, explanation_text, created_by) values
-    ('01920000-0000-7000-8000-000000000601', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 7 + 8?</p>', 'Berapa hasil dari 7 + 8?', '<p>Jumlahkan satuan: 7 + 8 = 15.</p>', 'Jumlahkan satuan: 7 + 8 = 15.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000602', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 9 &times; 6?</p>', 'Berapa hasil dari 9 x 6?', '<p>9 &times; 6 = 54.</p>', '9 x 6 = 54.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000603', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Nilai x pada 2x + 3 = 11 adalah</p>', 'Nilai x pada 2x + 3 = 11 adalah', '<p>Kurangi 3 di kedua ruas, lalu bagi 2.</p>', 'Kurangi 3 di kedua ruas, lalu bagi 2.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000604', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 144 : 12?</p>', 'Berapa hasil dari 144 : 12?', '<p>144 dibagi 12 sama dengan 12.</p>', '144 dibagi 12 sama dengan 12.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000605', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Bentuk sederhana dari 3a + 5a adalah</p>', 'Bentuk sederhana dari 3a + 5a adalah', '<p>Suku sejenis dijumlahkan koefisiennya.</p>', 'Suku sejenis dijumlahkan koefisiennya.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000606', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 25% dari 80?</p>', 'Berapa hasil dari 25% dari 80?', '<p>25% sama dengan seperempat; 80 : 4 = 20.</p>', '25% sama dengan seperempat; 80 : 4 = 20.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000607', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Nilai y pada y - 7 = 12 adalah</p>', 'Nilai y pada y - 7 = 12 adalah', '<p>Tambahkan 7 di kedua ruas.</p>', 'Tambahkan 7 di kedua ruas.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000608', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Keliling persegi bersisi 9 cm adalah</p>', 'Keliling persegi bersisi 9 cm adalah', '<p>Keliling persegi = 4 &times; sisi.</p>', 'Keliling persegi = 4 x sisi.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000609', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 15 - (-4)?</p>', 'Berapa hasil dari 15 - (-4)?', '<p>Mengurangi bilangan negatif sama dengan menambah.</p>', 'Mengurangi bilangan negatif sama dengan menambah.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000610', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'MULTIPLE_CHOICE', '<p>Bentuk paling sederhana dari 12/18 adalah</p>', 'Bentuk paling sederhana dari 12/18 adalah', '<p>Bagi pembilang dan penyebut dengan 6.</p>', 'Bagi pembilang dan penyebut dengan 6.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000611', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'ESSAY', '<p>Jelaskan langkah menyelesaikan persamaan 2x + 3 = 11.</p>', 'Jelaskan langkah menyelesaikan persamaan 2x + 3 = 11.', '<p>Kurangi 3 di kedua ruas sehingga 2x = 8, lalu bagi 2 sehingga x = 4.</p>', 'Kurangi 3 di kedua ruas sehingga 2x = 8, lalu bagi 2 sehingga x = 4.', '01920000-0000-7000-8000-000000000012'),
-    ('01920000-0000-7000-8000-000000000612', '01920000-0000-7000-8000-000000000001', '01920000-0000-7000-8000-000000000051', 'ESSAY', '<p>Sebuah persegi panjang berukuran 8 cm &times; 5 cm. Jelaskan cara menghitung luas dan kelilingnya.</p>', 'Sebuah persegi panjang berukuran 8 cm x 5 cm. Jelaskan cara menghitung luas dan kelilingnya.', '<p>Luas = panjang &times; lebar = 40 cm persegi. Keliling = 2 &times; (8 + 5) = 26 cm.</p>', 'Luas = panjang x lebar = 40 cm persegi. Keliling = 2 x (8 + 5) = 26 cm.', '01920000-0000-7000-8000-000000000012');
+insert into paket_version (id, paket_id, client_id, nomor) values
+    ('01920000-0000-7000-8000-000000000056', '01920000-0000-7000-8000-000000000055',
+     '01920000-0000-7000-8000-000000000001', 1);
+
+insert into topic (id, paket_id, title, position) values
+    ('01920000-0000-7000-8000-000000000051', '01920000-0000-7000-8000-000000000055', 'Aljabar Dasar', 0);
+
+insert into question (id, client_id, type, body_html, body_text, explanation_html, explanation_text, created_by) values
+    ('01920000-0000-7000-8000-000000000601', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 7 + 8?</p>', 'Berapa hasil dari 7 + 8?', '<p>Jumlahkan satuan: 7 + 8 = 15.</p>', 'Jumlahkan satuan: 7 + 8 = 15.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000602', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 9 &times; 6?</p>', 'Berapa hasil dari 9 x 6?', '<p>9 &times; 6 = 54.</p>', '9 x 6 = 54.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000603', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Nilai x pada 2x + 3 = 11 adalah</p>', 'Nilai x pada 2x + 3 = 11 adalah', '<p>Kurangi 3 di kedua ruas, lalu bagi 2.</p>', 'Kurangi 3 di kedua ruas, lalu bagi 2.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000604', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 144 : 12?</p>', 'Berapa hasil dari 144 : 12?', '<p>144 dibagi 12 sama dengan 12.</p>', '144 dibagi 12 sama dengan 12.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000605', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Bentuk sederhana dari 3a + 5a adalah</p>', 'Bentuk sederhana dari 3a + 5a adalah', '<p>Suku sejenis dijumlahkan koefisiennya.</p>', 'Suku sejenis dijumlahkan koefisiennya.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000606', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 25% dari 80?</p>', 'Berapa hasil dari 25% dari 80?', '<p>25% sama dengan seperempat; 80 : 4 = 20.</p>', '25% sama dengan seperempat; 80 : 4 = 20.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000607', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Nilai y pada y - 7 = 12 adalah</p>', 'Nilai y pada y - 7 = 12 adalah', '<p>Tambahkan 7 di kedua ruas.</p>', 'Tambahkan 7 di kedua ruas.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000608', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Keliling persegi bersisi 9 cm adalah</p>', 'Keliling persegi bersisi 9 cm adalah', '<p>Keliling persegi = 4 &times; sisi.</p>', 'Keliling persegi = 4 x sisi.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000609', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Berapa hasil dari 15 - (-4)?</p>', 'Berapa hasil dari 15 - (-4)?', '<p>Mengurangi bilangan negatif sama dengan menambah.</p>', 'Mengurangi bilangan negatif sama dengan menambah.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000610', '01920000-0000-7000-8000-000000000001', 'MULTIPLE_CHOICE', '<p>Bentuk paling sederhana dari 12/18 adalah</p>', 'Bentuk paling sederhana dari 12/18 adalah', '<p>Bagi pembilang dan penyebut dengan 6.</p>', 'Bagi pembilang dan penyebut dengan 6.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000611', '01920000-0000-7000-8000-000000000001', 'ESSAY', '<p>Jelaskan langkah menyelesaikan persamaan 2x + 3 = 11.</p>', 'Jelaskan langkah menyelesaikan persamaan 2x + 3 = 11.', '<p>Kurangi 3 di kedua ruas sehingga 2x = 8, lalu bagi 2 sehingga x = 4.</p>', 'Kurangi 3 di kedua ruas sehingga 2x = 8, lalu bagi 2 sehingga x = 4.', '01920000-0000-7000-8000-000000000012'),
+    ('01920000-0000-7000-8000-000000000612', '01920000-0000-7000-8000-000000000001', 'ESSAY', '<p>Sebuah persegi panjang berukuran 8 cm &times; 5 cm. Jelaskan cara menghitung luas dan kelilingnya.</p>', 'Sebuah persegi panjang berukuran 8 cm x 5 cm. Jelaskan cara menghitung luas dan kelilingnya.', '<p>Luas = panjang &times; lebar = 40 cm persegi. Keliling = 2 &times; (8 + 5) = 26 cm.</p>', 'Luas = panjang x lebar = 40 cm persegi. Keliling = 2 x (8 + 5) = 26 cm.', '01920000-0000-7000-8000-000000000012');
+
+-- Penempatan: satu item per soal di versi kerja, urut seperti ditulis (ADR-0021).
+insert into paket_item (id, paket_version_id, client_id, topic_id, question_id, position)
+select gen_random_uuid(), '01920000-0000-7000-8000-000000000056', '01920000-0000-7000-8000-000000000001',
+       '01920000-0000-7000-8000-000000000051', q.id,
+       row_number() over (order by q.id) - 1
+from question q
+where q.id between '01920000-0000-7000-8000-000000000601' and '01920000-0000-7000-8000-000000000612';
 
 -- Tepat satu Option benar per soal; unique partial index di V2 yang menjaganya (FR-016).
 insert into question_option (id, question_id, body_html, body_text, is_correct, position) values

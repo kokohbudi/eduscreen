@@ -439,15 +439,15 @@ class QuestionBankIT extends PostgresTestBase {
                 new QuestionService.QuestionDraft(
                         asal.getId(), QuestionType.ESSAY, "<p>Soal yang dipindah</p>", null, List.of()),
                 client.getId(), paket.getId());
-        assertThat(pindah.getPosition()).isZero();
+        assertThat(data.positionOf(pindah)).isZero();
 
         QuestionEntity sesudah = questionService.update(pindah.getId(),
                 new QuestionService.QuestionDraft(
                         tujuan.getId(), QuestionType.ESSAY, "<p>Soal yang dipindah</p>", null, List.of()),
                 client.getId(), paket.getId());
 
-        assertThat(sesudah.getTopicId()).isEqualTo(tujuan.getId());
-        assertThat(sesudah.getPosition())
+        assertThat(data.topicIdOf(sesudah)).isEqualTo(tujuan.getId());
+        assertThat(data.positionOf(sesudah))
                 .as("mendarat di ekor Topic tujuan, tidak bertabrakan dengan penghuninya")
                 .isEqualTo(2);
     }
@@ -464,7 +464,7 @@ class QuestionBankIT extends PostgresTestBase {
         QuestionEntity kedua = questionService.create(new QuestionService.QuestionDraft(
                 topic.getId(), QuestionType.ESSAY, "<p>Soal kedua</p>", null, List.of()),
                 client.getId(), paket.getId());
-        assertThat(kedua.getPosition()).isEqualTo(1);
+        assertThat(data.positionOf(kedua)).isEqualTo(1);
 
         QuestionEntity sesudah = questionService.update(kedua.getId(),
                 new QuestionService.QuestionDraft(
@@ -473,7 +473,7 @@ class QuestionBankIT extends PostgresTestBase {
 
         // Menyunting isi soal tidak boleh memindahkannya ke ekor daftar: urutan yang dilihat
         // penulis harus tetap sama sesudah ia membetulkan satu kata.
-        assertThat(sesudah.getPosition()).isEqualTo(1);
+        assertThat(data.positionOf(sesudah)).isEqualTo(1);
     }
 
     @Test
@@ -515,12 +515,12 @@ class QuestionBankIT extends PostgresTestBase {
                 topic.getId(), QuestionType.ESSAY, "<p>Soal kedua</p>", null, List.of()),
                 client.getId(), topic.getPaketId());
 
-        assertThat(pertama.getPaketId()).isEqualTo(topic.getPaketId());
-        assertThat(kedua.getPaketId()).isEqualTo(topic.getPaketId());
+        assertThat(data.paketIdOf(pertama)).isEqualTo(topic.getPaketId());
+        assertThat(data.paketIdOf(kedua)).isEqualTo(topic.getPaketId());
 
         // Tanpa nextPosition keduanya mendarat di 0 dan urutan yang dilihat penulis
         // ditentukan kebetulan.
-        assertThat(pertama.getPosition()).isZero();
-        assertThat(kedua.getPosition()).isEqualTo(1);
+        assertThat(data.positionOf(pertama)).isZero();
+        assertThat(data.positionOf(kedua)).isEqualTo(1);
     }
 }

@@ -1,7 +1,10 @@
 package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
@@ -36,13 +39,19 @@ public class MasterPublishingService {
 
     private final QuestionRepository questions;
     private final PaketRepository pakets;
+    private final PaketVersionRepository versions;
+    private final PaketItemRepository items;
     private final ClientClock clock;
 
     public MasterPublishingService(QuestionRepository questions,
                                    PaketRepository pakets,
+                                   PaketVersionRepository versions,
+                                   PaketItemRepository items,
                                    ClientClock clock) {
         this.questions = questions;
         this.pakets = pakets;
+        this.versions = versions;
+        this.items = items;
         this.clock = clock;
     }
 
@@ -99,8 +108,9 @@ public class MasterPublishingService {
             terbitkanSemuaDraf(id);
         }
 
-        if (questions.countPublishedInPaket(id) == 0) {
-            throw new IllegalArgumentException(questions.existsByPaketId(id)
+        UUID versionId = versionOf(id).getId();
+        if (questions.countPublishedInVersion(versionId) == 0) {
+            throw new IllegalArgumentException(items.countByVersion(versionId) > 0
                     ? "Paket ini belum punya satu pun soal terbit. Terbitkan minimal satu soalnya dulu."
                     : "Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
         }
@@ -130,11 +140,22 @@ public class MasterPublishingService {
 
     /** Question master yang masih draf di satu Paket, untuk ditawarkan pilihannya di layar. */
     public List<QuestionEntity> draftQuestionsOf(UUID paketId) {
-        return questions.findUnpublishedInPaket(paketId);
+        return questions.findUnpublishedInVersion(versionOf(paketId).getId());
+    }
+
+    /** Jumlah soal terbit di versi kerja satu Paket master — angka di dialog terbit (AC-B12). */
+    public long publishedCountOf(UUID paketId) {
+        return questions.countPublishedInVersion(versionOf(paketId).getId());
+    }
+
+    /** Versi kerja Paket; pemanggil sudah lolos {@code requireMasterPaket} atau padanannya. */
+    private PaketVersionEntity versionOf(UUID paketId) {
+        return versions.findDraft(paketId)
+                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi kerja"));
     }
 
     private int terbitkanSemuaDraf(UUID paketId) {
-        List<QuestionEntity> draf = questions.findUnpublishedInPaket(paketId);
+        List<QuestionEntity> draf = questions.findUnpublishedInVersion(versionOf(paketId).getId());
         // Waktu terbit selalu jam server, tidak pernah nilai yang dikirim klien (TC-12).
         OffsetDateTime sekarang = clock.now();
         draf.forEach(q -> {
@@ -169,13 +190,17 @@ public class MasterPublishingService {
         if (question.getClientId() != null) {
             return;
         }
-        pakets.findByIdAndClientIdIsNull(question.getPaketId())
-                .filter(PaketEntity::isPublished)
-                .ifPresent(paket -> {
-                    throw new IllegalArgumentException("Paket \"" + paket.getTitle()
-                            + "\" masih terbit di katalog. Tarik Paket itu dari katalog dulu "
-                            + "sebelum " + tindakan + " di dalamnya.");
-                });
+        // Satu soal bisa ditempatkan di lebih dari satu Paket (ADR-0021); satu saja yang masih
+        // terbit sudah cukup untuk menolak.
+        for (UUID paketId : items.paketIdsContaining(question.getId())) {
+            pakets.findByIdAndClientIdIsNull(paketId)
+                    .filter(PaketEntity::isPublished)
+                    .ifPresent(paket -> {
+                        throw new IllegalArgumentException("Paket \"" + paket.getTitle()
+                                + "\" masih terbit di katalog. Tarik Paket itu dari katalog dulu "
+                                + "sebelum " + tindakan + " di dalamnya.");
+                    });
+        }
     }
 
     /** Konten milik sebuah Client dan konten yang tidak ada sama-sama 404 (TC-09). */

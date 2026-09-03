@@ -51,7 +51,7 @@ class PaketBorrowIT extends PostgresTestBase {
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
 
         assertThat(tersalin).isEqualTo(1);
-        List<QuestionEntity> isiTujuan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId());
+        List<QuestionEntity> isiTujuan = data.questionsInPaket(tujuan.getId());
         assertThat(isiTujuan).hasSize(1);
         assertThat(isiTujuan.get(0).getId()).isNotEqualTo(asal.getId());
         assertThat(isiTujuan.get(0).getSourceQuestionId()).isEqualTo(asal.getId());
@@ -72,7 +72,7 @@ class PaketBorrowIT extends PostgresTestBase {
         borrow.borrowQuestions(
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
 
-        QuestionEntity salinan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId()).get(0);
+        QuestionEntity salinan = data.questionsInPaket(tujuan.getId()).get(0);
         List<QuestionOptionEntity> opsiSalinan = options.findByQuestionIdOrderByPositionAsc(salinan.getId());
 
         assertThat(opsiSalinan).hasSameSizeAs(opsiAsal);
@@ -117,7 +117,7 @@ class PaketBorrowIT extends PostgresTestBase {
 
         assertThat(pertama).isEqualTo(1);
         assertThat(kedua).isEqualTo(0);
-        assertThat(questions.findByPaketIdOrderByPositionAsc(tujuan.getId())).hasSize(1);
+        assertThat(data.questionsInPaket(tujuan.getId())).hasSize(1);
     }
 
     @Test
@@ -135,7 +135,7 @@ class PaketBorrowIT extends PostgresTestBase {
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), peminjam.getId(), null);
 
         assertThat(tersalin).isEqualTo(0);
-        assertThat(questions.findByPaketIdOrderByPositionAsc(tujuan.getId())).isEmpty();
+        assertThat(data.questionsInPaket(tujuan.getId())).isEmpty();
     }
 
     @Test
@@ -152,7 +152,7 @@ class PaketBorrowIT extends PostgresTestBase {
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
         assertThat(borrow.borrowedSourceIds(tujuan.getId())).containsExactly(asal.getId());
 
-        QuestionEntity salinan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId()).get(0);
+        QuestionEntity salinan = data.questionsInPaket(tujuan.getId()).get(0);
         questionService.update(salinan.getId(), new QuestionService.QuestionDraft(
                 topicTujuan.getId(), salinan.getType(), "<p>Sebutkan rumus air, disunting</p>",
                 null, List.of()), client.getId(), tujuan.getId());
@@ -161,7 +161,7 @@ class PaketBorrowIT extends PostgresTestBase {
         int tersalinLagi = borrow.borrowQuestions(
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
         assertThat(tersalinLagi).isEqualTo(1);
-        assertThat(questions.findByPaketIdOrderByPositionAsc(tujuan.getId())).hasSize(2);
+        assertThat(data.questionsInPaket(tujuan.getId())).hasSize(2);
     }
 
     @Test
@@ -177,15 +177,13 @@ class PaketBorrowIT extends PostgresTestBase {
 
         borrow.borrowQuestions(
                 tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
-        QuestionEntity salinan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId()).get(0);
-        salinan.reparent(tujuan.getId(), topicTujuan.getId());
-        salinan.moveTo(5);
+        QuestionEntity salinan = data.questionsInPaket(tujuan.getId()).get(0);
         salinan.setBodyHtml("<p>Jelaskan hukum Newton I, sudah disunting</p>");
         salinan.setBodyText("Jelaskan hukum Newton I, sudah disunting");
         questions.save(salinan);
 
         QuestionEntity asalSetelahDiubah = questions.findById(asal.getId()).orElseThrow();
-        assertThat(asalSetelahDiubah.getPosition()).isEqualTo(asal.getPosition());
+        assertThat(data.positionOf(asalSetelahDiubah)).isZero();
         assertThat(asalSetelahDiubah.getBodyHtml()).isEqualTo(bodyHtmlAsal);
     }
 
@@ -205,11 +203,11 @@ class PaketBorrowIT extends PostgresTestBase {
         borrow.borrowQuestions(tujuan.getId(), topicTujuan.getId(),
                 List.of(asal1.getId(), asal2.getId()), client.getId(), null);
 
-        List<QuestionEntity> isiTujuan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId());
+        List<QuestionEntity> isiTujuan = data.questionsInPaket(tujuan.getId());
         assertThat(isiTujuan).hasSize(3);
-        assertThat(isiTujuan.get(0).getPosition()).isEqualTo(0);
-        assertThat(isiTujuan.get(1).getPosition()).isEqualTo(1);
-        assertThat(isiTujuan.get(2).getPosition()).isEqualTo(2);
+        assertThat(data.positionOf(isiTujuan.get(0))).isEqualTo(0);
+        assertThat(data.positionOf(isiTujuan.get(1))).isEqualTo(1);
+        assertThat(data.positionOf(isiTujuan.get(2))).isEqualTo(2);
     }
 
     @Test

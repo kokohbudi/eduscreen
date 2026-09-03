@@ -105,10 +105,9 @@ class QuestionImportIT extends PostgresTestBase {
                 preview.token(), paket.getId(), topic.getId(), client.getId(), author.getId());
         assertThat(summary.saved()).isEqualTo(17);
 
-        List<QuestionEntity> tersimpan = questionRepository
-                .findByClientIdAndTopicIdOrderByCreatedAtDesc(client.getId(), topic.getId());
+        List<QuestionEntity> tersimpan = testData.questionsInTopic(topic.getId());
         assertThat(tersimpan).hasSize(17);
-        assertThat(tersimpan).allSatisfy(q -> assertThat(q.getPaketId()).isEqualTo(paket.getId()));
+        assertThat(tersimpan).allSatisfy(q -> assertThat(testData.paketIdOf(q)).isEqualTo(paket.getId()));
     }
 
     /**
@@ -136,7 +135,7 @@ class QuestionImportIT extends PostgresTestBase {
 
         importService.commit(preview.token(), paket.getId(), topic.getId(), client.getId(), author.getId());
 
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topic.getId()))
+        assertThat(testData.questionsInTopic(topic.getId()))
                 .extracting(QuestionEntity::getBodyText)
                 .containsExactly("Soal tanpa kolom topic", "Esai tanpa kolom topic");
     }
@@ -176,10 +175,10 @@ class QuestionImportIT extends PostgresTestBase {
                 preview.token(), paketTujuan.getId(), topicTujuan.getId(), client.getId(), author.getId());
 
         assertThat(summary.saved()).isEqualTo(2);
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topicTujuan.getId()))
+        assertThat(testData.questionsInTopic(topicTujuan.getId()))
                 .hasSize(2)
-                .allSatisfy(q -> assertThat(q.getPaketId()).isEqualTo(paketTujuan.getId()));
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topicAljabar.getId())).isEmpty();
+                .allSatisfy(q -> assertThat(testData.paketIdOf(q)).isEqualTo(paketTujuan.getId()));
+        assertThat(testData.questionsInTopic(topicAljabar.getId())).isEmpty();
     }
 
     @Test
@@ -201,8 +200,8 @@ class QuestionImportIT extends PostgresTestBase {
         importService.commit(preview.token(), topic.getPaketId(), topic.getId(),
                 client.getId(), author.getId());
 
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topic.getId()))
-                .extracting(QuestionEntity::getPosition)
+        assertThat(testData.questionsInTopic(topic.getId()))
+                .extracting(testData::positionOf)
                 .containsExactly(0, 1, 2);
     }
 
@@ -229,7 +228,7 @@ class QuestionImportIT extends PostgresTestBase {
         assertThrows(ResourceNotFoundException.class,
                 () -> importService.commit(preview.token(), paketB.getId(), topicA.getId(),
                         clientA.getId(), authorA.getId()));
-        assertThat(questionRepository.findByPaketIdOrderByPositionAsc(paketB.getId())).isEmpty();
+        assertThat(testData.questionsInPaket(paketB.getId())).isEmpty();
     }
 
     @Test
@@ -250,8 +249,8 @@ class QuestionImportIT extends PostgresTestBase {
                 () -> importService.commit(preview.token(), topicPaketSatu.getPaketId(),
                         topicPaketDua.getId(), client.getId(), author.getId()));
 
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topicPaketSatu.getId())).isEmpty();
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topicPaketDua.getId())).isEmpty();
+        assertThat(testData.questionsInTopic(topicPaketSatu.getId())).isEmpty();
+        assertThat(testData.questionsInTopic(topicPaketDua.getId())).isEmpty();
     }
 
     @Test
@@ -283,7 +282,7 @@ class QuestionImportIT extends PostgresTestBase {
         QuestionImportService.ImportSummary summary = importService.commit(
                 preview.token(), topic.getPaketId(), topic.getId(), client.getId(), author.getId());
         assertThat(summary.saved()).isEqualTo(2);
-        assertThat(questionRepository.findByTopicIdOrderByPositionAsc(topic.getId()))
+        assertThat(testData.questionsInTopic(topic.getId()))
                 .extracting(QuestionEntity::getBodyText)
                 .containsExactly("Soal sehat satu", "Soal sehat dua");
     }
@@ -304,7 +303,7 @@ class QuestionImportIT extends PostgresTestBase {
         importService.commit(preview.token(), topic.getPaketId(), topic.getId(),
                 client.getId(), author.getId());
 
-        List<QuestionEntity> tersimpan = questionRepository.findByTopicIdOrderByPositionAsc(topic.getId());
+        List<QuestionEntity> tersimpan = testData.questionsInTopic(topic.getId());
         assertThat(tersimpan).hasSize(1);
         assertThat(tersimpan.getFirst().getBodyHtml()).doesNotContain("<script>");
         assertThat(tersimpan.getFirst().getBodyHtml()).contains("Berapa hasil 2 tambah 3?");

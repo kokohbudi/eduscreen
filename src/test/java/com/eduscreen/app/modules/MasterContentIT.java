@@ -137,7 +137,7 @@ class MasterContentIT extends PostgresTestBase {
 
         assertThat(semua.getTotalElements()).isEqualTo(2);
         assertThat(hanyaMatematika.getContent()).hasSize(1);
-        assertThat(hanyaMatematika.getContent().get(0).getTopicId()).isEqualTo(pecahan.getId());
+        assertThat(data.topicIdOf(hanyaMatematika.getContent().get(0))).isEqualTo(pecahan.getId());
     }
 
     @Test

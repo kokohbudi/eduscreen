@@ -2,6 +2,10 @@ package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
+import com.eduscreen.app.modules.assessment.repository.PaketItemEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionOptionRepository;
@@ -16,21 +20,25 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * Bank soal: pembuatan, pengubahan, pencarian, dan penghapusan lunak Question beserta
- * Option-nya.
+ * Option-nya, serta penempatannya di versi kerja Paket ({@link PaketItemEntity}, ADR-0021).
  */
 @Service
 public class QuestionService {
 
     private final QuestionRepository questions;
     private final QuestionOptionRepository options;
+    private final PaketItemRepository items;
+    private final PaketService pakets;
     private final TaxonomyService taxonomy;
     private final ContentSanitizer sanitizer;
     private final MasterPublishingService publishing;
@@ -38,12 +46,16 @@ public class QuestionService {
 
     public QuestionService(QuestionRepository questions,
                            QuestionOptionRepository options,
+                           PaketItemRepository items,
+                           PaketService pakets,
                            TaxonomyService taxonomy,
                            ContentSanitizer sanitizer,
                            MasterPublishingService publishing,
                            ClientClock clock) {
         this.questions = questions;
         this.options = options;
+        this.items = items;
+        this.pakets = pakets;
         this.taxonomy = taxonomy;
         this.sanitizer = sanitizer;
         this.publishing = publishing;
@@ -61,23 +73,15 @@ public class QuestionService {
 
     /**
      * Pencarian bank soal Client, ditambah saringan Paket, tipe soal, dan pengecualian soal
-     * yang sudah terpasang di Exercise yang sedang dirakit — satu-satunya pencarian bank soal
-     * Client yang tersisa sejak {@code QuestionService.search} lama dicabut (Task 14). Dipanggil
-     * dengan {@code paketId} null dan {@code excluded} kosong dari luar konteks perakit Exercise.
+     * yang sudah terpasang di Exercise yang sedang dirakit. Dipanggil dengan {@code paketId}
+     * null dan {@code excluded} kosong dari luar konteks perakit Exercise.
      *
      * <p>{@code paketId} null berarti tidak difilter Paket sama sekali — perakit boleh menelusuri
      * lintas Paket dan Topic mana pun di dalam Client (BR-E01, FR-024); saringan ini hanya
      * mempersempit tampilan panel, bukan membatasi soal apa yang boleh masuk Exercise.
      *
-     * <p>Practice hanya boleh memuat soal pilihan ganda (BR-M04), jadi Guru yang merakit untuk
-     * Practice perlu menyingkirkan esai sebelum merakit, bukan setelah penerbitannya ditolak.
-     *
      * <p>{@code excluded} kosong diganti UUID nil, bukan dibelokkan ke query lain: {@code not in ()}
      * tidak sah, sedangkan UUIDv7 tidak pernah nol sehingga sentinel itu tidak menyaring apa pun.
-     *
-     * <p>{@code subjectId} ditambahkan untuk panel pinjam ({@code BankSoalController#panelPinjam},
-     * AC-B19) — Exercise builder ({@code ExerciseController}) dan {@code /bank-soal/cari} tetap
-     * mengirim {@code null} di sini, tidak berubah perilakunya.
      */
     @Transactional(readOnly = true)
     public Page<QuestionEntity> searchForBuilder(UUID clientId, UUID subjectId, UUID paketId, UUID topicId,
@@ -105,15 +109,11 @@ public class QuestionService {
 
     /**
      * Panel pinjam ruang kerja master ({@code MasterContentController#panelPinjam}): padanan
-     * {@link #searchForBuilder} untuk Paket ber-{@code clientId} null, memakai query
-     * {@link QuestionRepository#searchMaster} yang sama dengan {@code /eduscreen/bank-soal/cari}
-     * di atas — bukan query kelima.
+     * {@link #searchForBuilder} untuk Paket ber-{@code clientId} null.
      *
-     * <p>Status terbit/draf sengaja TIDAK disaring di sini, beda dari {@link #searchMaster}:
-     * sumber pinjam boleh berupa Paket master yang masih draf (padanan {@code findMaster} lama,
-     * yang juga tidak menyaring {@code publishedAt}). Keadaan terbit baru menentukan sesuatu saat
-     * Paket TUJUAN hendak terbit (AC-B12) atau saat sekolah mengadopsinya (AC-B23), bukan saat
-     * isinya sekadar disalin dari Paket master lain.
+     * <p>Status terbit/draf sengaja TIDAK disaring di sini: sumber pinjam boleh berupa Paket
+     * master yang masih draf. Keadaan terbit baru menentukan sesuatu saat Paket TUJUAN hendak
+     * terbit (AC-B12), bukan saat isinya sekadar disalin dari Paket master lain.
      */
     @Transactional(readOnly = true)
     public Page<QuestionEntity> searchMasterBorrowable(UUID subjectId, UUID paketId, UUID topicId,
@@ -125,23 +125,60 @@ public class QuestionService {
     /**
      * {@code not in ()} bukan SQL yang sah, jadi daftar kecuali yang kosong diganti UUID nil
      * sentinel — UUIDv7 tidak pernah bernilai nol (ADR-0009), jadi ia tidak menyaring apa pun.
-     * Satu idiom, dipakai {@link #searchForBuilder} dan {@link #searchMasterBorrowable}.
      */
     private static Collection<UUID> excludeOrSentinel(Collection<UUID> excluded) {
         return excluded == null || excluded.isEmpty() ? List.of(new UUID(0L, 0L)) : excluded;
     }
 
     /**
-     * Soal satu Paket dikelompokkan per Topic, terurut {@code position} — halaman isi Paket.
-     *
-     * <p>Query di baliknya tidak menyaring Paket yang sudah ter-soft-delete, jadi pemanggil
-     * wajib memastikan Paket-nya masih hidup lebih dulu lewat {@code PaketService.require}.
+     * Soal versi kerja satu Paket dikelompokkan per Topic, terurut posisi item — halaman isi
+     * Paket. Pemanggil wajib sudah lolos {@code PaketService.require} untuk Paket ini (TC-36).
      */
     @Transactional(readOnly = true)
     public Map<UUID, List<QuestionEntity>> groupByTopic(UUID paketId) {
-        return questions.findByPaketIdOrderByPositionAsc(paketId).stream()
-                .collect(Collectors.groupingBy(QuestionEntity::getTopicId,
-                        LinkedHashMap::new, Collectors.toList()));
+        List<PaketItemEntity> penempatan = items.findByVersionOrdered(pakets.versionOf(paketId).getId());
+        Map<UUID, QuestionEntity> byId = questions.findAllById(
+                        penempatan.stream().map(PaketItemEntity::getQuestionId).toList()).stream()
+                .collect(Collectors.toMap(QuestionEntity::getId, Function.identity()));
+        Map<UUID, List<QuestionEntity>> perTopic = new LinkedHashMap<>();
+        for (PaketItemEntity item : penempatan) {
+            QuestionEntity soal = byId.get(item.getQuestionId());
+            if (soal != null) {
+                perTopic.computeIfAbsent(item.getTopicId(), k -> new ArrayList<>()).add(soal);
+            }
+        }
+        return perTopic;
+    }
+
+    /** Seluruh id soal di versi kerja satu Paket — daftar kecuali panel pinjam (AC-B20). */
+    @Transactional(readOnly = true)
+    public List<UUID> questionIdsIn(UUID paketId) {
+        return items.questionIdsOf(pakets.versionOf(paketId).getId());
+    }
+
+    /**
+     * Penempatan satu soal: Paket, versi, Topic, posisi. Soal tanpa penempatan (sudah dihapus
+     * dari versi kerjanya) diperlakukan seolah tidak ada — 404 (TC-09).
+     *
+     * <p>Satu soal bisa punya lebih dari satu penempatan begitu versi Paket beku lahir (Fase 2);
+     * yang dikembalikan di sini adalah penempatan di versi kerja mana pun, cukup untuk editor.
+     */
+    @Transactional(readOnly = true)
+    public Placement requirePlacement(UUID questionId) {
+        return items.findPlacements(List.of(questionId)).stream()
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
+    }
+
+    /** Penempatan banyak soal sekaligus, satu query — label Paket/Topic di tabel panel pinjam. */
+    @Transactional(readOnly = true)
+    public Map<UUID, Placement> placementsOf(Collection<UUID> questionIds) {
+        Map<UUID, Placement> perSoal = new HashMap<>();
+        if (questionIds.isEmpty()) {
+            return perSoal;
+        }
+        items.findPlacements(questionIds).forEach(p -> perSoal.putIfAbsent(p.getQuestionId(), p));
+        return perSoal;
     }
 
     /**
@@ -177,7 +214,7 @@ public class QuestionService {
     }
 
     /**
-     * Menulis soal ke dalam satu Paket.
+     * Menulis soal ke versi kerja satu Paket.
      *
      * <p>Pemilik ({@code clientId}) datang sebagai parameter, bukan disimpulkan dari principal:
      * null berarti konten master milik Eduscreen (FR-060). Controller-lah yang memutuskan
@@ -192,6 +229,7 @@ public class QuestionService {
     @Transactional
     public QuestionEntity create(QuestionDraft draft, UUID clientId, UUID paketId) {
         TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
+        PaketVersionEntity version = pakets.versionOf(paketId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -199,14 +237,12 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        QuestionEntity question = new QuestionEntity(
-                clientId, paketId, topic.getId(), draft.type(),
-                bodyHtml, sanitizer.toPlainText(bodyHtml));
-        // Soal baru mendarat di ekor Topic-nya. Tanpa ini setiap soal lahir di posisi 0 dan
-        // urutan yang dilihat penulis ditentukan kebetulan.
-        question.moveTo(questions.nextPosition(topic.getId()));
+        QuestionEntity question = new QuestionEntity(clientId, draft.type(), bodyHtml, sanitizer.toPlainText(bodyHtml));
         applyExplanation(question, draft.explanationHtml());
         question = questions.save(question);
+        // Soal baru mendarat di ekor Topic-nya. Tanpa ini setiap soal lahir di posisi 0 dan
+        // urutan yang dilihat penulis ditentukan kebetulan.
+        items.save(new PaketItemEntity(version, topic, question, items.nextPosition(version.getId(), topic.getId())));
 
         saveOptions(question.getId(), draft.options());
         return question;
@@ -215,22 +251,21 @@ public class QuestionService {
     /**
      * Mengubah soal yang sudah ada; validasi Paket/Topic sama seperti {@link #create} (AC-B02).
      *
-     * <p>Memindahkan soal ke Topic lain menghitung ulang {@code position} (AC-B08).
-     * {@code soal/editor.html} menyediakan pemilih Topic pada mode ubah, jadi perpindahan
-     * antar-Topic adalah tindakan pengguna biasa, bukan jalur administratif. Tanpa perhitungan
-     * ulang, soal mendarat membawa posisi lamanya dan bertabrakan dengan soal yang sudah
-     * menempati posisi itu di Topic tujuan — {@code create},
-     * {@code QuestionImportService.saveQuestion}, dan {@code PaketBorrowService.salin} semuanya
-     * memanggil {@code nextPosition}; hanya jalur ini yang tidak.
-     *
-     * <p>Posisinya dibaca SEBELUM {@code reparent}: query {@code nextPosition} memicu flush
-     * otomatis Hibernate, dan soal yang sudah dipindahkan lebih dulu akan ikut terhitung sebagai
-     * penghuni Topic tujuan sehingga posisinya melompat satu.
+     * <p>Memindahkan soal ke Topic lain menghitung ulang posisi itemnya (AC-B08): tanpa itu soal
+     * mendarat membawa posisi lamanya dan bertabrakan dengan soal yang sudah menempati posisi
+     * itu di Topic tujuan. Posisinya dibaca SEBELUM item dipindah: query {@code nextPosition}
+     * memicu flush otomatis Hibernate, dan item yang sudah dipindahkan lebih dulu akan ikut
+     * terhitung sebagai penghuni Topic tujuan sehingga posisinya melompat satu.
      */
     @Transactional
     public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId, UUID paketId) {
         QuestionEntity question = require(id, clientId);
         TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
+        PaketVersionEntity version = pakets.versionOf(paketId);
+        // Soal yang tidak ada di versi kerja Paket ini — sudah dibuang dari sana, atau memang
+        // milik Paket lain — diperlakukan seolah tidak ada (TC-09).
+        PaketItemEntity item = items.findByPaketVersionIdAndQuestionId(version.getId(), id)
+                .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -238,10 +273,12 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        boolean pindahTopic = !topic.getId().equals(question.getTopicId());
-        int posisi = pindahTopic ? questions.nextPosition(topic.getId()) : question.getPosition();
-        question.reparent(paketId, topic.getId());
-        question.moveTo(posisi);
+        if (!topic.getId().equals(item.getTopicId())) {
+            int posisi = items.nextPosition(version.getId(), topic.getId());
+            item.moveToTopic(topic);
+            item.moveTo(posisi);
+            items.save(item);
+        }
         // Salinan pinjam yang disunting bukan kembaran asalnya lagi: asalnya boleh dipinjam ulang
         // (AC-B04). Setiap simpan lewat editor dihitung suntingan, tanpa membandingkan isi lama.
         question.setSourceQuestionId(null);
@@ -284,13 +321,17 @@ public class QuestionService {
     }
 
     /**
-     * Menghapus lunak sebuah Question (FR-018, TC-35).
+     * Menghapus lunak sebuah Question (FR-018, TC-35) dan membuang penempatannya dari versi
+     * kerja mana pun.
      *
-     * <p>Ditolak selama Paket induknya masih terbit (AC-B17). Menghapus soal terakhir sebuah
+     * <p>Ditolak selama Paket yang memuatnya masih terbit (AC-B17). Menghapus soal terakhir sebuah
      * Paket terbit menghasilkan Paket terbit yang KOSONG — keadaan yang AC-B16 tolak saat
-     * penerbitan, dicapai lewat pintu belakang — dan Paket itu tetap bisa diadopsi sekolah.
-     * Gerbangnya sengaja sama persis dengan yang menjaga penarikan Question, dan tinggal di satu
-     * tempat: {@link MasterPublishingService#requirePaketBelumTerbit}.
+     * penerbitan, dicapai lewat pintu belakang. Gerbangnya sengaja sama persis dengan yang
+     * menjaga penarikan Question, dan tinggal di satu tempat:
+     * {@link MasterPublishingService#requirePaketBelumTerbit}.
+     *
+     * <p>Item di versi TERBIT (Fase 2) sengaja tidak disentuh: versi terbit beku, dan
+     * {@code @SQLRestriction} pada soalnya yang menyembunyikannya dari daftar.
      */
     @Transactional
     public void softDelete(UUID id, UUID clientId) {
@@ -301,6 +342,7 @@ public class QuestionService {
         // findAllForSnapshot, bukan di sini.
         question.softDelete(clock.now());
         questions.save(question);
+        items.deleteDraftItemsOf(id);
     }
 
     private void applyExplanation(QuestionEntity question, String explanationHtmlRaw) {

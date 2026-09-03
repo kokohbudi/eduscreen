@@ -2,6 +2,7 @@ package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
@@ -45,8 +46,8 @@ import java.util.stream.Collectors;
  *
  * <p>Setiap pembacaan lewat {@link PaketService#require} atau query ber-{@code clientId},
  * sehingga milik Client lain dijawab 404, bukan 403 (TC-36, TC-09). Itu juga syarat memakai
- * {@code findByPaketIdOrderByPositionAsc}/{@code borrowedSourceIds}, yang sengaja tidak
- * memeriksa kepemilikan maupun soft delete Paket sendiri.
+ * {@code questionIdsIn}/{@code borrowedSourceIds}, yang sengaja tidak memeriksa kepemilikan
+ * maupun soft delete Paket sendiri.
  */
 @Controller
 public class BankSoalController {
@@ -211,9 +212,10 @@ public class BankSoalController {
                            @AuthenticationPrincipal UserPrincipal user, Model model) {
         UUID clientId = user.requireClientId();
         QuestionEntity soal = questions.require(id, clientId);
+        Placement penempatan = questions.requirePlacement(id);
         // require pada Paket induk: soal di bawah Paket yang sudah dihapus lunak ikut 404.
-        PaketEntity paket = pakets.require(soal.getPaketId(), clientId);
-        isiEditor(paket, soal, soal.getTopicId(), model);
+        PaketEntity paket = pakets.require(penempatan.getPaketId(), clientId);
+        isiEditor(paket, soal, penempatan.getTopicId(), model);
         return "soal/editor";
     }
 
@@ -241,14 +243,14 @@ public class BankSoalController {
                              @RequestParam(defaultValue = "-1") int correctIndex,
                              @AuthenticationPrincipal UserPrincipal user, Model model) {
         UUID clientId = user.requireClientId();
-        PaketEntity paket = pakets.require(
-                questions.require(id, clientId).getPaketId(), clientId);
+        questions.require(id, clientId);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), clientId);
         UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, user.requireClientId()).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml,
                         optionBody, correctIndex),
                 clientId, paket.getId());
-        isiEditor(paket, soal, soal.getTopicId(), model);
+        isiEditor(paket, soal, topicId, model);
         return "soal/editor :: detail";
     }
 
@@ -349,17 +351,18 @@ public class BankSoalController {
                 : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
-        questionRepository.findByPaketIdOrderByPositionAsc(id)
-                .forEach(soal -> dikecualikan.add(soal.getId()));
+        dikecualikan.addAll(questions.questionIdsIn(id));
         Page<QuestionEntity> hasil = questions.searchForBuilder(clientId, filterSubjectId, filterPaketId,
                 filterTopicId, null, dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
 
+        Map<UUID, Placement> penempatan = questions.placementsOf(
+                hasil.getContent().stream().map(QuestionEntity::getId).toList());
         Map<UUID, String> judulTopic = new HashMap<>();
-        pakets.topicsByIds(hasil.getContent().stream().map(QuestionEntity::getTopicId)
-                        .collect(Collectors.toSet()))
+        pakets.topicsByIds(penempatan.values().stream().map(Placement::getTopicId).collect(Collectors.toSet()))
                 .forEach(t -> judulTopic.put(t.getId(), t.getTitle()));
 
-        return pinjamPanelData(subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, judulTopic);
+        return pinjamPanelData(subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil,
+                penempatan, judulTopic);
     }
 
     /**
@@ -370,14 +373,17 @@ public class BankSoalController {
     static PinjamPanelData pinjamPanelData(List<SubjectEntity> subjects, Map<UUID, String> namaSubject,
                                            List<PaketEntity> paketPilihan, Map<UUID, PaketEntity> paketById,
                                            List<TopicEntity> filterTopics, Page<QuestionEntity> hasil,
-                                           Map<UUID, String> judulTopic) {
+                                           Map<UUID, Placement> penempatan, Map<UUID, String> judulTopic) {
         List<PinjamPanelData.SoalRow> baris = hasil.getContent().stream().map(s -> {
-            PaketEntity p = paketById.get(s.getPaketId());
+            Placement tempat = penempatan.get(s.getId());
+            UUID paketId = tempat != null ? tempat.getPaketId() : null;
+            UUID topicId = tempat != null ? tempat.getTopicId() : null;
+            PaketEntity p = paketId != null ? paketById.get(paketId) : null;
             return new PinjamPanelData.SoalRow(s.getId(), abbreviate(s.getBodyText()),
                     s.getType() == QuestionType.ESSAY ? "Esai" : "Pilihan Ganda",
-                    s.getPaketId(), p != null ? p.getTitle() : null,
+                    paketId, p != null ? p.getTitle() : null,
                     p != null ? p.getSubjectId() : null, p != null ? namaSubject.get(p.getSubjectId()) : null,
-                    s.getTopicId(), judulTopic.get(s.getTopicId()));
+                    topicId, judulTopic.get(topicId));
         }).toList();
         return new PinjamPanelData(
                 subjects.stream().map(s -> new PinjamPanelData.Opsi(s.getId(), s.getName())).toList(),

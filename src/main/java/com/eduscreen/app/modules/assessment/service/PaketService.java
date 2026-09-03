@@ -2,6 +2,8 @@ package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionRepository;
 import com.eduscreen.app.modules.assessment.repository.SubjectEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.repository.TopicRepository;
@@ -14,15 +16,16 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Daur hidup Paket dan Topic di dalamnya.
+ * Daur hidup Paket, versi kerjanya, dan Topic di dalamnya.
  *
  * <p>{@code clientId} null berarti bekerja di ruang kerja master Eduscreen. Satu layanan untuk
  * dua sisi: bentuk datanya sama, yang berbeda hanya pemiliknya (ADR-0018).
  *
- * <p>Kelas ini satu-satunya tempat Paket <b>baru</b> dirakit beserta Topic bawaannya. Merakitnya
- * di tempat lain berarti aturan lahir Paket — Topic bawaan, pemilihan pemilik, pemeriksaan
- * Subject — tersebar dan lambat laun tidak lagi seragam. Salinan hasil adopsi katalog bukan
- * kelahiran: ia dirakit {@code ContentAdoptionService} dari Paket master beserta Topic aslinya.
+ * <p>Kelas ini satu-satunya tempat Paket <b>baru</b> dirakit beserta versi kerja dan Topic
+ * bawaannya. Merakitnya di tempat lain berarti aturan lahir Paket — versi 1, Topic bawaan,
+ * pemilihan pemilik, pemeriksaan Subject — tersebar dan lambat laun tidak lagi seragam. Salinan
+ * hasil adopsi katalog bukan kelahiran: ia dirakit {@code ContentAdoptionService} dari Paket
+ * master beserta Topic aslinya.
  */
 @Service
 public class PaketService {
@@ -31,11 +34,14 @@ public class PaketService {
     static final String TOPIC_BAWAAN = "Topik 1";
 
     private final PaketRepository pakets;
+    private final PaketVersionRepository versions;
     private final TopicRepository topics;
     private final TaxonomyService taxonomy;
 
-    public PaketService(PaketRepository pakets, TopicRepository topics, TaxonomyService taxonomy) {
+    public PaketService(PaketRepository pakets, PaketVersionRepository versions,
+                        TopicRepository topics, TaxonomyService taxonomy) {
         this.pakets = pakets;
+        this.versions = versions;
         this.topics = topics;
         this.taxonomy = taxonomy;
     }
@@ -62,6 +68,9 @@ public class PaketService {
                 ? PaketEntity.master(subjectId, draft.title().trim(), actor)
                 : PaketEntity.forClient(clientId, subjectId, draft.title().trim(), actor);
         pakets.save(paket);
+        // Versi kerja pertama lahir bersama Paketnya: tanpa versi tidak ada tempat menaruh soal
+        // (ADR-0021), sama seperti tanpa Topic bawaan tidak ada tempat menulis.
+        versions.save(PaketVersionEntity.draft(paket, 1, actor));
         topics.save(TopicEntity.of(paket.getId(), TOPIC_BAWAAN, 0));
         return paket;
     }
@@ -83,6 +92,19 @@ public class PaketService {
                 ? pakets.findByIdAndClientIdIsNull(id)
                 : pakets.findByIdAndClientId(id, clientId))
                 .orElseThrow(() -> new ResourceNotFoundException("Paket tidak ditemukan"));
+    }
+
+    /**
+     * Versi kerja sebuah Paket: tempat soal ditulis, dipindah, dan dihapus.
+     *
+     * <p>Tidak menyaring kepemilikan — pemanggil wajib sudah lolos {@link #require} untuk
+     * {@code paketId} ini (TC-36). Paket tanpa versi kerja adalah keadaan yang tidak pernah
+     * dibuat kode ini (setiap Paket lahir bersama versi 1, dan V11 memberi satu ke tiap Paket
+     * lama), jadi ketiadaannya adalah cacat data, bukan 404.
+     */
+    public PaketVersionEntity versionOf(UUID paketId) {
+        return versions.findDraft(paketId)
+                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi kerja"));
     }
 
     public List<TopicEntity> topicsOf(UUID paketId) {

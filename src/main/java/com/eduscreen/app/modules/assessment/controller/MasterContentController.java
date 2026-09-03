@@ -3,6 +3,7 @@ package com.eduscreen.app.modules.assessment.controller;
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
 import com.eduscreen.app.modules.assessment.repository.PaketEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
 import com.eduscreen.app.modules.assessment.repository.PaketRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
@@ -212,9 +213,10 @@ public class MasterContentController {
     @GetMapping("/eduscreen/bank-soal/soal/{id}")
     public String ubahSoal(@PathVariable UUID id, Model model) {
         QuestionEntity soal = questions.require(id, MASTER);
+        Placement penempatan = questions.requirePlacement(id);
         // require pada Paket induk: soal di bawah Paket yang sudah dihapus lunak ikut 404.
-        PaketEntity paket = pakets.require(soal.getPaketId(), MASTER);
-        isiEditor(paket, soal, soal.getTopicId(), model);
+        PaketEntity paket = pakets.require(penempatan.getPaketId(), MASTER);
+        isiEditor(paket, soal, penempatan.getTopicId(), model);
         return "soal/editor";
     }
 
@@ -237,12 +239,13 @@ public class MasterContentController {
                              @RequestParam(required = false) List<String> optionBody,
                              @RequestParam(defaultValue = "-1") int correctIndex,
                              Model model) {
-        PaketEntity paket = pakets.require(questions.require(id, MASTER).getPaketId(), MASTER);
+        questions.require(id, MASTER);
+        PaketEntity paket = pakets.require(questions.requirePlacement(id).getPaketId(), MASTER);
         UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, MASTER).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
                 MASTER, paket.getId());
-        isiEditor(paket, soal, soal.getTopicId(), model);
+        isiEditor(paket, soal, topicId, model);
         return "soal/editor :: detail";
     }
 
@@ -290,18 +293,18 @@ public class MasterContentController {
                 : List.of();
 
         Set<UUID> dikecualikan = new HashSet<>(borrow.borrowedSourceIds(id));
-        questionRepository.findByPaketIdOrderByPositionAsc(id)
-                .forEach(soal -> dikecualikan.add(soal.getId()));
+        dikecualikan.addAll(questions.questionIdsIn(id));
         Page<QuestionEntity> hasil = questions.searchMasterBorrowable(filterSubjectId, filterPaketId,
                 filterTopicId, dikecualikan, q, PageRequest.of(page, UKURAN_HALAMAN));
 
+        Map<UUID, Placement> penempatan = questions.placementsOf(
+                hasil.getContent().stream().map(QuestionEntity::getId).toList());
         Map<UUID, String> judulTopic = new HashMap<>();
-        pakets.topicsByIds(hasil.getContent().stream().map(QuestionEntity::getTopicId)
-                        .collect(Collectors.toSet()))
+        pakets.topicsByIds(penempatan.values().stream().map(Placement::getTopicId).collect(Collectors.toSet()))
                 .forEach(t -> judulTopic.put(t.getId(), t.getTitle()));
 
         return BankSoalController.pinjamPanelData(
-                subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, judulTopic);
+                subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, penempatan, judulTopic);
     }
 
     /** Kembaran {@link BankSoalController#pinjam}: Topic tujuan sebagai nama, diselesaikan
@@ -346,7 +349,7 @@ public class MasterContentController {
                 response.setHeader("HX-Reswap", "innerHTML");
                 model.addAttribute("paket", pakets.require(id, MASTER));
                 model.addAttribute("jumlahDraf", draf.size());
-                model.addAttribute("jumlahSiap", questionRepository.countPublishedInPaket(id));
+                model.addAttribute("jumlahSiap", publishing.publishedCountOf(id));
                 isiJalur(model);
                 return "bank/paket :: pilihanTerbit";
             }
@@ -507,7 +510,9 @@ public class MasterContentController {
      * situ tidak ada {@code ${it.index}} perulangan untuk disandarkan.
      */
     private int nomorSoal(QuestionEntity soal) {
-        List<QuestionEntity> saudara = questionRepository.findByTopicIdOrderByPositionAsc(soal.getTopicId());
+        Placement tempat = questions.requirePlacement(soal.getId());
+        List<QuestionEntity> saudara = questionRepository.findByVersionAndTopicOrdered(
+                MASTER, tempat.getVersionId(), tempat.getTopicId());
         for (int i = 0; i < saudara.size(); i++) {
             if (saudara.get(i).getId().equals(soal.getId())) {
                 return i + 1;

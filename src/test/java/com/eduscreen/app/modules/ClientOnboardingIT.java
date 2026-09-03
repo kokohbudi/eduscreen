@@ -70,15 +70,15 @@ class ClientOnboardingIT extends PostgresTestBase {
         SubjectEntity subject = subjectRepository.save(SubjectEntity.global(namaSubject));
         PaketEntity paket = paketRepository.save(
                 PaketEntity.master(subject.getId(), "Aljabar Master", null));
+        testData.draftVersion(paket);
         TopicEntity topic = topicRepository.save(TopicEntity.of(paket.getId(), "Aljabar Master", 0));
 
         for (int i = 1; i <= 5; i++) {
-            QuestionEntity question = new QuestionEntity(null, paket.getId(), topic.getId(),
-                    QuestionType.MULTIPLE_CHOICE,
+            QuestionEntity question = new QuestionEntity(null, QuestionType.MULTIPLE_CHOICE,
                     "<p>Soal master " + i + "</p>", "Soal master " + i);
-            question.moveTo(i - 1);
             question.publish(java.time.OffsetDateTime.now());
             questionRepository.save(question);
+            testData.place(question, topic);
             for (int opt = 0; opt < 4; opt++) {
                 optionRepository.save(new QuestionOptionEntity(question.getId(),
                         "<p>Opsi " + opt + "</p>", "Opsi " + opt, opt == 0, opt));
@@ -96,7 +96,7 @@ class ClientOnboardingIT extends PostgresTestBase {
     void ac_o01_onboardingMenyalinPaketMasterSecaraLepasDariAsalnya() {
         PaketEntity masterPaket = buatPaketMaster("Matematika Kelas 4 O01");
         List<QuestionEntity> masterQuestions =
-                questionRepository.findByPaketIdOrderByPositionAsc(masterPaket.getId());
+                testData.questionsInPaket(masterPaket.getId());
         assertThat(masterQuestions).hasSize(5);
 
         ClientOnboardingService.OnboardingRequest request = new ClientOnboardingService.OnboardingRequest(
@@ -113,7 +113,7 @@ class ClientOnboardingIT extends PostgresTestBase {
         assertThat(paketSalinan.getSourcePaketId()).isEqualTo(masterPaket.getId());
 
         List<QuestionEntity> questionsSalinan =
-                questionRepository.findByPaketIdOrderByPositionAsc(paketSalinan.getId());
+                testData.questionsInPaket(paketSalinan.getId());
         assertThat(questionsSalinan).hasSize(masterQuestions.size());
 
         // Menyunting Question MASTER setelah onboarding tidak boleh mengubah salinan Client:
@@ -123,7 +123,7 @@ class ClientOnboardingIT extends PostgresTestBase {
         questionRepository.save(masterUntukDiubah);
 
         List<QuestionEntity> questionsSalinanSetelahEdit =
-                questionRepository.findByPaketIdOrderByPositionAsc(paketSalinan.getId());
+                testData.questionsInPaket(paketSalinan.getId());
         assertThat(questionsSalinanSetelahEdit)
                 .noneMatch(q -> q.getBodyHtml().contains("DIUBAH SETELAH ONBOARDING"));
 

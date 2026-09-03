@@ -16,9 +16,11 @@ import java.time.OffsetDateTime;
 import java.util.UUID;
 
 /**
- * Satu soal. {@code clientId} null berarti konten master milik Eduscreen; adopsi Client menjadi
- * SALINAN baru yang menandai asalnya lewat {@code sourceQuestionId}, tanpa sinkronisasi lanjutan
- * (ADR-0001).
+ * Satu soal: isi murni, tanpa penempatan (ADR-0021).
+ *
+ * <p>Di Paket mana, Topic mana, dan urutan berapa soal ini berada dicatat {@link PaketItemEntity},
+ * satu baris per versi Paket yang memuatnya — sehingga satu soal boleh hidup di banyak versi dan
+ * Paket tanpa disalin. {@code clientId} null berarti konten master milik Eduscreen.
  */
 @Entity
 @Table(name = "question")
@@ -31,16 +33,6 @@ public class QuestionEntity {
     /** Null berarti konten master milik Eduscreen. */
     @Column(name = "client_id")
     private UUID clientId;
-
-    @Column(name = "topic_id", nullable = false)
-    private UUID topicId;
-
-    @Column(name = "paket_id", nullable = false)
-    private UUID paketId;
-
-    /** Urutan soal di dalam Topic-nya. Menggantikan peran ExerciseItem.position untuk bank soal. */
-    @Column(nullable = false)
-    private int position;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -79,6 +71,12 @@ public class QuestionEntity {
     @Column(name = "published_at")
     private OffsetDateTime publishedAt;
 
+    /**
+     * Terisi berarti soal ini sudah digantikan revisi yang lebih baru (Fase 2, ADR-0021). Baris
+     * lama tetap ada: versi Paket terbit, Exercise, dan sesi yang menunjuknya tidak berubah.
+     */
+    @Column(name = "superseded_by_id")
+    private UUID supersededById;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
@@ -94,12 +92,9 @@ public class QuestionEntity {
     protected QuestionEntity() {
     }
 
-    public QuestionEntity(UUID clientId, UUID paketId, UUID topicId, QuestionType type,
-                          String bodyHtml, String bodyText) {
+    public QuestionEntity(UUID clientId, QuestionType type, String bodyHtml, String bodyText) {
         this.id = UuidV7.randomUuid();
         this.clientId = clientId;
-        this.paketId = paketId;
-        this.topicId = topicId;
         this.type = type;
         this.bodyHtml = bodyHtml;
         this.bodyText = bodyText;
@@ -141,30 +136,17 @@ public class QuestionEntity {
         return clientId;
     }
 
-    public UUID getTopicId() {
-        return topicId;
+    public UUID getSupersededById() {
+        return supersededById;
     }
 
-    public void setTopicId(UUID topicId) {
-        this.topicId = topicId;
+    public boolean isSuperseded() {
+        return supersededById != null;
     }
 
-    public UUID getPaketId() {
-        return paketId;
-    }
-
-    public int getPosition() {
-        return position;
-    }
-
-    public void moveTo(int position) {
-        this.position = position;
-    }
-
-    /** Memindahkan soal ke Topic lain; Paket induknya ikut supaya keduanya tidak pernah berbeda. */
-    public void reparent(UUID paketId, UUID topicId) {
-        this.paketId = paketId;
-        this.topicId = topicId;
+    /** Menandai soal ini sudah digantikan revisi baru; sekali jalan. */
+    public void supersede(UUID newerId) {
+        this.supersededById = newerId;
     }
 
     public QuestionType getType() {
