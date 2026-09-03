@@ -19,6 +19,9 @@ import com.eduscreen.app.modules.assessment.service.MasterPublishingService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.service.PaketVersionService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -44,6 +47,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class CatalogAdoptionIT extends PostgresTestBase {
 
+    @Autowired
+    PaketItemRepository items;
+    @Autowired
+    PaketVersionService versionService;
     @Autowired
     TestData data;
     @Autowired
@@ -247,10 +254,12 @@ class CatalogAdoptionIT extends PostgresTestBase {
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        questionService.update(soal.getId(), new QuestionService.QuestionDraft(
+        // Soal terbit beku (ADR-0021): perubahan master lewat versi kerja baru dan revisi.
+        versionService.newVersion(master.getId(), null);
+        questionService.revise(soal.getId(), new QuestionService.QuestionDraft(
                 topicMaster.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Redaksi baru unikrambat</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
-                        new QuestionService.OptionDraft("<p>B</p>", false))), null, master.getId());
+                        new QuestionService.OptionDraft("<p>B</p>", false))), master.getId());
 
         // search() sudah dicabut (Task 14): searchForBuilder dengan paketId/type null dan
         // excluded kosong adalah pencarian bank soal Client biasa, satu-satunya yang tersisa.
@@ -270,17 +279,12 @@ class CatalogAdoptionIT extends PostgresTestBase {
         masterPublishing.publishPaket(master.getId());
         adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
 
-        // Tarik Paket-nya dulu: sejak AC-B17 isi Paket yang sedang terbit tidak boleh dihapus,
-        // karena menghapus soal terakhirnya menghasilkan Paket terbit yang kosong. Penarikan
-        // Paket sendiri tidak menyentuh salinan yang sudah diadopsi (AC-B10), jadi yang dibuktikan
-        // tes ini — salinan Client tetap utuh — tetap yang itu juga.
-        masterPublishing.withdrawPaket(master.getId());
+        // Versi terbit beku (ADR-0021): menghapus butuh versi kerja, dan hanya membuang soal dari
+        // versi kerja itu. Yang dibuktikan tes ini — salinan Client tetap utuh — tetap yang itu juga.
+        PaketVersionEntity v2 = versionService.newVersion(master.getId(), null);
         questionService.softDelete(soal.getId(), null);
 
-        assertThat(questionService.searchMaster(null, null, "unikhapus", null, PageRequest.of(0, 20))
-                .getTotalElements()).isZero();
-        assertThat(questions.searchPublishedMaster(null, null, "%unikhapus%", PageRequest.of(0, 20))
-                .getTotalElements()).isZero();
+        assertThat(items.questionIdsOf(v2.getId())).isEmpty();
 
         Page<QuestionEntity> salinan = questionService.searchForBuilder(
                 client.getId(), null, null, null, null, List.of(), "unikhapus", PageRequest.of(0, 20));

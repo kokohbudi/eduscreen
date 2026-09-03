@@ -100,8 +100,11 @@ public class ContentAdoptionService {
             PaketEntity copy = pakets.save(PaketEntity.adoptedFrom(
                     clientId, master.getSubjectId(), master.getTitle(), actor, master.getId()));
             PaketVersionEntity copyVersion = versions.save(PaketVersionEntity.draft(copy, 1, actor));
+            // Yang disalin adalah versi yang dibaca: versi kerja bila ada, kalau tidak versi terbit
+            // terakhir (Paket master terbit biasanya beku seluruhnya, ADR-0021).
             PaketVersionEntity masterVersion = versions.findDraft(master.getId())
-                    .orElseThrow(() -> new IllegalStateException("Paket master tanpa versi kerja"));
+                    .or(() -> versions.findFirstByPaketIdAndPublishedAtIsNotNullOrderByNomorDesc(master.getId()))
+                    .orElseThrow(() -> new IllegalStateException("Paket master tanpa versi"));
             jumlahPaket++;
 
             for (TopicEntity topicMaster : topics.findByPaketIdOrderByPositionAsc(master.getId())) {

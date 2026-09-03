@@ -95,16 +95,29 @@ public class PaketService {
     }
 
     /**
-     * Versi kerja sebuah Paket: tempat soal ditulis, dipindah, dan dihapus.
+     * Versi yang DIBACA untuk sebuah Paket: versi kerja bila ada, kalau tidak versi terbit
+     * terakhir (Paket master yang seluruh versinya sudah beku, ADR-0021).
      *
      * <p>Tidak menyaring kepemilikan — pemanggil wajib sudah lolos {@link #require} untuk
-     * {@code paketId} ini (TC-36). Paket tanpa versi kerja adalah keadaan yang tidak pernah
+     * {@code paketId} ini (TC-36). Paket tanpa versi sama sekali adalah keadaan yang tidak pernah
      * dibuat kode ini (setiap Paket lahir bersama versi 1, dan V11 memberi satu ke tiap Paket
      * lama), jadi ketiadaannya adalah cacat data, bukan 404.
      */
     public PaketVersionEntity versionOf(UUID paketId) {
         return versions.findDraft(paketId)
-                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi kerja"));
+                .or(() -> versions.findFirstByPaketIdAndPublishedAtIsNotNullOrderByNomorDesc(paketId))
+                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi"));
+    }
+
+    /**
+     * Versi yang DITULIS: versi kerja. Paket master yang seluruh versinya sudah terbit tidak
+     * punya versi kerja, dan menulis ke sana menuntut keputusan pengguna — versi baru atau
+     * instance baru — bukan keputusan diam-diam kode ({@link NeedsVersionChoiceException}, 409).
+     * Paket milik Client tidak pernah terbit, jadi selalu punya versi kerja.
+     */
+    public PaketVersionEntity draftOf(UUID paketId) {
+        return versions.findDraft(paketId)
+                .orElseThrow(() -> new NeedsVersionChoiceException(paketId));
     }
 
     public List<TopicEntity> topicsOf(UUID paketId) {

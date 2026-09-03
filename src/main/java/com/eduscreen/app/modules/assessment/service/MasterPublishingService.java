@@ -41,17 +41,20 @@ public class MasterPublishingService {
     private final PaketRepository pakets;
     private final PaketVersionRepository versions;
     private final PaketItemRepository items;
+    private final PaketVersionService versionService;
     private final ClientClock clock;
 
     public MasterPublishingService(QuestionRepository questions,
                                    PaketRepository pakets,
                                    PaketVersionRepository versions,
                                    PaketItemRepository items,
+                                   PaketVersionService versionService,
                                    ClientClock clock) {
         this.questions = questions;
         this.pakets = pakets;
         this.versions = versions;
         this.items = items;
+        this.versionService = versionService;
         this.clock = clock;
     }
 
@@ -66,39 +69,35 @@ public class MasterPublishingService {
     /**
      * Menarik satu Question master dari peredaran (AC-B17).
      *
-     * <p>Ditolak selama Paket induknya masih terbit. Gerbang {@link #publishPaket} hanya menutup
-     * satu arah: ia memastikan Paket tidak bisa NAIK terbit tanpa isi yang siap, tapi tidak
-     * menghalangi isinya TURUN setelah Paketnya terbit. Tanpa gerbang di sini, urutannya adalah:
-     * terbitkan Paket, tarik satu-satunya soal terbitnya, dan Paket tetap tampil di katalog
-     * sebagai Paket yang tidak menghasilkan satu soal pun saat diadopsi — persis keadaan yang
-     * AC-B16 tolak, dicapai lewat pintu belakang. {@code PaketRepository.findMasterBlocked} pun
-     * tidak memunculkannya di dasbor, karena antrean itu hanya melihat Paket yang masih draf.
-     *
-     * <p>Ditolak, bukan menarik Paketnya otomatis: satu gerbang, satu arah. Penarikan otomatis
-     * mengubah keadaan yang tidak diminta pengguna — Paket lenyap dari katalog seluruh Client
-     * sebagai efek samping dari menyunting satu soal.
+     * <p>Ditolak selama soal itu ada di sebuah versi terbit: sekolah membaca versi terbit lewat
+     * saringan {@code publishedAt}, jadi menariknya berarti soal lenyap dari versi yang
+     * seharusnya beku (ADR-0021). Ditolak, bukan menarik versinya otomatis: satu gerbang, satu
+     * arah. Yang bisa ditarik hanya soal yang baru ada di versi kerja.
      */
     @Transactional
     public QuestionEntity unpublishQuestion(UUID id) {
         QuestionEntity question = requireMasterQuestion(id);
-        requirePaketBelumTerbit(question, "menarik soal");
+        requireTidakDiVersiTerbit(question, "menarik soal");
         question.unpublish();
         return questions.save(question);
     }
 
     /**
-     * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067, AC-B12).
+     * Menerbitkan Paket master, satuan katalog dan akses sejak ADR-0018 (FR-067, AC-B12).
      *
-     * <p>Satu gerbang saja: Paket wajib punya minimal satu Question terbit (AC-B16). Question draf
-     * yang tersisa di dalamnya tidak menghalangi — ia hanya tidak ikut terbit, dan tidak ikut
-     * tersalin saat sekolah mengadopsi Paket ini ({@code ContentAdoptionService.adoptPakets}
-     * menyaring status terbit sejak ADR-0020). Sebelum ADR-0020 gerbangnya menolak Paket yang
+     * <p>Satu gerbang saja: versi yang terbit wajib punya minimal satu Question terbit (AC-B16).
+     * Question draf yang tersisa di dalamnya tidak menghalangi — ia hanya tidak ikut terlihat
+     * sekolah sampai diterbitkan (ADR-0020). Sebelum ADR-0020 gerbangnya menolak Paket yang
      * masih memuat draf; itu menyandera Paket berisi 200 soal pada satu soal yang belum sempat
      * ditinjau, tanpa memberi jalan keluar selain menerbitkan sisanya satu per satu.
      *
+     * <p>Kalau Paket punya versi kerja, versi itulah yang dibekukan menjadi versi terbit
+     * berikutnya (ADR-0021). Kalau tidak — Paket yang pernah ditarik lalu diterbitkan lagi —
+     * cukup keadaan Paketnya yang naik; versi terbit terakhir tetap yang dibaca.
+     *
      * <p>{@code sertakanDraf} adalah pilihan yang diambil Eduscreen Admin di layar, bukan
-     * kebijakan tersembunyi: true menerbitkan seluruh Question draf di Paket ini lebih dulu,
-     * false menerbitkan Paketnya saja dan meninggalkan draf tetap draf.
+     * kebijakan tersembunyi: true menerbitkan seluruh Question draf di versi ini lebih dulu,
+     * false membekukan versinya saja dan meninggalkan draf tetap draf.
      */
     @Transactional
     public PaketEntity publishPaket(UUID id, boolean sertakanDraf) {
@@ -108,11 +107,14 @@ public class MasterPublishingService {
             terbitkanSemuaDraf(id);
         }
 
-        UUID versionId = versionOf(id).getId();
-        if (questions.countPublishedInVersion(versionId) == 0) {
-            throw new IllegalArgumentException(items.countByVersion(versionId) > 0
+        PaketVersionEntity version = versionOf(id);
+        if (questions.countPublishedInVersion(version.getId()) == 0) {
+            throw new IllegalArgumentException(items.countByVersion(version.getId()) > 0
                     ? "Paket ini belum punya satu pun soal terbit. Terbitkan minimal satu soalnya dulu."
                     : "Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
+        }
+        if (version.isDraft()) {
+            versionService.freeze(version);
         }
 
         paket.publish(clock.now());
@@ -148,10 +150,15 @@ public class MasterPublishingService {
         return questions.countPublishedInVersion(versionOf(paketId).getId());
     }
 
-    /** Versi kerja Paket; pemanggil sudah lolos {@code requireMasterPaket} atau padanannya. */
+    /**
+     * Versi yang dibaca: versi kerja bila ada, kalau tidak versi terbit terakhir — soal draf di
+     * dalam versi beku tetap boleh diterbitkan satu per satu (ADR-0020), item-nya saja yang beku.
+     * Pemanggil sudah lolos {@code requireMasterPaket} atau padanannya.
+     */
     private PaketVersionEntity versionOf(UUID paketId) {
         return versions.findDraft(paketId)
-                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi kerja"));
+                .or(() -> versions.findFirstByPaketIdAndPublishedAtIsNotNullOrderByNomorDesc(paketId))
+                .orElseThrow(() -> new IllegalStateException("Paket " + paketId + " tidak punya versi"));
     }
 
     private int terbitkanSemuaDraf(UUID paketId) {
@@ -165,7 +172,7 @@ public class MasterPublishingService {
         return draf.size();
     }
 
-    /** Menarik Paket master dari peredaran; salinan yang sudah diadopsi tidak tersentuh (FR-068). */
+    /** Menarik Paket master dari peredaran: tidak ada akses baru; yang sudah membaca tidak tersentuh (FR-068). */
     @Transactional
     public PaketEntity withdrawPaket(UUID id) {
         PaketEntity paket = requireMasterPaket(id);
@@ -174,32 +181,19 @@ public class MasterPublishingService {
     }
 
     /**
-     * Gerbang AC-B17: isi Paket master yang sedang terbit tidak boleh diturunkan atau dibuang.
+     * Gerbang AC-B17: soal yang ada di versi terbit mana pun tidak boleh diturunkan dari
+     * keadaan terbit — versi terbit beku (ADR-0021).
      *
-     * <p>Publik dan menerima {@code tindakan} sebagai kata kerja, karena aturannya milik dua
-     * pemanggil di dua kelas: penarikan Question ada di sini, penghapusannya ada di
-     * {@code QuestionService.softDelete}. Menyalinnya ke dua tempat berarti satu hari nanti
-     * hanya satu yang diperbaiki.
-     *
-     * <p>Konten milik sebuah Client dilewati begitu saja: Paket Client tidak punya keadaan terbit
-     * sama sekali — database menegakkannya lewat check constraint {@code paket_publish_master_only}
-     * — sehingga tidak ada yang perlu dijaga, dan membaca Paket-nya di sini justru pembacaan
-     * lintas-tenant tanpa guna (TC-36).
+     * <p>Konten milik sebuah Client dilewati begitu saja: Paket Client tidak pernah terbit
+     * (check constraint {@code paket_publish_master_only}), sehingga tidak ada yang perlu dijaga.
      */
-    public void requirePaketBelumTerbit(QuestionEntity question, String tindakan) {
+    public void requireTidakDiVersiTerbit(QuestionEntity question, String tindakan) {
         if (question.getClientId() != null) {
             return;
         }
-        // Satu soal bisa ditempatkan di lebih dari satu Paket (ADR-0021); satu saja yang masih
-        // terbit sudah cukup untuk menolak.
-        for (UUID paketId : items.paketIdsContaining(question.getId())) {
-            pakets.findByIdAndClientIdIsNull(paketId)
-                    .filter(PaketEntity::isPublished)
-                    .ifPresent(paket -> {
-                        throw new IllegalArgumentException("Paket \"" + paket.getTitle()
-                                + "\" masih terbit di katalog. Tarik Paket itu dari katalog dulu "
-                                + "sebelum " + tindakan + " di dalamnya.");
-                    });
+        if (items.countPublishedPlacements(question.getId()) > 0) {
+            throw new IllegalArgumentException("Soal ini ada di versi Paket yang sudah terbit dan beku. "
+                    + "Buat versi baru Paket itu, lalu ganti soalnya di sana, alih-alih " + tindakan + ".");
         }
     }
 

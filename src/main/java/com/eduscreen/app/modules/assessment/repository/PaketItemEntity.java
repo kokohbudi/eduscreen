@@ -64,6 +64,22 @@ public class PaketItemEntity {
         return copy;
     }
 
+    /**
+     * Penempatan yang sama di versi/Paket lain: soal yang sama, Topic tujuan yang diberikan
+     * (instance baru menyalin Topic sebagai label baru), urutan yang sama.
+     */
+    public PaketItemEntity relocatedTo(PaketVersionEntity version, TopicEntity topic) {
+        PaketItemEntity copy = copyTo(version);
+        copy.topicId = topic.getId();
+        return copy;
+    }
+
+    /** Menukar soal di penempatan ini dengan revisinya (ADR-0021); Topic dan urutan tetap. */
+    public void replaceQuestion(QuestionEntity revision) {
+        this.questionId = revision.getId();
+        this.clientId = revision.getClientId();
+    }
+
     public void moveTo(int position) {
         this.position = position;
     }

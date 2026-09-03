@@ -19,7 +19,9 @@ import java.util.UUID;
  *
  * <p>Soal tidak lagi membawa Paket/Topic/urutan sendiri (ADR-0021): setiap penyaring per Paket
  * atau Topic di sini menjoin {@link PaketItemEntity} dan {@link PaketVersionEntity}. Pola
- * subquery-nya sama di semua query supaya satu perbaikan berlaku ke semuanya.
+ * subquery-nya sama di semua query supaya satu perbaikan berlaku ke semuanya. Pencarian ruang
+ * kerja master menyembunyikan soal yang sudah digantikan revisi ({@code supersededById}):
+ * baris lama masih dirujuk versi terbit dan sesi, tapi bukan lagi yang ditawarkan untuk dipakai.
  */
 public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> {
 
@@ -100,7 +102,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * itu menyaring lewat parameter yang sama ini, bukan query keempat.
      * {@code excludeIds} idiomnya sama seperti {@link #searchForBuilder}: tidak pernah kosong.
      */
-    @Query("select q from QuestionEntity q where q.clientId is null "
+    @Query("select q from QuestionEntity q where q.clientId is null and q.supersededById is null "
             + "and q.id not in :excludeIds "
             + "and lower(q.bodyText) like :pattern "
             + "and exists (select i from PaketItemEntity i, PaketVersionEntity v, PaketEntity p "
@@ -126,6 +128,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * yang boleh melihat draf tidak pantas disembunyikan di balik argumen yang mudah salah kirim.
      */
     @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is not null "
+            + "and q.supersededById is null "
             + "and lower(q.bodyText) like :pattern "
             + "and exists (select i from PaketItemEntity i, PaketVersionEntity v, PaketEntity p "
             + "  where i.questionId = q.id and i.paketVersionId = v.id and v.paketId = p.id "
@@ -143,6 +146,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * sama dengan {@link #searchPublishedMaster}.
      */
     @Query("select q from QuestionEntity q where q.clientId is null and q.publishedAt is null "
+            + "and q.supersededById is null "
             + "and lower(q.bodyText) like :pattern "
             + "and exists (select i from PaketItemEntity i, PaketVersionEntity v, PaketEntity p "
             + "  where i.questionId = q.id and i.paketVersionId = v.id and v.paketId = p.id "

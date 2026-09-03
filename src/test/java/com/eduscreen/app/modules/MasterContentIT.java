@@ -14,6 +14,10 @@ import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
+import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
+import com.eduscreen.app.modules.assessment.service.NeedsVersionChoiceException;
+import com.eduscreen.app.modules.assessment.service.PaketVersionService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -37,6 +41,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class MasterContentIT extends PostgresTestBase {
 
+    @Autowired
+    PaketItemRepository items;
+    @Autowired
+    PaketVersionService versionService;
     @Autowired
     TestData data;
     @Autowired
@@ -250,52 +258,56 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B17: menarik Question yang Paket induknya sedang terbit ditolak, dan diizinkan lagi begitu Paket itu ditarik")
-    void tarikSoalDitolakSelamaPaketInduknyaTerbit() {
+    @DisplayName("AC-B17 (ADR-0021): menarik Question yang ada di versi terbit ditolak selamanya — versi terbit beku; soal yang baru ada di versi kerja boleh ditarik")
+    void tarikSoalDitolakSelamaAdaDiVersiTerbit() {
         PaketEntity paket = data.masterPaket("Fisika Kelas 9 Gerbang Balik", "Paket gerbang tarik soal");
         TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
         QuestionEntity soal = data.publishedMasterMcq(topic, "Soal gerbang tarik");
         publishing.publishPaket(paket.getId());
 
-        // Tanpa gerbang ini: Paket tetap terbit di katalog sementara isinya turun jadi draf, dan
-        // adopsi menyalin soal draf itu ke sekolah. findMasterBlocked pun tidak memunculkannya
-        // di dasbor, karena antrean itu hanya melihat Paket yang masih draf.
+        // Sekolah membaca versi terbit lewat saringan publishedAt: menarik soal ini berarti ia
+        // lenyap dari versi yang seharusnya beku.
         assertThatThrownBy(() -> publishing.unpublishQuestion(soal.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Paket gerbang tarik soal")
-                .hasMessageContaining("Tarik Paket itu dari katalog dulu");
+                .hasMessageContaining("versi Paket yang sudah terbit");
         assertThat(questions.findByIdAndClientId(soal.getId(), null).orElseThrow().isPublished())
                 .as("penolakan tidak boleh menyisakan perubahan separuh jalan")
                 .isTrue();
 
+        // Menarik Paket dari katalog tidak mencairkan versi terbitnya.
         publishing.withdrawPaket(paket.getId());
+        assertThatThrownBy(() -> publishing.unpublishQuestion(soal.getId()))
+                .isInstanceOf(IllegalArgumentException.class);
 
-        assertThat(publishing.unpublishQuestion(soal.getId()).isPublished()).isFalse();
+        // Soal yang baru ada di versi kerja belum dibaca siapa pun: boleh ditarik.
+        versionService.newVersion(paket.getId(), null);
+        QuestionEntity baru = data.publishedMasterMcq(topic, "Soal gerbang tarik baru");
+        assertThat(publishing.unpublishQuestion(baru.getId()).isPublished()).isFalse();
     }
 
     @Test
-    @DisplayName("AC-B17 (AC-B16): menghapus Question yang Paket induknya sedang terbit ditolak, dan diizinkan lagi begitu Paket itu ditarik")
-    void hapusSoalDitolakSelamaPaketInduknyaTerbit() {
+    @DisplayName("AC-B17 (ADR-0021): menghapus Question yang ada di versi terbit menuntut versi kerja, lalu hanya membuangnya dari versi kerja itu")
+    void hapusSoalDiVersiTerbitHanyaDariVersiKerja() {
         PaketEntity paket = data.masterPaket("Fisika Kelas 9 Gerbang Hapus", "Paket gerbang hapus soal");
         TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
         QuestionEntity soal = data.publishedMasterMcq(topic, "Soal gerbang hapus unik");
         publishing.publishPaket(paket.getId());
 
-        // Ini satu-satunya soal Paket itu: menghapusnya menghasilkan Paket TERBIT yang KOSONG,
-        // persis keadaan yang AC-B16 tolak saat penerbitan — dicapai lewat pintu belakang, dan
-        // tetap bisa diadopsi sekolah.
+        // Tanpa versi kerja tidak ada tempat menghapus: pilihan versi baru/instance baru dulu.
         assertThatThrownBy(() -> questionService.softDelete(soal.getId(), null))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Paket gerbang hapus soal")
-                .hasMessageContaining("Tarik Paket itu dari katalog dulu");
+                .isInstanceOf(NeedsVersionChoiceException.class);
         assertThat(questionService.searchMaster(null, null, "gerbang hapus unik", null,
                 PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
 
-        publishing.withdrawPaket(paket.getId());
+        PaketVersionEntity v2 = versionService.newVersion(paket.getId(), null);
         questionService.softDelete(soal.getId(), null);
 
+        // Hilang dari versi kerja, tetap hidup di versi 1 yang beku — dan karena itu masih
+        // muncul di pencarian ruang kerja sebagai isi versi terbit.
+        assertThat(items.questionIdsOf(v2.getId())).isEmpty();
+        assertThat(questions.findByIdAndClientId(soal.getId(), null)).isPresent();
         assertThat(questionService.searchMaster(null, null, "gerbang hapus unik", null,
-                PageRequest.of(0, 20)).getTotalElements()).isZero();
+                PageRequest.of(0, 20)).getTotalElements()).isEqualTo(1);
     }
 
     @Test

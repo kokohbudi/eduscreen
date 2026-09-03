@@ -62,6 +62,11 @@ public interface PaketItemRepository extends JpaRepository<PaketItemEntity, UUID
             + "where i.questionId = q.id and i.paketVersionId = :versionId")
     long countByVersion(@Param("versionId") UUID versionId);
 
+    /** Berapa versi TERBIT yang memuat soal ini; lebih dari nol berarti soal itu beku di sana (AC-B17). */
+    @Query("select count(i) from PaketItemEntity i, PaketVersionEntity v "
+            + "where i.paketVersionId = v.id and v.publishedAt is not null and i.questionId = :questionId")
+    long countPublishedPlacements(@Param("questionId") UUID questionId);
+
     /** Paket yang memuat soal ini, lewat versi mana pun — gerbang AC-B17 dan tautan editor. */
     @Query("select v.paketId from PaketItemEntity i, PaketVersionEntity v "
             + "where i.paketVersionId = v.id and i.questionId = :questionId")

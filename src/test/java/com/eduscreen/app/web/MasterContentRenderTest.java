@@ -470,9 +470,9 @@ class MasterContentRenderTest extends PostgresTestBase {
                         .param("aksi", "hapus")
                         .param("questionIds", tetap.getId().toString())
                         .with(admin).with(csrf()))
-                // requirePaketBelumTerbit melempar IllegalArgumentException → 400, sama dengan
-                // tombol per baris.
-                .andExpect(status().isBadRequest());
+                // Paket terbit tanpa versi kerja: NeedsVersionChoiceException → 409 (ADR-0021),
+                // sama dengan tombol per baris.
+                .andExpect(status().isConflict());
     }
 
     @Test

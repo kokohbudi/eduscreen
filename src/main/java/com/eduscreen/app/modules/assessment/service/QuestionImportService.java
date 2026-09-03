@@ -161,7 +161,7 @@ public class QuestionImportService {
         // Posisi awal dihitung sekali untuk seluruh berkas, lalu berjalan naik per baris:
         // soal impor mendarat berurutan di ekor Topic, tidak menumpuk di posisi soal yang
         // sudah ada (AC-B08).
-        PaketVersionEntity version = pakets.versionOf(paketId);
+        PaketVersionEntity version = pakets.draftOf(paketId);
         int position = items.nextPosition(version.getId(), topic.getId());
         int saved = 0;
         for (QuestionImportParser.RawRow row : pending.rows()) {

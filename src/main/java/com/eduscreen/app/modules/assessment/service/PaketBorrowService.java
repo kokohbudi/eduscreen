@@ -67,7 +67,7 @@ public class PaketBorrowService {
         if (questionIds == null || questionIds.isEmpty()) {
             return 0;
         }
-        PaketVersionEntity version = pakets.versionOf(target.getId());
+        PaketVersionEntity version = pakets.draftOf(target.getId());
         Set<UUID> sudahAda = new HashSet<>(questions.findSourceIdsInVersion(version.getId()));
         int tersalin = 0;
         for (UUID id : questionIds) {

@@ -229,7 +229,7 @@ public class QuestionService {
     @Transactional
     public QuestionEntity create(QuestionDraft draft, UUID clientId, UUID paketId) {
         TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
-        PaketVersionEntity version = pakets.versionOf(paketId);
+        PaketVersionEntity version = pakets.draftOf(paketId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -260,8 +260,13 @@ public class QuestionService {
     @Transactional
     public QuestionEntity update(UUID id, QuestionDraft draft, UUID clientId, UUID paketId) {
         QuestionEntity question = require(id, clientId);
+        // Soal master terbit beku: teksnya sedang dibaca versi terbit, Exercise, dan sesi sekolah
+        // (ADR-0021). Jalannya lewat revise(), bukan menimpa di tempat.
+        if (clientId == null && question.isPublished()) {
+            throw new QuestionFrozenException();
+        }
         TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
-        PaketVersionEntity version = pakets.versionOf(paketId);
+        PaketVersionEntity version = pakets.draftOf(paketId);
         // Soal yang tidak ada di versi kerja Paket ini — sudah dibuang dari sana, atau memang
         // milik Paket lain — diperlakukan seolah tidak ada (TC-09).
         PaketItemEntity item = items.findByPaketVersionIdAndQuestionId(version.getId(), id)
@@ -303,6 +308,52 @@ public class QuestionService {
     }
 
     /**
+     * Revisi soal master terbit (ADR-0021): baris {@code question} baru berisi draft, menggantikan
+     * baris lama di versi kerja Paket ini — Topic dan posisi yang sama — lalu baris lama ditandai
+     * {@code supersededById}. Baris lama tidak disentuh isinya: versi terbit, Exercise, dan sesi
+     * yang menunjuknya tetap membaca teks yang sama.
+     *
+     * <p>Revisi lahir sebagai draf (belum terbit): ia baru terlihat sekolah setelah diterbitkan
+     * dan versi kerjanya dibekukan, sama seperti soal baru mana pun (ADR-0020).
+     */
+    @Transactional
+    public QuestionEntity revise(UUID id, QuestionDraft draft, UUID paketId) {
+        QuestionEntity lama = questions.findByIdAndClientIdIsNull(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Soal master tidak ditemukan"));
+        if (!lama.isPublished()) {
+            throw new IllegalArgumentException("Soal yang belum terbit diubah langsung, bukan direvisi");
+        }
+        TopicEntity topic = requireTopicOf(draft.topicId(), paketId, null);
+        PaketVersionEntity version = pakets.draftOf(paketId);
+        PaketItemEntity item = items.findByPaketVersionIdAndQuestionId(version.getId(), id)
+                .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
+
+        String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
+        if (bodyHtml.isBlank()) {
+            throw new IllegalArgumentException("Isi soal tidak boleh kosong");
+        }
+        validateOptions(draft.type(), draft.options());
+
+        QuestionEntity baru = new QuestionEntity(null, draft.type(), bodyHtml, sanitizer.toPlainText(bodyHtml));
+        applyExplanation(baru, draft.explanationHtml());
+        baru.setCreatedBy(lama.getCreatedBy());
+        baru = questions.save(baru);
+        saveOptions(baru.getId(), draft.options());
+
+        if (!topic.getId().equals(item.getTopicId())) {
+            int posisi = items.nextPosition(version.getId(), topic.getId());
+            item.moveToTopic(topic);
+            item.moveTo(posisi);
+        }
+        item.replaceQuestion(baru);
+        items.save(item);
+
+        lama.supersede(baru.getId());
+        questions.save(lama);
+        return baru;
+    }
+
+    /**
      * Topic yang boleh ditulisi DAN sewadah dengan Paket tujuan (AC-B02).
      *
      * <p>{@link TaxonomyService#requireWritableTopic} sudah menjamin kepemilikannya: Topic
@@ -321,25 +372,28 @@ public class QuestionService {
     }
 
     /**
-     * Menghapus lunak sebuah Question (FR-018, TC-35) dan membuang penempatannya dari versi
-     * kerja mana pun.
+     * Menghapus soal dari bank soal (FR-018, TC-35).
      *
-     * <p>Ditolak selama Paket yang memuatnya masih terbit (AC-B17). Menghapus soal terakhir sebuah
-     * Paket terbit menghasilkan Paket terbit yang KOSONG — keadaan yang AC-B16 tolak saat
-     * penerbitan, dicapai lewat pintu belakang. Gerbangnya sengaja sama persis dengan yang
-     * menjaga penarikan Question, dan tinggal di satu tempat:
-     * {@link MasterPublishingService#requirePaketBelumTerbit}.
+     * <p>Soal master yang ada di sebuah versi TERBIT tidak dihapus lunak: versi terbit beku, dan
+     * {@code @SQLRestriction} akan menyembunyikan barisnya dari versi itu (AC-B17, ADR-0021).
+     * Yang dibuang hanya penempatannya di versi kerja — soal hilang dari versi berikutnya, tidak
+     * dari versi yang sudah dibaca sekolah. Paket tanpa versi kerja menuntut pilihan lebih dulu
+     * ({@link NeedsVersionChoiceException}), bukan diam-diam tidak melakukan apa pun.
      *
-     * <p>Item di versi TERBIT (Fase 2) sengaja tidak disentuh: versi terbit beku, dan
-     * {@code @SQLRestriction} pada soalnya yang menyembunyikannya dari daftar.
+     * <p>Selain itu: dihapus lunak dan penempatannya di versi kerja dibuang. Soal hilang dari
+     * pencarian bank soal tapi tetap terbaca oleh Exercise dan sesi yang sudah memakainya —
+     * itu ditegakkan lewat {@code @SQLRestriction} plus {@code findAllForSnapshot}.
      */
     @Transactional
     public void softDelete(UUID id, UUID clientId) {
         QuestionEntity question = require(id, clientId);
-        publishing.requirePaketBelumTerbit(question, "menghapus soal");
-        // Soal hilang dari pencarian bank soal tapi tetap terbaca oleh Exercise dan sesi yang
-        // sudah memakainya (FR-018) — itu ditegakkan lewat @SQLRestriction plus
-        // findAllForSnapshot, bukan di sini.
+        if (clientId == null && items.countPublishedPlacements(id) > 0) {
+            for (UUID paketId : items.paketIdsContaining(id)) {
+                pakets.draftOf(paketId);
+            }
+            items.deleteDraftItemsOf(id);
+            return;
+        }
         question.softDelete(clock.now());
         questions.save(question);
         items.deleteDraftItemsOf(id);
