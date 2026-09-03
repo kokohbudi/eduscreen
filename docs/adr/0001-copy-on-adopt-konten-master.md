@@ -1,8 +1,13 @@
 ---
-status: accepted
+status: superseded
+superseded-by: 0021-paket-berversi-dan-akses-referensi.md
 ---
 
 # Konten master Eduscreen disalin ke Client, bukan direferensikan
+
+> **Digantikan ADR-0021.** Sekolah tidak lagi menerima salinan; ia diberi akses ke versi terbit
+> Paket master, dan soal master terbit beku sehingga alasan di bawah tetap terpenuhi tanpa
+> salinan. Salinan yang sudah ada dibiarkan milik sekolah. Teks asli dipertahankan sebagai catatan.
 
 Eduscreen menyediakan Question dan Exercise master yang dipakai banyak Client. Kami memutuskan bahwa saat konten master diadopsi sebuah Client — baik ketika onboarding maupun ketika Client Admin mengimpornya belakangan — sistem membuat **salinan penuh** di Question Bank Client tersebut, bukan referensi ke baris milik Eduscreen. Setelah disalin, konten itu sepenuhnya milik Client: boleh diedit, diberi Topic lokal, atau di-soft-delete tanpa menyentuh master.
 

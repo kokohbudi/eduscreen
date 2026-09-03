@@ -37,23 +37,43 @@ Mata pelajaran pada satu jenjang tertentu, misalnya `Matematika Kelas 4`. Berasa
 _Hindari_: Mapel, Mata Pelajaran, Course
 
 **Paket**:
-Kumpulan soal yang ditulis sebagai satu kesatuan dan diberi satu Subject. Milik Eduscreen (dijual lewat katalog) atau milik satu Client. Paket adalah satuan yang diadopsi.
+Kumpulan soal yang ditulis sebagai satu kesatuan dan diberi satu Subject. Milik Eduscreen atau milik satu Client. Paket adalah satuan yang diberikan ke sekolah lewat Akses Paket; isinya hidup di Versi Paket.
 _Hindari_: Buku, Bundle, Set Soal
+
+**Versi Paket**:
+Satu keadaan isi sebuah Paket. Setiap Paket punya paling banyak satu versi kerja; Paket Eduscreen membekukan versi kerjanya saat terbit, dan versi terbit tidak pernah berubah lagi. Paket Client hanya punya satu versi kerja.
+_Hindari_: Revisi Paket, Edisi, Snapshot
+
+**Paket Item**:
+Penempatan satu Question di satu Versi Paket: Topic mana, urutan berapa. Question yang sama boleh punya banyak Paket Item — di banyak versi maupun banyak Paket — tanpa disalin.
+_Hindari_: Penempatan, Entry, Baris Paket
+
+**Instance Paket**:
+Paket Eduscreen baru yang lahir dari Paket lain dengan Topic disalin sebagai label dan Paket Item menunjuk Question yang sama. Sejak lahir ia Paket yang berdiri sendiri.
+_Hindari_: Salinan Paket, Duplikat, Turunan
 
 **Topic**:
 Sub-bahasan di dalam satu Paket, misalnya `Aljabar Dasar`. Milik Paket, bukan milik Subject.
 _Hindari_: Bab, Materi, Chapter
 
 **Question**:
-Satu butir soal, bertipe `MULTIPLE_CHOICE` atau `ESSAY`, yang selalu melekat pada tepat satu Topic.
+Satu butir soal, bertipe `MULTIPLE_CHOICE` atau `ESSAY`. Isi murni: di Paket, Topic, dan urutan mana ia berada dicatat Paket Item. Question Eduscreen yang sudah terbit beku; perubahannya adalah Revisi.
 _Hindari_: Soal, Item, Butir
+
+**Revisi**:
+Question baru yang menggantikan Question Eduscreen terbit di versi kerja Paket. Baris lama tetap ada dan tetap dibaca versi terbit, Exercise, dan Session yang menunjuknya.
+_Hindari_: Edit, Perubahan, Versi Soal
+
+**Akses Paket**:
+Hak satu Client membaca satu Paket Eduscreen lewat satu Versi Paket terbit, sampai tanggal tertentu. Diberi Eduscreen Admin, bukan diambil Client. Client memilih sendiri kapan pindah ke versi terbit yang lebih baru.
+_Hindari_: Adopsi, Langganan, Lisensi, Katalog
 
 **Option**:
 Satu pilihan jawaban pada Question bertipe `MULTIPLE_CHOICE`. Tepat satu Option benar.
 _Hindari_: Pilihan, Choice, Jawaban
 
 **Question Bank**:
-Kumpulan seluruh Question milik satu pemilik — Eduscreen atau satu Client. Bukan entitas tersendiri, melainkan cara menyebut ruang lingkup kepemilikan Question.
+Kumpulan seluruh Question milik satu pemilik — Eduscreen atau satu Client — ditambah, bagi Client, Question Eduscreen yang terbaca lewat Akses Paket. Bukan entitas tersendiri, melainkan cara menyebut ruang lingkup yang bisa dipakai satu pemilik.
 _Hindari_: Bank Soal, Repository Soal
 
 **Exercise**:

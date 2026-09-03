@@ -48,16 +48,17 @@ Catatan izin yang tidak jelas dari tabel:
 
 1. Isi nama Client dan `timezone`.
 2. Isi email Client Admin pertama; sistem mengirim undangan.
-3. Pilih Paket master yang disalin ke Client. Subject tidak dipilih terpisah — ia ikut sebagai label Paket.
-4. Sistem melakukan copy-on-adopt (ADR-0001): Paket beserta Topic, Question, dan Option di dalamnya disalin ke `clientId` baru. Exercise dan ExerciseItem tidak ikut disalin — Exercise milik alur Guru dan tidak pernah jadi objek adopsi.
-5. Client berstatus `ACTIVE` dengan bank soal terisi.
+3. Pilih Paket master yang diberikan ke Client. Subject tidak dipilih terpisah — ia ikut sebagai label Paket.
+4. Sistem memberi Akses Paket (ADR-0021): satu baris `paket_access` per Paket, menunjuk versi terbit terakhirnya. Tidak ada Paket, Topic, Question, maupun Option yang disalin; Guru membaca soal master apa adanya. Batas waktu dan versi diatur Eduscreen Admin belakangan di layar Akses Paket.
+5. Client berstatus `ACTIVE` dengan Paket Eduscreen terbaca di Bank Soal-nya.
 
 - **BR-O01** — Onboarding tidak membuat Ruangan maupun akun Siswa. Itu pekerjaan Client Admin.
-- **BR-O02** — Subject `GLOBAL` tidak disalin; ia dibaca langsung oleh semua Client. Yang disalin adalah Paket, Topic, Question, dan Option.
+- **BR-O02** — Subject `GLOBAL` tidak disalin; ia dibaca langsung oleh semua Client. Paket master pun tidak disalin: Client membacanya lewat Akses Paket (ADR-0021).
+- **BR-O06** — Hanya Eduscreen Admin yang memberi, memperpanjang, mencabut, dan memindahkan versi Akses Paket. Client tidak punya jalan mengambil Paket yang tidak diberikan; Paket master draf atau ditarik tidak bisa diberikan (FR-067). Client Admin boleh memindahkan aksesnya sendiri ke versi terbit yang lebih baru.
 
 ### 6.2 Eduscreen Admin — konten master
 
-Mengelola Subject `GLOBAL`, Topic `GLOBAL`, Question `owner = EDUSCREEN`, dan Exercise `owner = EDUSCREEN`. Perubahan di sini tidak pernah merambat ke Client yang sudah mengadopsi (ADR-0001).
+Mengelola Subject `GLOBAL`, Paket master beserta versinya, dan Question master. Perubahan di sini tidak pernah mendarat diam-diam di Client (ADR-0021): versi terbit beku, soal terbit hanya bisa direvisi menjadi baris baru, dan Client memilih sendiri kapan pindah versi.
 
 - **BR-O03** — Nama Subject `GLOBAL` tunggal, dibandingkan tanpa memandang kapital maupun spasi tepi. Subject `GLOBAL` ada justru agar semua sekolah memakai satu ejaan (ADR-0004); duplikat di dalamnya merusak alasan itu. Subject lokal tidak terikat aturan ini — dua Client berhak menamai Subject-nya sama karena taksonomi mereka terisolasi.
 - **BR-O04** — Nama Subject `GLOBAL` boleh diperbaiki kapan saja. Karena Subject `GLOBAL` tidak pernah disalin (BR-O02), perbaikan itu langsung terlihat semua Client tanpa satu pun salinan ikut berubah.
@@ -79,7 +80,7 @@ Mengelola Subject `GLOBAL`, Topic `GLOBAL`, Question `owner = EDUSCREEN`, dan Ex
 
 Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisian:
 
-1. **Adopsi katalog Eduscreen** — pilih Paket master, sistem menyalinnya (ADR-0001).
+1. **Paket Eduscreen lewat Akses Paket** — Paket master yang diberikan Eduscreen Admin terbaca hanya-baca di Bank Soal (ADR-0021); memakainya di Exercise tidak menyalin apa pun. Soal master yang ingin diubah disalin dulu ke Paket sekolah lewat pinjam.
 2. **Editor manual** — rich text, gambar, dan notasi matematika di batang soal maupun tiap Option.
 3. **Impor Excel/CSV** — hanya soal berbasis teks. Alurnya: unggah berkas → pratinjau hasil parsing → laporan baris gagal beserta alasannya → simpan hanya baris yang valid.
 
@@ -365,10 +366,10 @@ Given Client Admin memilih Paket dan Topic tujuan di layar impor, dan kolom `top
 When ia menyimpan hasil pratinjau
 Then seluruh baris valid tersimpan ke Paket dan Topic yang dipilih; kolom `topic` berkas tidak menentukan tujuan, dan mengosongkannya tidak membuat barisnya gagal.
 
-**AC-O02** (BR-O02)
-Given paket master yang diadopsi berada di bawah Subject `GLOBAL` `Matematika Kelas 4`
+**AC-O02** (BR-O02, ADR-0021)
+Given paket master yang diberikan berada di bawah Subject `GLOBAL` `Matematika Kelas 4`
 When onboarding selesai
-Then tidak ada Subject baru dibuat untuk Client; yang disalin adalah Paket, Topic, Question, dan Option, semuanya menunjuk Subject global yang sama, karena Subject `GLOBAL` tidak pernah disalin.
+Then tidak ada Subject, Paket, Topic, maupun Question baru dibuat untuk Client; yang lahir hanya satu Akses Paket, dan Paket master tetap milik Eduscreen di Subject global yang sama.
 
 **AC-Q04** (BR-Q02)
 Given Guru menulis Question tanpa memilih Topic
@@ -388,15 +389,16 @@ berikut:
 
 - **AC-B01**: Paket baru lahir dengan tepat satu Topic bernama `Topik 1`, sehingga soal pertama
   bisa ditulis tanpa membuat Topic lebih dulu.
-- **AC-B02**: Question hanya boleh menunjuk Topic yang `paketId`-nya sama dengan `paketId`
-  Question itu; kombinasi lain ditolak.
+- **AC-B02** *(diubah, ADR-0021)*: Penempatan Question (Paket Item) hanya boleh menunjuk Topic
+  milik Paket yang versinya memuat item itu; kombinasi lain ditolak.
 - **AC-B03**: Meminjam soal dari Paket lain menghasilkan Question baru milik Paket tujuan,
   dengan `sourceQuestionId` menunjuk soal asal. Mengubah salinan tidak mengubah soal asal.
 - **AC-B04**: Soal yang `sourceQuestionId`-nya sudah ada di Paket tujuan tidak muncul lagi di
   daftar pinjam Paket itu. Menyunting salinan mengosongkan `sourceQuestionId`-nya, sehingga
   soal asal muncul kembali di daftar pinjam dan boleh dipinjam ulang.
-- **AC-B05**: Adopsi katalog dilakukan per Paket dan menyalin Paket, seluruh Topic, seluruh
-  Question, beserta Option-nya.
+- **AC-B05** *(diubah, ADR-0021)*: Akses Paket diberikan per Paket master terbit dan menunjuk
+  versi terbit terakhirnya; tidak ada Paket, Topic, Question, maupun Option yang disalin.
+  Memberi ulang ke Client yang sama tidak menggandakan akses, hanya memperbarui batas waktunya.
 - **AC-B06**: Paket yang dibuat dengan nama Subject yang sudah ada menempel ke Subject itu,
   bukan melahirkan Subject kedua bernama sama. Pencocokan mengabaikan besar-kecil huruf dan
   spasi tepi.
@@ -404,32 +406,34 @@ berikut:
   benar, dan urutannya.
 - **AC-B08**: Soal yang masuk ke sebuah Topic mendarat di urutan berikutnya, tidak menumpuk
   di posisi yang sama dengan soal yang sudah ada.
-- **AC-B09**: Menghapus lunak Question master menghilangkannya dari ruang kerja dan katalog
-  master, tapi tidak menyentuh satu pun Question salinan yang sudah diadopsi Client.
-- **AC-B10**: Menarik Paket master dari peredaran tidak menyentuh satu pun Paket atau Question
-  salinan yang sudah diadopsi Client; adopsi kedua atas Paket master yang sama tetap diizinkan
-  dan melahirkan salinan kedua yang terpisah dari salinan pertama.
-- **AC-B11**: Katalog menandai Paket master yang sudah pernah diadopsi Client yang sedang
-  melihatnya, dan penanda itu berlaku per Client — Client lain yang belum mengadopsi Paket yang
-  sama tidak melihat penanda itu.
+- **AC-B09** *(diubah, ADR-0021)*: Menghapus Question master yang ada di versi terbit hanya
+  membuangnya dari versi kerja; barisnya tetap hidup dan tetap dibaca versi terbit, Exercise,
+  dan Session yang menunjuknya. Question master yang baru ada di versi kerja dihapus lunak.
+- **AC-B10** *(diubah, ADR-0021)*: Menarik Paket master dari peredaran, mencabut akses, atau
+  akses yang kedaluwarsa hanya menutup pemakaian BARU: Exercise dan Session sekolah yang sudah
+  menunjuk soal master tetap membacanya.
+- **AC-B11** *(diubah, ADR-0021)*: Akses Paket berlaku per Client — Client lain tanpa akses tidak
+  melihat Paket itu di Bank Soal, tidak menemukan soalnya di pencarian, tidak bisa memasangnya ke
+  Exercise, dan tidak bisa menyalinnya; semuanya berakhir 404 atau nol baris, identik dengan
+  Paket yang tidak ada (TC-09).
 - **AC-B12** *(diubah, ADR-0020)*: Menerbitkan Paket master yang masih memuat Question belum
   terbit menawarkan dua jalan, bukan menolak: menerbitkan Question draf itu sekalian, atau
   menerbitkan Paket dengan Question yang sudah terbit saja dan meninggalkan draf tetap draf.
   Pilihan kedua hilang selama Paket belum punya satu pun Question terbit (AC-B16).
-- **AC-B14**: Mengadopsi Paket yang salinannya sudah ada di Client itu dihentikan sebelum
-  menyalin dan membalas peringatan yang menyebut Paket mana yang sudah pernah diadopsi.
-  Mengonfirmasi permintaan yang sama tetap menyalin dan melahirkan salinan kedua yang terpisah.
+- **AC-B14** *(diubah, ADR-0021)*: Client tetap membaca versi yang ditunjuk aksesnya sampai
+  Client Admin atau Eduscreen Admin memindahkannya; terbitnya versi baru tidak memindahkan
+  siapa pun diam-diam. Pindah hanya ke versi terbit Paket yang sama; Exercise yang sudah dirakit
+  tidak tersentuh.
 - **AC-B15**: Menyimpan soal dengan "Simpan & buat lagi" mengembalikan formulir soal baru pada
   Topic yang sama, sehingga soal berikutnya bisa langsung ditulis; menyimpan biasa kembali ke
   halaman isi Paket.
 - **AC-B16** *(dipertajam, ADR-0020)*: Paket master tanpa satu pun Question **terbit** ditolak
-  terbit — Paket kosong maupun Paket yang seluruh isinya masih draf. Katalog tidak pernah memuat
-  Paket yang tidak menghasilkan satu soal pun saat diadopsi.
-- **AC-B17**: Menarik atau menghapus Question yang Paket induknya sedang terbit ditolak, dengan
-  pesan yang menyuruh menarik Paket itu dari katalog lebih dulu. Keduanya kembali diizinkan
-  begitu Paket ditarik. Gerbang penerbitan berlaku dua arah: tanpa ini, Paket terbit bisa
-  kehilangan seluruh isi terbitnya — Paket terbit yang tidak menghasilkan satu soal pun saat
-  diadopsi, melanggar AC-B16 — dan tetap tampil di katalog sekolah.
+  terbit — Paket kosong maupun Paket yang seluruh isinya masih draf. Akses tidak pernah
+  diberikan ke Paket yang tidak menghasilkan satu soal pun.
+- **AC-B17** *(diubah, ADR-0021)*: Question master yang sudah terbit beku: menyimpannya dari
+  editor menghasilkan Revisi (baris baru yang menggantikannya di versi kerja), menariknya dari
+  keadaan terbit ditolak selama ia ada di versi terbit mana pun. Versi terbit tidak pernah
+  kehilangan satu pun isinya.
 - **AC-B18**: Tingkat pertama Bank Soal menampilkan seluruh Paket milik pemiliknya — Client yang
   sedang masuk, atau seluruh Paket master di ruang kerja Eduscreen — lintas Subject sekaligus,
   tanpa Paket milik Client lain ikut tampil. Memilih Subject lewat penyaring `subjectId`
@@ -447,9 +451,15 @@ berikut:
 - **AC-B22** *(ADR-0020)*: Halaman isi Paket master menyediakan satu tindakan yang menerbitkan
   seluruh Question draf di Paket itu sekaligus, dan tindakan itu hanya muncul selama masih ada
   draf. Hasilnya sama persis dengan menerbitkan tiap Question satu per satu.
-- **AC-B23** *(ADR-0020)*: Mengadopsi Paket master hanya menyalin Question yang terbit. Question
-  draf yang tersisa di Paket terbit tidak pernah sampai ke Client, dan ringkasan adopsi
-  menyebutkan jumlah yang benar-benar disalin.
+- **AC-B23** *(diubah, ADR-0021)*: Client hanya membaca Question terbit dari versi yang ditunjuk
+  aksesnya. Question draf yang tersisa di versi terbit tidak pernah sampai ke Client.
+- **AC-B27** *(ADR-0021)*: Menerbitkan Paket master membekukan versi kerjanya sebagai versi
+  bernomor. Menulis ke Paket yang seluruh versinya beku ditolak dengan pilihan: versi baru
+  (penempatan disalin, soal dibagi) atau instance baru (Paket lain yang berbagi soal yang sama).
+  Keduanya tidak melahirkan satu pun baris Question baru.
+- **AC-B28** *(ADR-0021)*: Guru dapat memasang seluruh isi satu Paket — miliknya sendiri maupun
+  Paket Eduscreen yang aksesnya dimiliki — ke Exercise sekaligus, urut Topic dan posisi; yang
+  lahir hanya ExerciseItem. Guru boleh mengurangi item dan mencampurnya dengan soal sekolah.
 - **AC-B24**: Topic tujuan pada panel pinjam ditentukan lewat NAMA, dan satu kolom itu melayani
   tiga jalan: nama yang sudah ada di Paket tujuan menempel ke Topic itu (mengabaikan besar-kecil
   huruf dan spasi tepi, sama dengan AC-B06), nama yang belum ada melahirkan Topic baru di Paket

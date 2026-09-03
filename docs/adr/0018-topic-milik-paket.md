@@ -30,6 +30,10 @@ sebagai paket master, padahal Exercise adalah entitas milik alur Guru (lihat `CO
 `_Hindari_: Paket Soal` pada entri Exercise). Memberi Eduscreen wadah jual miliknya sendiri
 menghentikan tumpang tindih peran itu.
 
+> **Direvisi ADR-0021.** Penempatan soal (`paket_id`, `topic_id`, `position`) pindah dari
+> `question` ke `paket_item` per versi Paket; Topic tetap milik Paket, kini murni label. Adopsi
+> katalog lewat salinan digantikan akses referensi. Pinjam antar-Paket tetap salinan penuh.
+
 Pinjam antar-Paket memakai salinan penuh, sedangkan `ExerciseItem` tetap memakai referensi ke
 `questionId` — dua pola berbeda untuk dua pekerjaan berbeda. Client Admin di bank soal
 **menyunting** soal: mengubah `bodyHtml`, menambah Option, memperbaiki `explanation`. Kalau

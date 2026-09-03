@@ -22,9 +22,10 @@ insert into paket (id, client_id, title, subject_id, published_at) values
     ('01920000-0000-7000-8000-000000009401', null, '[DRAF] Paket IPA Kelas 5',
      '01920000-0000-7000-8000-000000009001', null);
 
-insert into paket_version (id, paket_id, client_id, nomor) values
-    ('01920000-0000-7000-8000-000000009410', '01920000-0000-7000-8000-000000009400', null, 1),
-    ('01920000-0000-7000-8000-000000009411', '01920000-0000-7000-8000-000000009401', null, 1);
+-- Paket terbit membawa versi 1 yang sudah beku (ADR-0021, V12); Paket draf memegang versi kerja.
+insert into paket_version (id, paket_id, client_id, nomor, published_at) values
+    ('01920000-0000-7000-8000-000000009410', '01920000-0000-7000-8000-000000009400', null, 1, now()),
+    ('01920000-0000-7000-8000-000000009411', '01920000-0000-7000-8000-000000009401', null, 1, null);
 
 insert into topic (id, paket_id, title, position) values
     ('01920000-0000-7000-8000-000000009100', '01920000-0000-7000-8000-000000009400', 'Pecahan', 0),

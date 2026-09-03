@@ -97,6 +97,9 @@ yang belum dihapus — 48 kB untuk 4.500 baris yang memenuhi syarat, bukan selur
 
 ## 2. Penanda "sudah pernah diadopsi"
 
+> Historis: adopsi salinan dicabut ADR-0021. Index ini masih ada untuk data lama, tapi tidak ada
+> lagi jalur baca yang memakainya.
+
 Index: `question_adopted_source on question (client_id, source_question_id) where source_question_id is not null`
 
 ```text

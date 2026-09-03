@@ -108,14 +108,52 @@ Satu tabel untuk semua peran. `client_id` null hanya untuk `EDUSCREEN_ADMIN`.
 | --- | --- | --- |
 | `id` | UUID v7 | PK |
 | `client_id` | UUID | null bila milik Eduscreen |
-| `topic_id` | UUID | tepat satu Topic, wajib (FR-015) |
 | `type` | enum | `MULTIPLE_CHOICE` \| `ESSAY` |
 | `body_html` | text | HTML tersanitasi (TC-22) |
 | `body_text` | text | teks polos turunan untuk pencarian (TC-25, FR-019) |
 | `explanation_html` | text | pembahasan; wajib bila dipakai Practice (FR-029) |
-| `source_question_id` | UUID | jejak adopsi, tanpa sinkronisasi (R-001) |
+| `published_at` | timestamptz | terbit; hanya master. Soal master terbit beku (ADR-0021) |
+| `superseded_by_id` | UUID | terisi bila sudah digantikan Revisi (ADR-0021) |
+| `source_question_id` | UUID | jejak pinjam antar-Paket, dikosongkan saat salinan disunting |
 | `created_by` | UUID | pembuat |
 | `deleted_at` | timestamptz | soft delete, tidak pernah hapus keras (FR-018) |
+
+Tidak membawa Paket/Topic/urutan (ADR-0021): penempatannya di `paket_item`, satu baris per versi
+Paket yang memuatnya, sehingga satu soal boleh hidup di banyak versi dan Paket tanpa disalin.
+
+### `paket_version`
+
+| Kolom | Tipe | Aturan |
+| --- | --- | --- |
+| `id` | UUID v7 | PK |
+| `paket_id` | UUID | induk |
+| `client_id` | UUID | disalin dari Paket; dasar FK komposit batas tenant |
+| `nomor` | int | unik per Paket, mulai 1 |
+| `published_at` | timestamptz | null = versi kerja (paling banyak satu per Paket); terisi = beku |
+| `superseded_at` | timestamptz | terisi saat versi terbit berikutnya lahir |
+
+### `paket_item`
+
+| Kolom | Tipe | Aturan |
+| --- | --- | --- |
+| `id` | UUID | PK |
+| `paket_version_id` | UUID | versi yang memuat |
+| `client_id` | UUID | pemilik soal; FK komposit `paket_item_same_owner` dan `paket_item_question_owner` (pola V9) |
+| `topic_id` | UUID | Topic milik Paket versi itu (AC-B02) |
+| `question_id` | UUID | soal; unik per versi |
+| `position` | int | urutan di dalam Topic |
+
+### `paket_access`
+
+| Kolom | Tipe | Aturan |
+| --- | --- | --- |
+| `id` | UUID v7 | PK |
+| `client_id` | UUID | sekolah penerima |
+| `paket_id` | UUID | Paket master |
+| `version_id` | UUID | versi terbit yang dibaca; FK komposit ke `paket_version (id, paket_id)` |
+| `granted_by`, `granted_at` | | Eduscreen Admin |
+| `valid_until` | timestamptz | null = tanpa batas |
+| `revoked_at` | timestamptz | dicabut; paling banyak satu akses aktif per (sekolah, Paket) |
 
 ### `question_option`
 
