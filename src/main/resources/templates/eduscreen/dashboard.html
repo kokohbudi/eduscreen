@@ -22,7 +22,7 @@
 
         <li th:each="p : ${antrean.paketMacet().tampil()}" class="flex items-center justify-between gap-3 px-5 py-3">
           <a th:href="@{/eduscreen/bank-soal/paket/{id}(id=${p.id})}" class="hover:text-accent"
-             th:text="|${p.title} memuat soal belum terbit|">Paket macet</a>
+             th:text="|${p.title} belum punya satu pun soal terbit|">Paket macet</a>
           <span class="badge badge-danger">macet</span>
         </li>
         <li th:if="${antrean.paketMacet().sisa() > 0}" class="px-5 py-2 text-xs text-ink-2">

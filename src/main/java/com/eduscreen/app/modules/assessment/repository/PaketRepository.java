@@ -61,28 +61,30 @@ public interface PaketRepository extends JpaRepository<PaketEntity, UUID> {
     long countPublishedMaster();
 
     /**
-     * Antrean dashboard: Paket master yang macet di gerbang AC-B12 — masih draf, tapi memuat
-     * Question yang belum terbit sehingga penerbitannya pasti ditolak (BR-O05).
+     * Antrean dashboard: Paket master yang benar-benar macet — masih draf dan belum punya satu pun
+     * Question terbit, sehingga penerbitannya pasti ditolak (BR-O05, AC-B16). Paket kosong ikut di
+     * sini: hasil adopsinya sama-sama nol soal.
      *
-     * <p>Predikat {@code exists}-nya sengaja disalin dari gerbang
-     * {@code MasterPublishingService.publishPaket} ({@code QuestionRepository.findUnpublishedInPaket}),
-     * bukan memanggilnya per Paket dalam sebuah perulangan: satu query untuk seluruh Paket master,
-     * bukan N+1, mengikuti pola {@code ExerciseRepository.findMasterBlocked} sebelum Paket
-     * menggantikan Exercise sebagai satuan konten master (ADR-0018).
+     * <p>Predikatnya sengaja disalin dari gerbang {@code MasterPublishingService.publishPaket}
+     * ({@code QuestionRepository.countPublishedInPaket}), bukan memanggilnya per Paket dalam
+     * sebuah perulangan: satu query untuk seluruh Paket master, bukan N+1.
+     *
+     * <p>Sejak ADR-0020 Paket yang memuat draf TIDAK lagi macet — ia bisa terbit dengan soal yang
+     * sudah siap saja. Yang menyandera penerbitan tinggal satu: tidak ada isi yang siap.
      */
     @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
-            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id and q.publishedAt is null) "
+            + "and not exists (select q.id from QuestionEntity q where q.paketId = p.id "
+            + "and q.publishedAt is not null) "
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterBlocked();
 
     /**
-     * Antrean dashboard: Paket master yang tinggal diklik — berisi (AC-B16) dan seluruh isinya
-     * sudah terbit (BR-O05).
+     * Antrean dashboard: Paket master yang tinggal diklik — masih draf, tapi sudah punya isi yang
+     * siap terbit (AC-B16, BR-O05). Komplemen persis {@link #findMasterBlocked}.
      */
     @Query("select p from PaketEntity p where p.clientId is null and p.publishedAt is null "
-            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id) "
-            + "and not exists (select q.id from QuestionEntity q where q.paketId = p.id "
-            + "and q.publishedAt is null) "
+            + "and exists (select q.id from QuestionEntity q where q.paketId = p.id "
+            + "and q.publishedAt is not null) "
             + "order by p.updatedAt desc")
     List<PaketEntity> findMasterReadyToPublish();
 

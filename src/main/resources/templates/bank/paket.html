@@ -57,10 +57,18 @@
     </form>
 
     <!-- Subject turun jadi penyaring, bukan tingkat navigasi sendiri: memilih satu Subject di
-         sini menyempitkan tabel di bawah lewat subjectId, tanpa berpindah URL ke tingkat lain. -->
-    <form method="get" th:action="@{__${basePath ?: '/bank-soal'}__}" class="mb-4 flex items-end gap-2">
+         sini menyempitkan tabel di bawah lewat subjectId, tanpa berpindah URL ke tingkat lain.
+         Nama Paket menyaring berdampingan dengan Subject, bukan menggantikannya: keduanya
+         dikirim satu formulir GET sehingga hasilnya bisa ditandai dan dimuat ulang. -->
+    <form method="get" th:action="@{__${basePath ?: '/bank-soal'}__}"
+          class="mb-4 flex flex-wrap items-end gap-2">
       <div class="w-full sm:w-64">
-        <label for="subjectIdSaring" class="label">Saring</label>
+        <label for="cariPaketSaring" class="label">Nama Paket</label>
+        <input type="search" id="cariPaketSaring" name="cariPaket" th:value="${cariPaket}"
+               placeholder="Semua Paket" class="input">
+      </div>
+      <div class="w-full sm:w-64">
+        <label for="subjectIdSaring" class="label">Subject</label>
         <select id="subjectIdSaring" name="subjectId" onchange="this.form.submit()"
                 class="select">
           <option value="">Semua Subject</option>
@@ -68,18 +76,29 @@
                   th:selected="${subjectId != null and subjectId == s.id}">Subject</option>
         </select>
       </div>
+      <button type="submit" class="btn btn-secondary">Saring</button>
+      <a th:if="${subjectId != null or !#strings.isEmpty(cariPaket)}"
+         th:href="@{__${basePath ?: '/bank-soal'}__}" class="btn btn-ghost">Bersihkan</a>
     </form>
 
+    <!-- Aksi massal (AC-B26), ruang kerja master saja: centang Paket terbit lalu tarik sekaligus.
+         Form biasa + redirect. Di Bank Soal Client form ini pembungkus kosong tanpa action. -->
+    <!-- th:action, bukan th:attr="action=...": hanya th:action yang menyisipkan token _csrf. -->
+    <form method="post" th:action="${(master ?: false)} ? @{__${basePath}__/paket/massal} : null"
+          x-data="massal" @change="hitung()">
+    <input type="hidden" name="subjectId" th:if="${(master ?: false) and subjectId != null}" th:value="${subjectId}">
     <div class="card p-0">
     <table class="table table-hover">
       <thead>
         <tr>
+          <th class="w-8" th:if="${master ?: false}"><span class="sr-only">Pilih</span></th>
           <th>Paket</th>
           <th>Subject</th>
           <th class="w-20 text-right">Soal</th>
           <!-- ${master} dinyalakan ruang kerja Eduscreen (/eduscreen/bank-soal); di Bank Soal
                Client kolom Status ini tidak pernah dirender. -->
-          <th class="w-52" th:if="${master ?: false}">Status</th>
+          <th class="w-32" th:if="${master ?: false}">Status</th>
+          <th class="w-14" th:if="${master ?: false}"><span class="sr-only">Aksi</span></th>
         </tr>
       </thead>
       <tbody>
@@ -92,8 +111,23 @@
       </tbody>
     </table>
     </div>
+    <div th:if="${master ?: false}" x-show="n > 0" x-cloak
+         class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span x-text="n + ' Paket tercentang'"></span>
+      <span class="flex gap-2">
+        <button type="button" class="btn btn-ghost btn-sm" @click="bersihkan()">Bersihkan</button>
+        <button type="submit" name="aksi" value="tarik" class="btn btn-secondary btn-sm text-warn"
+                @click="tanya('Tarik ' + n + ' Paket dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh.', $event)">Tarik dari katalog</button>
+      </span>
+    </div>
+    </form>
     <p th:if="${#lists.isEmpty(pakets)}" class="empty mt-4">
-      Belum ada Paket<span th:if="${subject != null}" th:text="' di ' + ${subject.name}"></span>.
+      <span th:if="${#strings.isEmpty(cariPaket)}">
+        Belum ada Paket<span th:if="${subject != null}" th:text="' di ' + ${subject.name}"></span>.
+      </span>
+      <span th:unless="${#strings.isEmpty(cariPaket)}"
+            th:text="|Tidak ada Paket bernama &quot;${cariPaket}&quot;| +
+                     (${subject != null} ? | di ${subject.name}| : '') + '.'">Tidak ada hasil.</span>
     </p>
 
   </div>
@@ -104,6 +138,11 @@
     (TC-14). Dipakai MasterContentController (/eduscreen/bank-soal).
   -->
   <tr th:fragment="barisPaket" th:id="|paket-${paket.id}|">
+    <td th:if="${master ?: false}">
+      <!-- Hanya Paket terbit yang bisa dicentang: satu-satunya aksi massalnya Tarik. -->
+      <input th:if="${paket.published}" type="checkbox" name="paketIds" th:value="${paket.id}" data-massal
+             th:attr="aria-label=|Pilih ${paket.title}|">
+    </td>
     <td class="font-medium">
       <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}"
          th:text="${paket.title}" class="hover:text-accent">Judul Paket</a>
@@ -115,21 +154,67 @@
             class="badge badge-success">Terbit</span>
       <span th:unless="${paket.published}"
             class="badge">Belum terbit</span>
+    </td>
+    <td class="whitespace-nowrap text-right" th:if="${master ?: false}">
       <button th:unless="${paket.published}"
               th:attr="hx-post=@{__${basePath}__/paket/{id}/terbit(id=${paket.id})},hx-target=|#paket-${paket.id}|"
               hx-swap="outerHTML"
-              class="btn btn-secondary btn-sm ml-1 text-success">
-        Terbitkan
+              class="btn btn-secondary btn-sm btn-icon text-success"
+              title="Terbitkan" aria-label="Terbitkan">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+        <span class="sr-only">Terbitkan</span>
       </button>
       <button th:if="${paket.published}"
               th:attr="hx-post=@{__${basePath}__/paket/{id}/tarik(id=${paket.id})},hx-target=|#paket-${paket.id}|"
               hx-swap="outerHTML"
               hx-confirm="Tarik Paket ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
-              class="btn btn-secondary btn-sm ml-1 text-warn">
-        Tarik
+              class="btn btn-secondary btn-sm btn-icon text-warn"
+              title="Tarik dari katalog" aria-label="Tarik dari katalog">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243"/></svg>
+        <span class="sr-only">Tarik</span>
       </button>
     </td>
   </tr>
+
+  <!--
+    Pilihan saat Paket masih menyimpan soal draf (ADR-0020). Dialihkan ke #panel oleh
+    MasterContentController lewat HX-Retarget, karena isinya bukan baris tabel.
+
+    Dua jalan keluar, bukan satu penolakan: menerbitkan drafnya sekalian, atau menerbitkan Paket
+    dengan soal yang sudah siap saja dan meninggalkan draf tetap draf. Yang kedua hilang kalau
+    belum ada satu pun soal terbit — Paket kosong tidak boleh masuk katalog (AC-B16).
+  -->
+  <div th:fragment="pilihanTerbit" class="panel-kartu" role="dialog" aria-modal="true"
+       aria-labelledby="judul-pilihan-terbit">
+    <h2 id="judul-pilihan-terbit" class="mb-1 text-base font-semibold"
+        th:text="|Paket ini masih punya ${jumlahDraf} soal yang belum terbit|">Judul</h2>
+    <p class="mb-4 text-ink-2">
+      Soal yang belum terbit tidak ikut tampil ke sekolah. Mau diapakan?
+    </p>
+
+    <div class="flex flex-col gap-2">
+      <button th:attr="hx-post=@{__${basePath}__/paket/{id}/terbit(id=${paket.id},soalDraf='semua')},hx-target=|#paket-${paket.id}|"
+              hx-swap="outerHTML"
+              hx-on::after-request="document.getElementById('panel').innerHTML = ''"
+              class="btn btn-primary"
+              th:text="|Terbitkan semua — ${jumlahDraf} soal draf ikut terbit|">Terbitkan semua</button>
+
+      <button th:if="${jumlahSiap > 0}"
+              th:attr="hx-post=@{__${basePath}__/paket/{id}/terbit(id=${paket.id},soalDraf='lewati')},hx-target=|#paket-${paket.id}|"
+              hx-swap="outerHTML"
+              hx-on::after-request="document.getElementById('panel').innerHTML = ''"
+              class="btn btn-secondary"
+              th:text="|Terbitkan yang siap saja — ${jumlahSiap} soal terbit, ${jumlahDraf} draf tetap tersimpan|">Terbitkan yang siap saja</button>
+
+      <p th:if="${jumlahSiap == 0}" class="text-ink-2">
+        Belum ada satu pun soal terbit di Paket ini, jadi Paket hanya bisa terbit bersama
+        seluruh soalnya.
+      </p>
+
+      <button type="button" class="btn btn-secondary"
+              onclick="document.getElementById('panel').innerHTML = ''">Batal</button>
+    </div>
+  </div>
 
 </div>
 </body>

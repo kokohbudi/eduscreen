@@ -79,7 +79,7 @@
                    th:checked="${soal.answer() != null and soal.answer().selectedOptionId == opsi.id}"
                    th:attr="hx-put=@{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
                    hx-trigger="change" hx-target="#status-simpan" hx-swap="outerHTML">
-            <span class="prose min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
+            <span class="prose prose-opsi min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
           </label>
         </div>
 
@@ -103,6 +103,7 @@
       </th:block>
     </div>
 
+    <script th:src="@{/vendor/katex/katex.min.js}" defer></script>
     <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
     <script>
       // Render KaTeX untuk rumus LaTeX di batang soal/opsi. Dipanggil lagi setelah tiap swap

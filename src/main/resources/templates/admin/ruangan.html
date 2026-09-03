@@ -19,10 +19,13 @@
       </form>
     </section>
 
+    <!-- Aksi massal (AC-B26): centang beberapa Ruangan aktif lalu arsipkan sekaligus. -->
+    <form method="post" th:action="@{/admin/ruangan/massal}" x-data="massal" @change="hitung()">
     <div class="card p-0">
       <table class="table table-hover" id="tabel-ruangan">
         <thead>
           <tr>
+            <th class="w-8"><span class="sr-only">Pilih</span></th>
             <th>Nama</th>
             <th>Status</th>
             <th><span class="sr-only">Aksi</span></th>
@@ -30,6 +33,10 @@
         </thead>
         <tbody th:fragment="baris" th:each="r : ${ruangan}" th:id="|ruangan-${r.id}|" class="align-top">
           <tr>
+            <td>
+              <input th:if="${r.status.name() != 'ARCHIVED'}" type="checkbox" name="ruanganIds" th:value="${r.id}" data-massal
+                     th:attr="aria-label=|Pilih ${r.name}|">
+            </td>
             <td class="font-medium">
               <a th:href="@{/admin/ruangan/{id}(id=${r.id})}" class="hover:text-accent" th:text="${r.name}">Nama Ruangan</a>
             </td>
@@ -50,6 +57,15 @@
         </tbody>
       </table>
     </div>
+    <div x-show="n > 0" x-cloak class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
+      <span x-text="n + ' Ruangan tercentang'"></span>
+      <span class="flex gap-2">
+        <button type="button" class="btn btn-ghost btn-sm" @click="bersihkan()">Bersihkan</button>
+        <button type="submit" name="aksi" value="arsip" class="btn btn-secondary btn-sm text-danger"
+                @click="tanya('Arsipkan ' + n + ' Ruangan? Riwayatnya tetap bisa dibaca, tetapi anggota dan Assignment baru tidak lagi diterima.', $event)">Arsipkan</button>
+      </span>
+    </div>
+    </form>
 
   </div>
 </div>

@@ -94,6 +94,34 @@ public class UserAdminController {
         return "admin/pengguna :: baris";
     }
 
+    /**
+     * Undang ulang / nonaktifkan beberapa pengguna sekaligus dari centangan (AC-B26). Per
+     * pengguna memanggil jalur yang sama dengan tombol per baris. Akun yang sudah nonaktif
+     * dilewati saat undang ulang, bukan menggagalkan seluruh kiriman: centangan datang dari
+     * daftar campur, dan satu akun nonaktif di dalamnya adalah hal wajar, bukan galat.
+     */
+    @PostMapping("/admin/pengguna/massal")
+    public String massal(@RequestParam String aksi,
+                         @RequestParam(required = false) List<UUID> userIds,
+                         @RequestParam(required = false) UserRole role,
+                         @AuthenticationPrincipal UserPrincipal admin) {
+        UUID clientId = admin.requireClientId();
+        for (UUID id : userIds == null ? List.<UUID>of() : userIds) {
+            switch (aksi) {
+                case "nonaktif" -> users.deactivate(id, clientId);
+                case "undang-ulang" -> {
+                    try {
+                        users.reinvite(id, clientId);
+                    } catch (IllegalStateException nonaktif) {
+                        // dilewati, lihat javadoc
+                    }
+                }
+                default -> throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+            }
+        }
+        return "redirect:/admin/pengguna" + (role != null ? "?role=" + role : "");
+    }
+
     @PostMapping("/admin/pengguna/{id}/undang-ulang")
     public String undangUlang(@PathVariable UUID id,
                               @AuthenticationPrincipal UserPrincipal admin,

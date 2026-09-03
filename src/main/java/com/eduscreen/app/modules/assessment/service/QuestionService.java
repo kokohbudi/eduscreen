@@ -111,8 +111,9 @@ public class QuestionService {
      *
      * <p>Status terbit/draf sengaja TIDAK disaring di sini, beda dari {@link #searchMaster}:
      * sumber pinjam boleh berupa Paket master yang masih draf (padanan {@code findMaster} lama,
-     * yang juga tidak menyaring {@code publishedAt}). Gerbang penerbitan (AC-B12) hanya berlaku
-     * saat Paket TUJUAN hendak terbit, bukan saat isinya sekadar disalin dari Paket master lain.
+     * yang juga tidak menyaring {@code publishedAt}). Keadaan terbit baru menentukan sesuatu saat
+     * Paket TUJUAN hendak terbit (AC-B12) atau saat sekolah mengadopsinya (AC-B23), bukan saat
+     * isinya sekadar disalin dari Paket master lain.
      */
     @Transactional(readOnly = true)
     public Page<QuestionEntity> searchMasterBorrowable(UUID subjectId, UUID paketId, UUID topicId,

@@ -94,6 +94,37 @@ public class RuanganAdminController {
         return "admin/ruangan-detail :: anggota";
     }
 
+    /** Keluarkan beberapa anggota sekaligus dari centangan (AC-B26). Form biasa + redirect. */
+    @PostMapping("/admin/ruangan/{id}/anggota/massal")
+    public String massalAnggota(@PathVariable UUID id,
+                                @RequestParam String aksi,
+                                @RequestParam(required = false) List<UUID> userIds,
+                                @AuthenticationPrincipal UserPrincipal admin) {
+        UUID clientId = admin.requireClientId();
+        if (!"keluarkan".equals(aksi)) {
+            throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+        }
+        for (UUID userId : userIds == null ? List.<UUID>of() : userIds) {
+            ruangan.removeMember(id, clientId, userId);
+        }
+        return "redirect:/admin/ruangan/" + id;
+    }
+
+    /** Arsipkan beberapa Ruangan sekaligus dari centangan (AC-B26). Form biasa + redirect. */
+    @PostMapping("/admin/ruangan/massal")
+    public String massalRuangan(@RequestParam String aksi,
+                                @RequestParam(required = false) List<UUID> ruanganIds,
+                                @AuthenticationPrincipal UserPrincipal admin) {
+        UUID clientId = admin.requireClientId();
+        if (!"arsip".equals(aksi)) {
+            throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+        }
+        for (UUID id : ruanganIds == null ? List.<UUID>of() : ruanganIds) {
+            ruangan.archive(id, clientId);
+        }
+        return "redirect:/admin/ruangan";
+    }
+
     /** Riwayat Result Ruangan tetap terbaca sesudahnya; yang berhenti hanya aktivitas baru (FR-010). */
     @PostMapping("/admin/ruangan/{id}/arsip")
     public String arsipkan(@PathVariable UUID id,

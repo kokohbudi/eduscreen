@@ -117,7 +117,7 @@ class BankSoalPinjamDataTest extends PostgresTestBase {
                 .contains("Soal json sudah dipinjam", "Soal json belum dipinjam");
 
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("topicId", topikTarget.getId().toString())
+                        .param("topicTitle", topikTarget.getTitle())
                         .param("questionIds", dipinjam.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());

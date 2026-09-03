@@ -175,6 +175,20 @@ public class ExerciseController {
         return "exercise/builder :: item";
     }
 
+    /** Lepas beberapa item sekaligus dari centangan (AC-B26); balasannya fragmen daftar yang sama. */
+    @PostMapping("/exercise/{id}/item/hapus-terpilih")
+    public String removeItems(@PathVariable UUID id,
+                              @RequestParam(required = false) List<UUID> itemIds,
+                              @AuthenticationPrincipal UserPrincipal user,
+                              Model model) {
+        UUID clientId = user.requireClientId();
+        for (UUID questionId : itemIds == null ? List.<UUID>of() : itemIds) {
+            exercises.removeQuestion(id, questionId, clientId);
+        }
+        muatItem(id, clientId, model);
+        return "exercise/builder :: item";
+    }
+
     @PutMapping("/exercise/{id}/urutan")
     public String reorder(@PathVariable UUID id,
                           @RequestParam List<UUID> questionIds,

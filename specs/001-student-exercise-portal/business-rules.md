@@ -411,20 +411,24 @@ berikut:
 - **AC-B11**: Katalog menandai Paket master yang sudah pernah diadopsi Client yang sedang
   melihatnya, dan penanda itu berlaku per Client — Client lain yang belum mengadopsi Paket yang
   sama tidak melihat penanda itu.
-- **AC-B12**: Paket master yang masih memuat Question belum terbit ditolak terbit, dengan pesan
-  yang menyebut Question penyebabnya.
+- **AC-B12** *(diubah, ADR-0020)*: Menerbitkan Paket master yang masih memuat Question belum
+  terbit menawarkan dua jalan, bukan menolak: menerbitkan Question draf itu sekalian, atau
+  menerbitkan Paket dengan Question yang sudah terbit saja dan meninggalkan draf tetap draf.
+  Pilihan kedua hilang selama Paket belum punya satu pun Question terbit (AC-B16).
 - **AC-B14**: Mengadopsi Paket yang salinannya sudah ada di Client itu dihentikan sebelum
   menyalin dan membalas peringatan yang menyebut Paket mana yang sudah pernah diadopsi.
   Mengonfirmasi permintaan yang sama tetap menyalin dan melahirkan salinan kedua yang terpisah.
 - **AC-B15**: Menyimpan soal dengan "Simpan & buat lagi" mengembalikan formulir soal baru pada
   Topic yang sama, sehingga soal berikutnya bisa langsung ditulis; menyimpan biasa kembali ke
   halaman isi Paket.
-- **AC-B16**: Paket master tanpa satu pun Question ditolak terbit.
+- **AC-B16** *(dipertajam, ADR-0020)*: Paket master tanpa satu pun Question **terbit** ditolak
+  terbit — Paket kosong maupun Paket yang seluruh isinya masih draf. Katalog tidak pernah memuat
+  Paket yang tidak menghasilkan satu soal pun saat diadopsi.
 - **AC-B17**: Menarik atau menghapus Question yang Paket induknya sedang terbit ditolak, dengan
   pesan yang menyuruh menarik Paket itu dari katalog lebih dulu. Keduanya kembali diizinkan
   begitu Paket ditarik. Gerbang penerbitan berlaku dua arah: tanpa ini, Paket terbit bisa
-  berubah menjadi Paket yang memuat soal draf — atau Paket terbit yang kosong, melanggar
-  AC-B16 — dan tetap bisa diadopsi sekolah.
+  kehilangan seluruh isi terbitnya — Paket terbit yang tidak menghasilkan satu soal pun saat
+  diadopsi, melanggar AC-B16 — dan tetap tampil di katalog sekolah.
 - **AC-B18**: Tingkat pertama Bank Soal menampilkan seluruh Paket milik pemiliknya — Client yang
   sedang masuk, atau seluruh Paket master di ruang kerja Eduscreen — lintas Subject sekaligus,
   tanpa Paket milik Client lain ikut tampil. Memilih Subject lewat penyaring `subjectId`
@@ -439,6 +443,29 @@ berikut:
   Subject membuat daftar Paket yang ditawarkan hanya berisi Paket di Subject itu, dan memilih
   satu Paket membuat daftar Topic yang ditawarkan hanya berisi Topic milik Paket itu. Penyaring
   tidak pernah menawarkan pilihan yang pasti menghasilkan nol soal.
+- **AC-B22** *(ADR-0020)*: Halaman isi Paket master menyediakan satu tindakan yang menerbitkan
+  seluruh Question draf di Paket itu sekaligus, dan tindakan itu hanya muncul selama masih ada
+  draf. Hasilnya sama persis dengan menerbitkan tiap Question satu per satu.
+- **AC-B23** *(ADR-0020)*: Mengadopsi Paket master hanya menyalin Question yang terbit. Question
+  draf yang tersisa di Paket terbit tidak pernah sampai ke Client, dan ringkasan adopsi
+  menyebutkan jumlah yang benar-benar disalin.
+- **AC-B24**: Topic tujuan pada panel pinjam ditentukan lewat NAMA, dan satu kolom itu melayani
+  tiga jalan: nama yang sudah ada di Paket tujuan menempel ke Topic itu (mengabaikan besar-kecil
+  huruf dan spasi tepi, sama dengan AC-B06), nama yang belum ada melahirkan Topic baru di Paket
+  tujuan, dan kolomnya terisi otomatis dengan nama Topic ASAL soal yang dipinjam selama pengguna
+  belum mengisinya sendiri. Isian pengguna tidak pernah ditimpa balik oleh centangan berikutnya.
+- **AC-B25**: Pinjam tidak pernah mendarat di Topic yang tidak dipilih. Menekan tombol Salin
+  belum menyalin apa pun: ia membuka langkah Topic tujuan di tempat yang sama, dan penyalinan
+  baru berjalan setelah langkah itu dikonfirmasi. Kolom Topic tujuan wajib diisi, tidak ada Topic
+  yang terpilih diam-diam, dan permintaan pinjam yang tidak menyalin satu soal pun tidak
+  melahirkan Topic kosong di Paket tujuan.
+- **AC-B26**: Setiap daftar yang aksinya masuk akal dijalankan pada banyak baris sekaligus
+  menawarkan kotak centang dan satu bar aksi massal: soal di satu Topic (terbitkan/tarik/hapus di
+  master, hapus di Client), Paket master (tarik), pengguna (undang ulang/nonaktifkan), Ruangan
+  (arsipkan), anggota Ruangan (keluarkan), dan item Exercise (hapus). Aksi yang butuh masukan per
+  baris — ubah, pratinjau, terbitkan Paket dengan dialog drafnya — tidak. Hasil aksi massal sama
+  persis dengan menjalankan aksi per baris satu per satu, termasuk gerbangnya (AC-B17): selama
+  Paket induknya terbit, aksi massal soal tidak ditawarkan dan permintaannya ditolak.
 
 ### Exercise & Assignment
 

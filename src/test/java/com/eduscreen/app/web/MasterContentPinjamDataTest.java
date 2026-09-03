@@ -115,7 +115,7 @@ class MasterContentPinjamDataTest extends PostgresTestBase {
                 .contains("Soal master json sudah dipinjam", "Soal master json belum dipinjam");
 
         mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("topicId", topikTarget.getId().toString())
+                        .param("topicTitle", topikTarget.getTitle())
                         .param("questionIds", dipinjam.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());

@@ -9,9 +9,9 @@ import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 /**
  * Keadaan terbit konten master Eduscreen (FR-066 sampai FR-070, FR-072).
@@ -58,12 +58,12 @@ public class MasterPublishingService {
      * Menarik satu Question master dari peredaran (AC-B17).
      *
      * <p>Ditolak selama Paket induknya masih terbit. Gerbang {@link #publishPaket} hanya menutup
-     * satu arah: ia memastikan Paket tidak bisa NAIK terbit dengan isi yang belum terbit, tapi
-     * tidak menghalangi isinya TURUN setelah Paketnya terbit. Tanpa gerbang di sini, urutannya
-     * adalah: terbitkan Paket, tarik satu soalnya, Paket tetap terbit di katalog, dan adopsi
-     * menyalin soal draf itu ke sekolah — persis keadaan yang FR-067 larang, dicapai lewat pintu
-     * belakang. {@code PaketRepository.findMasterBlocked} pun tidak memunculkannya di dasbor,
-     * karena antrean itu hanya melihat Paket yang masih draf.
+     * satu arah: ia memastikan Paket tidak bisa NAIK terbit tanpa isi yang siap, tapi tidak
+     * menghalangi isinya TURUN setelah Paketnya terbit. Tanpa gerbang di sini, urutannya adalah:
+     * terbitkan Paket, tarik satu-satunya soal terbitnya, dan Paket tetap tampil di katalog
+     * sebagai Paket yang tidak menghasilkan satu soal pun saat diadopsi — persis keadaan yang
+     * AC-B16 tolak, dicapai lewat pintu belakang. {@code PaketRepository.findMasterBlocked} pun
+     * tidak memunculkannya di dasbor, karena antrean itu hanya melihat Paket yang masih draf.
      *
      * <p>Ditolak, bukan menarik Paketnya otomatis: satu gerbang, satu arah. Penarikan otomatis
      * mengubah keadaan yang tidak diminta pengguna — Paket lenyap dari katalog seluruh Client
@@ -80,37 +80,68 @@ public class MasterPublishingService {
     /**
      * Menerbitkan Paket master, satuan katalog dan adopsi sejak ADR-0018 (FR-067, AC-B12).
      *
-     * <p>Dua gerbang, keduanya wajib: Paket kosong ditolak (FR-072, AC-B16), dan Paket yang masih
-     * memuat Question belum terbit ditolak dengan menyebut Question penyebabnya (FR-069 setara).
-     * Yang kedua bukan kerewelan: Paket terbit yang isinya sebagian tersembunyi akan tampil di
-     * katalog dengan jumlah soal yang berbeda dari yang benar-benar bisa diadopsi Client.
+     * <p>Satu gerbang saja: Paket wajib punya minimal satu Question terbit (AC-B16). Question draf
+     * yang tersisa di dalamnya tidak menghalangi — ia hanya tidak ikut terbit, dan tidak ikut
+     * tersalin saat sekolah mengadopsi Paket ini ({@code ContentAdoptionService.adoptPakets}
+     * menyaring status terbit sejak ADR-0020). Sebelum ADR-0020 gerbangnya menolak Paket yang
+     * masih memuat draf; itu menyandera Paket berisi 200 soal pada satu soal yang belum sempat
+     * ditinjau, tanpa memberi jalan keluar selain menerbitkan sisanya satu per satu.
      *
-     * <p>Ini satu-satunya tempat FR-067 ditegakkan untuk isi Paket —
-     * {@code ContentAdoptionService.adoptPakets} sengaja menyalin seluruh Question Topic-nya apa
-     * adanya tanpa menyaring status terbit, sehingga kalau gerbangnya dipasang di sana ia akan
-     * menghasilkan salinan yang diam-diam tidak lengkap tanpa sekolah pernah tahu ada soal yang
-     * hilang. Gerbang di penerbitan gagal keras, lebih awal, dan di depan orang (Eduscreen Admin)
-     * yang bisa memperbaikinya.
+     * <p>{@code sertakanDraf} adalah pilihan yang diambil Eduscreen Admin di layar, bukan
+     * kebijakan tersembunyi: true menerbitkan seluruh Question draf di Paket ini lebih dulu,
+     * false menerbitkan Paketnya saja dan meninggalkan draf tetap draf.
      */
     @Transactional
-    public PaketEntity publishPaket(UUID id) {
+    public PaketEntity publishPaket(UUID id, boolean sertakanDraf) {
         PaketEntity paket = requireMasterPaket(id);
 
-        if (!questions.existsByPaketId(id)) {
-            throw new IllegalArgumentException("Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
+        if (sertakanDraf) {
+            terbitkanSemuaDraf(id);
         }
 
-        List<QuestionEntity> belumTerbit = questions.findUnpublishedInPaket(id);
-        if (!belumTerbit.isEmpty()) {
-            String penyebab = belumTerbit.stream()
-                    .map(q -> "\"" + ringkas(q.getBodyText()) + "\"")
-                    .collect(Collectors.joining(", "));
-            throw new IllegalArgumentException(
-                    "Paket belum bisa diterbitkan karena masih memuat soal yang belum terbit: " + penyebab);
+        if (questions.countPublishedInPaket(id) == 0) {
+            throw new IllegalArgumentException(questions.existsByPaketId(id)
+                    ? "Paket ini belum punya satu pun soal terbit. Terbitkan minimal satu soalnya dulu."
+                    : "Paket master wajib memuat minimal 1 soal untuk bisa diterbitkan");
         }
 
         paket.publish(clock.now());
         return pakets.save(paket);
+    }
+
+    /** Menerbitkan Paket tanpa menyentuh Question drafnya. */
+    @Transactional
+    public PaketEntity publishPaket(UUID id) {
+        return publishPaket(id, false);
+    }
+
+    /**
+     * Menerbitkan seluruh Question draf di satu Paket master sekaligus (AC-B19).
+     *
+     * <p>Ada karena Paket berisi ratusan soal tidak bisa diterbitkan lewat tombol per baris tanpa
+     * membuang waktu yang tidak masuk akal. Bukan gerbang, cuma jalan pintas: hasilnya persis sama
+     * dengan menekan Terbitkan pada tiap soal satu per satu.
+     */
+    @Transactional
+    public int publishDraftQuestions(UUID paketId) {
+        requireMasterPaket(paketId);
+        return terbitkanSemuaDraf(paketId);
+    }
+
+    /** Question master yang masih draf di satu Paket, untuk ditawarkan pilihannya di layar. */
+    public List<QuestionEntity> draftQuestionsOf(UUID paketId) {
+        return questions.findUnpublishedInPaket(paketId);
+    }
+
+    private int terbitkanSemuaDraf(UUID paketId) {
+        List<QuestionEntity> draf = questions.findUnpublishedInPaket(paketId);
+        // Waktu terbit selalu jam server, tidak pernah nilai yang dikirim klien (TC-12).
+        OffsetDateTime sekarang = clock.now();
+        draf.forEach(q -> {
+            q.publish(sekarang);
+            questions.save(q);
+        });
+        return draf.size();
     }
 
     /** Menarik Paket master dari peredaran; salinan yang sudah diadopsi tidak tersentuh (FR-068). */
@@ -158,7 +189,4 @@ public class MasterPublishingService {
                 .orElseThrow(() -> new ResourceNotFoundException("Paket master tidak ditemukan"));
     }
 
-    private String ringkas(String bodyText) {
-        return bodyText.length() <= 60 ? bodyText : bodyText.substring(0, 57) + "...";
-    }
 }

@@ -1,5 +1,6 @@
 package com.eduscreen.app.modules.assessment.service;
 
+import org.owasp.html.Encoding;
 import org.owasp.html.HtmlPolicyBuilder;
 import org.owasp.html.PolicyFactory;
 import org.springframework.stereotype.Component;
@@ -58,11 +59,11 @@ public class ContentSanitizer {
             return "";
         }
         // Sanitizer mengembalikan entitas ter-escape; pencarian butuh kata sebenarnya,
-        // yaitu "5 < 7", bukan "5 &lt; 7".
-        String text = TEXT_ONLY.sanitize(html)
-                .replace("&lt;", "<").replace("&gt;", ">")
-                .replace("&quot;", "\"").replace("&#39;", "'").replace("&#34;", "\"")
-                .replace("&nbsp;", " ").replace("&amp;", "&");
+        // yaitu "5 < 7", bukan "5 &lt; 7". Dekodernya milik pustaka yang sama yang mengodekan —
+        // daftar replace() buatan sendiri sempat dipakai dan melewatkan &#43; (+), &#61; (=),
+        // &#64; (@), &#96; (`): kolom teks polos, yang juga tampil apa adanya di panel pinjam,
+        // menyimpan "2 &#43; 2" untuk soal "2 + 2".
+        String text = Encoding.decodeHtml(TEXT_ONLY.sanitize(html)).replace('\u00a0', ' ');
         return text.replaceAll("\\s+", " ").trim();
     }
 }

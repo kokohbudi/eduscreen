@@ -119,7 +119,7 @@ class MasterContentRenderTest extends PostgresTestBase {
 
         // Menyimpan perubahan dibalas fragmen detail di tempat, bukan halaman penuh (TC-14).
         mockMvc.perform(put("/eduscreen/bank-soal/soal/{id}", soal.getId())
-                        .param("topicId", topic.getId().toString())
+                        .param("topicTitle", topic.getTitle())
                         .param("type", "MULTIPLE_CHOICE")
                         .param("bodyHtml", "<p>Soal tier3 render diubah unik</p>")
                         .param("optionBody", "<p>Benar</p>", "<p>Salah</p>")
@@ -185,19 +185,74 @@ class MasterContentRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B12 (FR-069): Paket master yang masih memuat Question draf ditolak terbit lewat layar, bukan cuma lewat layanan")
-    void paketDenganSoalDrafDitolakTerbitLewatLayar() throws Exception {
+    @DisplayName("AC-B12 (ADR-0020): Paket yang masih memuat Question draf menawarkan pilihan di layar, bukan menolak diam-diam")
+    void paketDenganSoalDrafMenawarkanPilihanTerbit() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         PaketEntity paket = data.masterPaket("Biologi Kelas 8 Render Gerbang", "Paket render gerbang layar");
         TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal siap render gerbang");
         data.masterMcq(topic, "Soal draf penyebab gerbang layar");
+
+        // Panel bukan baris tabel, jadi balasannya dialihkan ke #panel — kalau header ini hilang,
+        // fragmen pilihan akan menimpa baris Paket di tabel.
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(header().string("HX-Retarget", "#panel"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Terbitkan semua")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Terbitkan yang siap saja")));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished())
+                .as("menawarkan pilihan tidak boleh sudah menerbitkan apa pun")
+                .isFalse();
+
+        // Pilihan "yang siap saja": baris Paket ditukar seperti penerbitan biasa, draf tetap draf.
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
+                        .param("soalDraf", "lewati").with(admin).with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("HX-Retarget"))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Terbit")));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-B16 (ADR-0020): Paket yang seluruh isinya draf tetap ditolak terbit, dan pesannya sampai ke layar")
+    void paketTanpaSoalTerbitDitolakLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Biologi Kelas 8 Render Semua Draf", "Paket render semua draf");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.masterMcq(topic, "Draf satu-satunya render");
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
+                        .param("soalDraf", "lewati").with(admin).with(csrf()))
+                .andExpect(status().isBadRequest())
+                // Kelas yang dipakai penangkap htmx:beforeSwap di base.html untuk menampilkan pesan.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("eduscreen-error")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("belum punya satu pun soal terbit")));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isFalse();
+    }
+
+    @Test
+    @DisplayName("AC-B22 (ADR-0020): satu tombol di halaman isi Paket menerbitkan seluruh soal drafnya")
+    void terbitkanSemuaSoalDrafLewatLayar() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Kimia Kelas 10 Render Massal", "Paket render massal");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        data.masterMcq(topic, "Draf massal render satu");
+        data.masterMcq(topic, "Draf massal render dua");
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Terbitkan semua (2)")));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal/terbit-semua", paket.getId())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection());
 
         mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/terbit", paket.getId())
                         .with(admin).with(csrf()))
-                .andExpect(status().isBadRequest())
-                .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "Soal draf penyebab gerbang layar")));
-        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isFalse();
+                .andExpect(status().isOk())
+                .andExpect(header().doesNotExist("HX-Retarget"));
+        assertThat(pakets.findByIdAndClientIdIsNull(paket.getId()).orElseThrow().isPublished()).isTrue();
     }
 
     @Test
@@ -252,7 +307,7 @@ class MasterContentRenderTest extends PostgresTestBase {
         TopicEntity topicBaru = paketService.topicsOf(paketId).get(1);
 
         mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal", paketId)
-                        .param("topicId", topicBaru.getId().toString())
+                        .param("topicTitle", topicBaru.getTitle())
                         .param("type", "ESSAY")
                         .param("bodyHtml", "<p>Soal dibuat lewat layar unik</p>")
                         .with(admin).with(csrf()))
@@ -294,8 +349,10 @@ class MasterContentRenderTest extends PostgresTestBase {
                 // BankSoalRenderTest#panelPinjamKerangkaSsrDirender (temuan review lanjutan:
                 // name/:value/x-show diperiksa terpisah bisa hijau walau tombolnya lepas sambungan).
                 .andExpect(content().string(org.hamcrest.Matchers.containsString(
-                        "name=\"sourceTopicId\" :value=\"topicFilterId\" x-show=\"topicFilterId\"")))
-                .andExpect(content().string(org.hamcrest.Matchers.containsString("Salin seluruh Topic ini")));
+                        "@click=\"mintaTopic(true)\" x-show=\"topicFilterId\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Salin seluruh Topic ini")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        ":name=\"borongan ? 'sourceTopicId' : null\"")));
     }
 
     /** AC-B03 sisi master: soal yang dicentang mendarat di Paket tujuan lewat POST biasa (SSR, tidak tersentuh ADR-0019). */
@@ -310,7 +367,7 @@ class MasterContentRenderTest extends PostgresTestBase {
         TopicEntity topicTarget = paketService.topicsOf(target.getId()).get(0);
 
         mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("topicId", topicTarget.getId().toString())
+                        .param("topicTitle", topicTarget.getTitle())
                         .param("questionIds", soalSumber.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection())
@@ -352,6 +409,70 @@ class MasterContentRenderTest extends PostgresTestBase {
 
         mockMvc.perform(get("/eduscreen/bank-soal/soal/{id}", soal.getId()).with(admin))
                 .andExpect(status().isNotFound());
+    }
+
+    /**
+     * AC-B26: centang beberapa soal di satu Topic lalu tarik atau hapus sekaligus. Satu tes untuk
+     * dua aksi karena keduanya satu jalur ({@code massalSoal}) yang cuma beda cabang.
+     */
+    @Test
+    @DisplayName("AC-B26: aksi massal per Topic menarik lalu menghapus soal yang tercentang, dan kotak centangnya hilang saat Paket terbit")
+    void aksiMassalPerTopic() throws Exception {
+        var admin = user(data.principal(data.eduscreenAdmin()));
+        PaketEntity paket = data.masterPaket("Fisika Kelas 7 Render Massal", "Paket render massal");
+        TopicEntity topic = paketService.topicsOf(paket.getId()).get(0);
+        QuestionEntity a = data.masterMcq(topic, "Soal massal A unik");
+        QuestionEntity b = data.masterMcq(topic, "Soal massal B unik");
+        QuestionEntity tetap = data.masterMcq(topic, "Soal massal tetap unik");
+        masterPublishing.publishQuestion(a.getId());
+        masterPublishing.publishQuestion(b.getId());
+
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "name=\"questionIds\" value=\"" + a.getId() + "\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("/soal/massal")))
+                // Form biasa wajib membawa token CSRF; th:attr="action=..." pernah dipakai di sini
+                // dan menghasilkan 403 di peramban tanpa satu tes pun merah.
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("name=\"_csrf\"")));
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal/massal", paket.getId())
+                        .param("aksi", "tarik")
+                        .param("questionIds", a.getId().toString(), b.getId().toString())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", "/eduscreen/bank-soal/paket/" + paket.getId()));
+        assertThat(masterPublishing.draftQuestionsOf(paket.getId()))
+                .extracting(QuestionEntity::getId).contains(a.getId(), b.getId());
+
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal/massal", paket.getId())
+                        .param("aksi", "hapus")
+                        .param("questionIds", a.getId().toString(), b.getId().toString())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Soal massal A unik"))))
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("Soal massal B unik"))))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("Soal massal tetap unik")));
+
+        // Paket terbit: aksi massal tidak ditawarkan (AC-B17 menolaknya per soal), dan permintaan
+        // yang menerobos tetap ditolak.
+        masterPublishing.publishQuestion(tetap.getId());
+        masterPublishing.publishPaket(paket.getId(), false);
+        mockMvc.perform(get("/eduscreen/bank-soal/paket/{id}", paket.getId()).with(admin))
+                .andExpect(status().isOk())
+                // Spesifik ke kotak centang baris: panel pinjam di halaman yang sama juga memakai
+                // name="questionIds" (hidden, tab Terpilih), dan itu memang harus tetap ada.
+                .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString(
+                        "name=\"questionIds\" value=\"" + tetap.getId() + "\""))));
+        mockMvc.perform(post("/eduscreen/bank-soal/paket/{id}/soal/massal", paket.getId())
+                        .param("aksi", "hapus")
+                        .param("questionIds", tetap.getId().toString())
+                        .with(admin).with(csrf()))
+                // requirePaketBelumTerbit melempar IllegalArgumentException → 400, sama dengan
+                // tombol per baris.
+                .andExpect(status().isBadRequest());
     }
 
     @Test

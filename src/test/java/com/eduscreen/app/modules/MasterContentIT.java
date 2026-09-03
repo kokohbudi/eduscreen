@@ -200,21 +200,53 @@ class MasterContentIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B12 (FR-067, FR-069): Paket master ditolak terbit selama masih memuat Question yang belum terbit, dan bisa diterbitkan begitu soal itu diterbitkan")
-    void paketMasterDitolakTerbitSelagiMasihMemuatQuestionDraf() {
+    @DisplayName("AC-B12 (ADR-0020): Paket berisi campuran draf dan soal terbit bisa terbit dengan drafnya ditinggal, atau dengan drafnya ikut serta")
+    void paketMasterTerbitDenganAtauTanpaSoalDraf() {
         PaketEntity paket = data.masterPaket("Matematika Kelas 4 Gerbang Paket", "Paket berisi draf");
         TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        data.publishedMasterMcq(topic, "Soal siap gerbang paket");
         QuestionEntity draft = data.masterMcq(topic, "Belum terbit penyebab paket");
 
-        // Tanpa gerbang ini, adoptPakets akan menyalin soal draf ini apa adanya ke setiap
-        // sekolah yang mengadopsi — ContentAdoptionService sengaja tidak menyaring status terbit
-        // per Question, jadi satu-satunya gerbang FR-067 untuk isi Paket ada di sini.
+        // Terbit "yang siap saja": Paket naik, draf tetap draf. Yang menjaga draf itu tidak bocor
+        // ke sekolah adalah penyaring di ContentAdoptionService (AC-B23), bukan gerbang di sini.
+        assertThat(publishing.publishPaket(paket.getId(), false).isPublished()).isTrue();
+        assertThat(questions.findByIdAndClientId(draft.getId(), null).orElseThrow().isPublished())
+                .as("draf tidak boleh ikut terbit tanpa diminta")
+                .isFalse();
+
+        publishing.withdrawPaket(paket.getId());
+
+        // Terbit "semua": draf yang sama ikut naik dalam satu tindakan.
+        assertThat(publishing.publishPaket(paket.getId(), true).isPublished()).isTrue();
+        assertThat(questions.findByIdAndClientId(draft.getId(), null).orElseThrow().isPublished()).isTrue();
+    }
+
+    @Test
+    @DisplayName("AC-B16 (ADR-0020): Paket yang seluruh isinya masih draf ditolak terbit, sama seperti Paket kosong")
+    void paketMasterTanpaSoalTerbitDitolakTerbit() {
+        PaketEntity paket = data.masterPaket("Biologi Kelas 8 Gerbang Semua Draf", "Paket semua draf");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        data.masterMcq(topic, "Draf satu-satunya isi paket");
+
         assertThatThrownBy(() -> publishing.publishPaket(paket.getId()))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("Belum terbit penyebab paket");
+                .hasMessageContaining("belum punya satu pun soal terbit");
+    }
 
-        publishing.publishQuestion(draft.getId());
-        assertThat(publishing.publishPaket(paket.getId()).isPublished()).isTrue();
+    @Test
+    @DisplayName("AC-B22 (ADR-0020): satu tindakan menerbitkan seluruh soal draf di sebuah Paket sekaligus")
+    void terbitkanSeluruhSoalDrafSekaligus() {
+        PaketEntity paket = data.masterPaket("Kimia Kelas 10 Terbit Massal", "Paket terbit massal");
+        TopicEntity topic = pakets.topicsOf(paket.getId()).get(0);
+        QuestionEntity a = data.masterMcq(topic, "Draf massal satu");
+        QuestionEntity b = data.masterMcq(topic, "Draf massal dua");
+        QuestionEntity sudah = data.publishedMasterMcq(topic, "Sudah terbit sebelum massal");
+
+        assertThat(publishing.publishDraftQuestions(paket.getId())).isEqualTo(2);
+        assertThat(publishing.draftQuestionsOf(paket.getId())).isEmpty();
+        assertThat(questions.findByIdAndClientId(a.getId(), null).orElseThrow().isPublished()).isTrue();
+        assertThat(questions.findByIdAndClientId(b.getId(), null).orElseThrow().isPublished()).isTrue();
+        assertThat(questions.findByIdAndClientId(sudah.getId(), null).orElseThrow().isPublished()).isTrue();
     }
 
     @Test

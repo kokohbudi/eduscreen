@@ -97,6 +97,29 @@ class CatalogAdoptionIT extends PostgresTestBase {
     }
 
     @Test
+    @DisplayName("AC-B23 (ADR-0020): adopsi menyalin soal terbit saja; draf yang tersisa di Paket terbit tidak pernah sampai ke Client")
+    void adoptSkipsDraftQuestions() {
+        ClientEntity client = data.client("SD Adopsi Tanpa Draf");
+        PaketEntity master = data.masterPaket("Fisika Kelas 9 Adopsi Draf", "Paket campur draf");
+        TopicEntity topicMaster = paketService.topicsOf(master.getId()).get(0);
+        data.publishedMasterMcq(topicMaster, "Soal terbit yang ikut adopsi");
+        data.masterMcq(topicMaster, "Soal draf yang harus tertinggal");
+        masterPublishing.publishPaket(master.getId(), false);
+
+        ContentAdoptionService.AdoptionSummary ringkasan =
+                adoption.adoptPakets(client.getId(), List.of(master.getId()), null);
+
+        // Ringkasan menyebut jumlah yang benar-benar disalin, bukan jumlah isi Paket master.
+        assertThat(ringkasan.questions()).isEqualTo(1);
+
+        PaketEntity salinan = pakets.findByClientIdAndSubjectIdOrderByTitleAsc(
+                client.getId(), master.getSubjectId()).get(0);
+        assertThat(questions.findByPaketIdOrderByPositionAsc(salinan.getId()))
+                .extracting(QuestionEntity::getBodyText)
+                .containsExactly("Soal terbit yang ikut adopsi");
+    }
+
+    @Test
     @DisplayName("AC-B05: Paket master yang belum terbit tidak bisa diadopsi")
     void unpublishedMasterCannotBeAdopted() {
         ClientEntity client = data.client("SD Adopsi Draf");

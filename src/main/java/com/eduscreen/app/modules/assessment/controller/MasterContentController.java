@@ -14,6 +14,7 @@ import com.eduscreen.app.modules.assessment.service.PaketService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.modules.assessment.service.TaxonomyService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -30,6 +31,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -43,7 +45,7 @@ import java.util.stream.Collectors;
  * hanya kepemilikan — {@code clientId} selalu {@code null} di sini, itulah penanda konten
  * Eduscreen (FR-060) — dan dua kemampuan tambahan yang tidak dimiliki Client: menerbitkan/menarik
  * Paket ke katalog (FR-066 sampai FR-068), dan menerbitkan/menarik Question satu per satu, yang
- * menjadi gerbang AC-B12 sebelum Paket-nya sendiri bisa terbit.
+ * menentukan isi mana yang ikut terbit saat Paket-nya naik ke katalog (AC-B12, ADR-0020).
  *
  * <p>Sampai Task 9, rute {@code /eduscreen/paket*} di sini adalah perakit <b>Exercise master</b>
  * (bukan Paket) peninggalan sebelum ADR-0018 — Exercise ber-{@code clientId} null yang tidak
@@ -93,14 +95,17 @@ public class MasterContentController {
      * bila {@code subjectId} terisi — sejajar {@link BankSoalController#index}.
      */
     @GetMapping("/eduscreen/bank-soal")
-    public String index(@RequestParam(required = false) UUID subjectId, Model model) {
+    public String index(@RequestParam(required = false) UUID subjectId,
+                        @RequestParam(required = false) String cariPaket,
+                        Model model) {
         List<SubjectEntity> subjects = taxonomy.visibleSubjects(MASTER);
         model.addAttribute("subjects", subjects);
         model.addAttribute("subjectId", subjectId);
+        model.addAttribute("cariPaket", cariPaket);
         isiJalur(model);
-        model.addAttribute("pakets", subjectId == null
+        model.addAttribute("pakets", saringJudul(subjectId == null
                 ? paketRepository.findAllMaster()
-                : paketRepository.findMaster(subjectId));
+                : paketRepository.findMaster(subjectId), cariPaket));
         if (subjectId != null) {
             model.addAttribute("subject", taxonomy.requireGlobalSubject(subjectId));
         }
@@ -163,6 +168,7 @@ public class MasterContentController {
         model.addAttribute("paket", paket);
         model.addAttribute("topics", pakets.topicsOf(id));
         model.addAttribute("soalPerTopic", questions.groupByTopic(id));
+        model.addAttribute("jumlahDraf", publishing.draftQuestionsOf(id).size());
         isiJalur(model);
         return "bank/isi";
     }
@@ -174,7 +180,8 @@ public class MasterContentController {
     }
 
     @GetMapping("/eduscreen/bank-soal/paket/{id}/soal/baru")
-    public String soalBaru(@PathVariable UUID id, @RequestParam UUID topicId, Model model) {
+    public String soalBaru(@PathVariable UUID id,
+                           @RequestParam(required = false) UUID topicId, Model model) {
         PaketEntity paket = pakets.require(id, MASTER);
         isiEditor(paket, null, topicId, model);
         return "soal/editor";
@@ -186,13 +193,14 @@ public class MasterContentController {
      */
     @PostMapping("/eduscreen/bank-soal/paket/{id}/soal")
     public String simpanSoal(@PathVariable UUID id,
-                             @RequestParam UUID topicId,
+                             @RequestParam String topicTitle,
                              @RequestParam QuestionType type,
                              @RequestParam String bodyHtml,
                              @RequestParam(required = false) String explanationHtml,
                              @RequestParam(required = false) List<String> optionBody,
                              @RequestParam(defaultValue = "-1") int correctIndex,
                              @RequestParam(required = false) String lanjut) {
+        UUID topicId = pakets.resolveTopic(id, topicTitle, MASTER).getId();
         questions.create(
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
                 MASTER, id);
@@ -211,9 +219,18 @@ public class MasterContentController {
     }
 
     /** Perubahan dibalas fragmen detail di tempat, bukan halaman penuh (TC-14). */
+    /** Padanan {@link BankSoalController#pratinjauSoal} untuk ruang kerja master. */
+    @GetMapping("/eduscreen/bank-soal/soal/{id}/pratinjau")
+    public String pratinjauSoal(@PathVariable UUID id, Model model) {
+        QuestionEntity soal = questions.require(id, MASTER);
+        model.addAttribute("soal", soal);
+        model.addAttribute("opsi", questions.optionsOf(soal.getId()));
+        return "soal/editor :: pratinjauPanel";
+    }
+
     @PutMapping("/eduscreen/bank-soal/soal/{id}")
     public String updateSoal(@PathVariable UUID id,
-                             @RequestParam UUID topicId,
+                             @RequestParam String topicTitle,
                              @RequestParam QuestionType type,
                              @RequestParam String bodyHtml,
                              @RequestParam(required = false) String explanationHtml,
@@ -221,6 +238,7 @@ public class MasterContentController {
                              @RequestParam(defaultValue = "-1") int correctIndex,
                              Model model) {
         PaketEntity paket = pakets.require(questions.require(id, MASTER).getPaketId(), MASTER);
+        UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, MASTER).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml, optionBody, correctIndex),
                 MASTER, paket.getId());
@@ -286,12 +304,18 @@ public class MasterContentController {
                 subjects, namaSubject, paketPilihan, paketById, filterTopics, hasil, judulTopic);
     }
 
+    /** Kembaran {@link BankSoalController#pinjam}: Topic tujuan sebagai nama, diselesaikan
+     *  {@code resolveTopic}, dan submit kosong tidak melahirkan Topic kosong. */
     @PostMapping("/eduscreen/bank-soal/paket/{id}/pinjam")
     public String pinjam(@PathVariable UUID id,
-                         @RequestParam UUID topicId,
+                         @RequestParam String topicTitle,
                          @RequestParam(required = false) List<UUID> questionIds,
                          @RequestParam(required = false) UUID sourceTopicId,
                          @AuthenticationPrincipal UserPrincipal user) {
+        if (sourceTopicId == null && (questionIds == null || questionIds.isEmpty())) {
+            return "redirect:" + BASE_PATH + "/paket/" + id;
+        }
+        UUID topicId = pakets.resolveTopic(id, topicTitle, MASTER).getId();
         if (sourceTopicId != null) {
             borrow.borrowTopic(id, topicId, sourceTopicId, MASTER, user.userId());
         } else {
@@ -302,10 +326,50 @@ public class MasterContentController {
 
     // ----------------------------------------------------------- penerbitan
 
-    /** Terbit membuat Paket terlihat di katalog seluruh Client (FR-066). */
+    /**
+     * Terbit membuat Paket terlihat di katalog seluruh Client (FR-066).
+     *
+     * <p>Kalau Paket masih menyimpan soal draf, permintaan tanpa {@code soalDraf} tidak langsung
+     * menerbitkan apa pun: ia membalas panel pilihan (ADR-0020) — ikut terbitkan drafnya, atau
+     * terbitkan yang sudah siap saja. Panel itu bukan baris tabel, jadi balasannya dialihkan ke
+     * wadah panel lewat {@code HX-Retarget} alih-alih menuntut tombolnya tahu dua target.
+     */
     @PostMapping("/eduscreen/bank-soal/paket/{id}/terbit")
-    public String terbitPaket(@PathVariable UUID id, Model model) {
-        return barisPaket(publishing.publishPaket(id), model);
+    public String terbitPaket(@PathVariable UUID id,
+                              @RequestParam(required = false) String soalDraf,
+                              Model model,
+                              HttpServletResponse response) {
+        if (soalDraf == null) {
+            List<QuestionEntity> draf = publishing.draftQuestionsOf(id);
+            if (!draf.isEmpty()) {
+                response.setHeader("HX-Retarget", "#panel");
+                response.setHeader("HX-Reswap", "innerHTML");
+                model.addAttribute("paket", pakets.require(id, MASTER));
+                model.addAttribute("jumlahDraf", draf.size());
+                model.addAttribute("jumlahSiap", questionRepository.countPublishedInPaket(id));
+                isiJalur(model);
+                return "bank/paket :: pilihanTerbit";
+            }
+        }
+        return barisPaket(publishing.publishPaket(id, "semua".equals(soalDraf)), model);
+    }
+
+    /**
+     * Tarik beberapa Paket sekaligus dari centangan di daftar (AC-B26). Hanya tarik: menerbitkan
+     * Paket punya dialog per Paket soal draf di dalamnya (ADR-0020), yang tidak bisa dijawab
+     * sekali untuk banyak Paket tanpa mengambil keputusan diam-diam atas nama pengguna.
+     */
+    @PostMapping("/eduscreen/bank-soal/paket/massal")
+    public String massalPaket(@RequestParam String aksi,
+                              @RequestParam(required = false) List<UUID> paketIds,
+                              @RequestParam(required = false) UUID subjectId) {
+        if (!"tarik".equals(aksi)) {
+            throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+        }
+        for (UUID id : paketIds == null ? List.<UUID>of() : paketIds) {
+            publishing.withdrawPaket(id);
+        }
+        return "redirect:" + BASE_PATH + (subjectId != null ? "?subjectId=" + subjectId : "");
     }
 
     /** Menarik tidak menyentuh satu pun salinan yang sudah diadopsi Client (FR-068, ADR-0001). */
@@ -315,8 +379,51 @@ public class MasterContentController {
     }
 
     /**
-     * Terbit Question membuka gerbang AC-B12: Paket induknya baru bisa terbit begitu seluruh
-     * isinya sudah dalam keadaan ini.
+     * Menerbitkan seluruh soal draf di satu Paket sekaligus (AC-B19).
+     *
+     * <p>Form biasa dengan redirect, bukan swap HTMX: yang berubah adalah setiap baris soal di
+     * setiap Topic sekaligus, dan memuat ulang halaman jauh lebih murah daripada menyusun fragmen
+     * yang menukar semuanya.
+     */
+    @PostMapping("/eduscreen/bank-soal/paket/{id}/soal/terbit-semua")
+    public String terbitkanSemuaSoal(@PathVariable UUID id) {
+        publishing.publishDraftQuestions(id);
+        return "redirect:" + BASE_PATH + "/paket/" + id;
+    }
+
+    /**
+     * Tarik atau hapus beberapa Question sekaligus dari centangan di satu Topic (AC-B26). Form
+     * biasa dengan redirect, alasan yang sama dengan {@link #terbitkanSemuaSoal}: yang berubah
+     * banyak baris sekaligus. Per soalnya memanggil jalur yang sama persis dengan tombol per
+     * baris, jadi gerbang AC-B17 ({@code requirePaketBelumTerbit}) ikut berlaku tanpa ditulis
+     * ulang — layar menyembunyikan aksi ini selama Paket masih terbit, dan permintaan yang
+     * menerobos tetap ditolak 409 di sini.
+     *
+     * <p>Soal yang tidak ditemukan atau bukan milik ruang kerja master menghentikan seluruh
+     * permintaan dengan 404 (bukan dilewati diam-diam seperti pinjam): daftar ini datang dari
+     * centangan di halaman yang sama, bukan dari pengenal yang bisa ditebak, jadi ketidakcocokan
+     * adalah galat, bukan campuran wajar.
+     */
+    @PostMapping("/eduscreen/bank-soal/paket/{id}/soal/massal")
+    public String massalSoal(@PathVariable UUID id,
+                             @RequestParam String aksi,
+                             @RequestParam(required = false) List<UUID> questionIds,
+                             @AuthenticationPrincipal UserPrincipal user) {
+        pakets.require(id, MASTER);
+        for (UUID qid : questionIds == null ? List.<UUID>of() : questionIds) {
+            switch (aksi) {
+                case "terbit" -> publishing.publishQuestion(qid);
+                case "tarik" -> publishing.unpublishQuestion(qid);
+                case "hapus" -> questions.softDelete(qid, MASTER);
+                default -> throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+            }
+        }
+        return "redirect:" + BASE_PATH + "/paket/" + id;
+    }
+
+    /**
+     * Terbit Question menentukan isi mana yang ikut menyeberang: hanya Question dalam keadaan ini
+     * yang tampil di katalog dan tersalin saat sekolah mengadopsi Paketnya (AC-B23).
      */
     @PostMapping("/eduscreen/bank-soal/soal/{id}/terbit")
     public String terbitSoal(@PathVariable UUID id, Model model) {
@@ -353,7 +460,15 @@ public class MasterContentController {
         model.addAttribute("soal", soal);
         model.addAttribute("opsi", soal == null ? List.of() : questions.optionsOf(soal.getId()));
         model.addAttribute("topicId", topicId);
-        model.addAttribute("topics", pakets.topicsOf(paket.getId()));
+        List<TopicEntity> daftarTopic = pakets.topicsOf(paket.getId());
+        model.addAttribute("topics", daftarTopic);
+        // Editor menyunting JUDUL Topic, bukan id-nya: satu kolom ber-datalist yang sekaligus
+        // memilih yang sudah ada dan membuat yang belum (PaketService#resolveTopic).
+        model.addAttribute("topicTitle", daftarTopic.stream()
+                .filter(t -> t.getId().equals(topicId))
+                .map(TopicEntity::getTitle)
+                .findFirst()
+                .orElse(""));
         model.addAttribute("basePath", BASE_PATH);
     }
 
@@ -412,4 +527,21 @@ public class MasterContentController {
         model.addAttribute("basePath", BASE_PATH);
         model.addAttribute("master", true);
     }
+
+    /**
+     * Menyaring daftar Paket berdasarkan potongan judul. Penyaringnya di sini, bukan di query:
+     * satu ruang kerja hanya punya puluhan Paket dan daftarnya memang sudah ditarik utuh untuk
+     * halaman ini, jadi menambah kombinasi query baru tidak membayar dirinya sendiri. Pindahkan
+     * ke repository begitu jumlah Paket menuntut paginasi.
+     */
+    private static List<PaketEntity> saringJudul(List<PaketEntity> pakets, String cari) {
+        if (cari == null || cari.isBlank()) {
+            return pakets;
+        }
+        String kunci = cari.trim().toLowerCase(Locale.ROOT);
+        return pakets.stream()
+                .filter(p -> p.getTitle() != null && p.getTitle().toLowerCase(Locale.ROOT).contains(kunci))
+                .toList();
+    }
+
 }

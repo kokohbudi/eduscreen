@@ -100,6 +100,28 @@ public class PaketService {
         return topics.findAllById(ids);
     }
 
+    /**
+     * Menerjemahkan judul Topic yang diketik di editor soal menjadi Topic sungguhan: dipakai ulang
+     * kalau namanya sudah ada di Paket ini, dibuat baru kalau belum (perbandingan tanpa peduli
+     * besar-kecil huruf, sehingga "Aljabar" dan "aljabar" tidak jadi dua Topic kembar).
+     *
+     * <p>Ini padanan cara Subject ditangani saat membuat Paket: satu kolom ber-datalist, bukan
+     * dua jalur terpisah "pilih dari daftar" dan "tambah baru".
+     */
+    @Transactional
+    public TopicEntity resolveTopic(UUID paketId, String title, UUID clientId) {
+        require(paketId, clientId);
+        if (title == null || title.isBlank()) {
+            throw new IllegalArgumentException("Judul Topic tidak boleh kosong");
+        }
+        String bersih = title.trim();
+        return topics.findByPaketIdOrderByPositionAsc(paketId).stream()
+                .filter(t -> t.getTitle().equalsIgnoreCase(bersih))
+                .findFirst()
+                .orElseGet(() -> topics.save(
+                        TopicEntity.of(paketId, bersih, topics.nextPosition(paketId))));
+    }
+
     @Transactional
     public TopicEntity addTopic(UUID paketId, String title, UUID clientId) {
         require(paketId, clientId);

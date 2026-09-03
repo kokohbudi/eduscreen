@@ -56,7 +56,7 @@
                th:classappend="${opsi.isCorrect()
                                 ? 'border-success/50 bg-success-soft'
                                 : ((qv.answer() != null and qv.answer().selectedOptionId == opsi.id) ? 'border-danger/50 bg-danger-soft' : 'border-line')}">
-            <span class="prose min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
+            <span class="prose prose-opsi min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
             <span th:if="${opsi.isCorrect()}" class="badge badge-success">Kunci</span>
             <span th:if="${qv.answer() != null and qv.answer().selectedOptionId == opsi.id and !opsi.isCorrect()}"
                   class="badge badge-danger">Jawaban Anda</span>
@@ -83,6 +83,27 @@
     </p>
 
   </div>
+
+  <!--
+    Rumus di batang soal dan pembahasan ditulis LaTeX dan baru dirender di peramban (TC-24), jadi
+    halaman ini pun harus memuat KaTeX. Tanpa ini pembahasan tampil sebagai $x^2$ mentah — celah
+    yang tidak kelihatan selama rumus jarang dipakai, dan jadi kentara begitu editor punya tombol
+    Rumus. Tidak ada HTMX di sini, jadi cukup sekali saat DOM siap.
+  -->
+  <script th:src="@{/vendor/katex/katex.min.js}" defer></script>
+  <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '$$', right: '$$', display: true },
+            { left: '$', right: '$', display: false }
+          ]
+        });
+      }
+    });
+  </script>
 </div>
 </body>
 </html>

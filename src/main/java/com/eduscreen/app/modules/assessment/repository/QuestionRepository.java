@@ -159,7 +159,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
     Optional<QuestionEntity> findPublishedMasterById(@Param("id") UUID id);
 
     /**
-     * Gerbang penerbitan Paket (AC-B12, FR-067, FR-069 setara): Question di dalamnya yang masih
+     * Pilihan penerbitan Paket (AC-B12, ADR-0020): Question di dalamnya yang masih
      * digarap. {@code question.paketId} langsung menunjuk Paket-nya (ADR-0018).
      */
     @Query("select q from QuestionEntity q where q.publishedAt is null and q.paketId = :paketId")
@@ -206,6 +206,15 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
      * menulis JPQL tangan untuk itu.
      */
     boolean existsByPaketId(UUID paketId);
+
+    /** Gerbang penerbitan Paket (AC-B16): yang dihitung adalah soal TERBIT, bukan seluruh isi. */
+    @Query("select count(q) from QuestionEntity q where q.paketId = :paketId and q.publishedAt is not null")
+    long countPublishedInPaket(@Param("paketId") UUID paketId);
+
+    /** Isi Topic yang boleh keluar dari ruang kerja master: adopsi tidak pernah menyalin draf (ADR-0020). */
+    @Query("select q from QuestionEntity q where q.topicId = :topicId and q.publishedAt is not null "
+            + "order by q.position asc")
+    List<QuestionEntity> findPublishedByTopicIdOrderByPositionAsc(@Param("topicId") UUID topicId);
 
     /**
      * Jumlah soal per Paket untuk tabel tingkat kedua Bank Soal.

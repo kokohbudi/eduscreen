@@ -179,7 +179,7 @@ class BankSoalRenderTest extends PostgresTestBase {
                 .andExpect(status().isNotFound());
         // Jalur tulisnya juga: PUT dengan muatan sah tetap 404, bukan menimpa milik Client lain.
         mvc.perform(put("/bank-soal/soal/{id}", soalLain.getId())
-                        .param("topicId", topikLain.getId().toString())
+                        .param("topicTitle", topikLain.getTitle())
                         .param("type", "MULTIPLE_CHOICE")
                         .param("bodyHtml", "<p>Percobaan tulis lintas Client</p>")
                         .param("optionBody", "<p>a</p>", "<p>b</p>")
@@ -244,9 +244,73 @@ class BankSoalRenderTest extends PostgresTestBase {
                 // sendiri-sendiri bisa hijau walau ketiganya pindah ke elemen berbeda, dan
                 // tombolnya lepas dari sambungan ke penyaring Topic aktif tanpa satu tes pun merah.
                 .andExpect(content().string(containsString(
-                        "name=\"sourceTopicId\" :value=\"topicFilterId\" x-show=\"topicFilterId\"")))
+                        "@click=\"mintaTopic(true)\" x-show=\"topicFilterId\"")))
+                // Pemanggilnya ada, fungsinya juga harus ada: definisi mintaTopic sempat ikut
+                // terhapus saat blok skrip di sebelahnya ditulis ulang, dan tombol Salin diam
+                // tanpa satu tes pun merah.
+                .andExpect(content().string(containsString("mintaTopic(bor) {")))
                 .andExpect(content().string(containsString("Salin seluruh Topic ini")))
+                // Cabang borongan tetap menyambung ke sourceTopicId, sekarang lewat satu-satunya
+                // tombol submit di langkah Topic tujuan — atributnya dicopot Alpine saat yang
+                // ditekan "Salin soal terpilih".
+                .andExpect(content().string(containsString(
+                        ":name=\"borongan ? 'sourceTopicId' : null\"")))
+                // AC-B24/AC-B25: Topic tujuan satu kolom ber-datalist, bukan <select>. Bentuk
+                // ini yang membuat tiga jalan muat di satu tempat (pilih yang ada / terima nama
+                // Topic asal / ketik baru) DAN yang menutup "terpilih diam-diam": <select> tanpa
+                // opsi kosong dulu memilih Topic pertama sendiri, jadi setiap pinjaman mendarat
+                // di sana tanpa pengguna pernah menyentuhnya.
+                // <select> native untuk Topic tujuan (panah, gulir, fokus bawaan) + kolom teks
+                // "Topic baru". Dua input bernama topicTitle, :disabled yang memilih satu — server
+                // tetap menerima satu topicTitle.
+                .andExpect(content().string(containsString("id=\"pinjamTopicPilih\" required x-model=\"topicPilih\"")))
+                .andExpect(content().string(containsString("<option value=\"__baru__\">+ Topic baru…</option>")))
+                .andExpect(content().string(containsString(
+                        "type=\"hidden\" name=\"topicTitle\" :value=\"topicPilih\" :disabled=\"topicPilih === '__baru__'\"")))
+                .andExpect(content().string(containsString(
+                        "type=\"text\" name=\"topicTitle\" x-show=\"topicPilih === '__baru__'\"")))
                 .andExpect(content().string(not(containsString("basePath"))));
+    }
+
+    /**
+     * Skenario ketiga kolom Topic tujuan: nama yang BELUM ada di Paket tujuan melahirkan Topic
+     * baru di sana, bukan ditolak dan bukan jatuh ke Topic pertama. Dua skenario lainnya —
+     * memilih Topic yang sudah ada dan menerima nama Topic asal yang terisi otomatis — sama-sama
+     * berujung pada nama yang sudah ada, dan itu yang dijaga {@link #pinjamMendaratDiPaketTujuan()}.
+     *
+     * <p>Sekalian menjaga bahwa submit tanpa satu pun soal TIDAK melahirkan Topic kosong: kolom
+     * ini wajib diisi, jadi tanpa penjaga itu Enter di salah satu penyaring meninggalkan Topic
+     * kosong di Paket tujuan sebagai efek samping.
+     */
+    @Test
+    @DisplayName("AC-B24/AC-B25: pinjam ke nama Topic yang belum ada melahirkan Topic baru; submit tanpa soal tidak melahirkan apa pun")
+    void pinjamKeTopicBaruMelahirkanTopic() throws Exception {
+        ClientEntity client = data.client("SD Bank Topic Baru");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin Topic Baru")));
+        PaketEntity sumber = data.paket(client, "Fisika BankTopicBaru", "Paket Sumber Topic Baru");
+        QuestionEntity dipinjam = data.mcq(client, paketService.topicsOf(sumber.getId()).get(0),
+                "Soal mendarat di Topic baru", 4);
+        PaketEntity target = data.paket(client, "Fisika BankTopicBaru", "Paket Target Topic Baru");
+
+        mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("topicTitle", "Bab Optik Pinjaman")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        assertThat(paketService.topicsOf(target.getId())).extracting(TopicEntity::getTitle)
+                .containsExactly("Topik 1");
+
+        mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
+                        .param("topicTitle", "Bab Optik Pinjaman")
+                        .param("questionIds", dipinjam.getId().toString())
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection());
+        assertThat(paketService.topicsOf(target.getId())).extracting(TopicEntity::getTitle)
+                .containsExactly("Topik 1", "Bab Optik Pinjaman");
+
+        mvc.perform(get("/bank-soal/paket/{id}", target.getId()).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Bab Optik Pinjaman")))
+                .andExpect(content().string(containsString("Soal mendarat di Topic baru")));
     }
 
     /**
@@ -268,7 +332,7 @@ class BankSoalRenderTest extends PostgresTestBase {
         TopicEntity topikTarget = paketService.topicsOf(target.getId()).get(0);
 
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("topicId", topikTarget.getId().toString())
+                        .param("topicTitle", topikTarget.getTitle())
                         .param("questionIds", dipinjam.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
@@ -278,7 +342,7 @@ class BankSoalRenderTest extends PostgresTestBase {
 
         // Pinjam satu Topic sumber sekaligus lewat "Salin seluruh Topic ini".
         mvc.perform(post("/bank-soal/paket/{id}/pinjam", target.getId())
-                        .param("topicId", topikTarget.getId().toString())
+                        .param("topicTitle", topikTarget.getTitle())
                         .param("sourceTopicId", topikSumber.getId().toString())
                         .with(admin).with(csrf()))
                 .andExpect(status().is3xxRedirection());
@@ -288,22 +352,32 @@ class BankSoalRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B02: menyimpan soal ke sebuah Paket dengan Topic milik Paket lain dijawab 400")
-    void topicPaketLainDitolak() throws Exception {
+    @DisplayName("AC-B02: soal tidak bisa mendarat di Topic Paket lain — editor menyebut Topic lewat judul,"
+            + " dan judul selalu diterjemahkan di dalam Paket pada jalur URL")
+    void topicPaketLainTidakBisaDisebut() throws Exception {
         ClientEntity client = data.client("SD Bank B02");
         var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin B02")));
         PaketEntity paketA = data.paket(client, "Kimia BankRender", "Paket A AC B02");
         PaketEntity paketB = data.paket(client, "Kimia BankRender", "Paket B AC B02");
         TopicEntity topikB = paketService.topicsOf(paketB.getId()).get(0);
+        int topikPaketBSebelum = paketService.topicsOf(paketB.getId()).size();
 
+        // Mengirim judul Topic milik Paket B ke Paket A tidak lagi bisa "mencuri" Topic itu:
+        // resolveTopic hanya melihat ke dalam Paket di jalur URL, jadi yang terjadi paling jauh
+        // adalah Topic bernama sama dibuat di dalam Paket A sendiri.
         mvc.perform(post("/bank-soal/paket/{id}/soal", paketA.getId())
-                        .param("topicId", topikB.getId().toString())
+                        .param("topicTitle", topikB.getTitle())
                         .param("type", "MULTIPLE_CHOICE")
                         .param("bodyHtml", "<p>Soal salah paket</p>")
                         .param("optionBody", "<p>a</p>", "<p>b</p>")
                         .param("correctIndex", "0")
                         .with(admin).with(csrf()))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().is3xxRedirection());
+
+        assertThat(paketService.topicsOf(paketB.getId())).hasSize(topikPaketBSebelum);
+        assertThat(paketService.topicsOf(paketA.getId()))
+                .extracting(TopicEntity::getTitle)
+                .contains(topikB.getTitle());
     }
 
     @Test
@@ -330,7 +404,7 @@ class BankSoalRenderTest extends PostgresTestBase {
                         "hx-put=\"/bank-soal/soal/" + soal.getId() + "\"")));
 
         mvc.perform(put("/bank-soal/soal/{id}", soal.getId())
-                        .param("topicId", topik.getId().toString())
+                        .param("topicTitle", topik.getTitle())
                         .param("type", "MULTIPLE_CHOICE")
                         .param("bodyHtml", "<p>Soal editor render diubah</p>")
                         .param("optionBody", "<p>a</p>", "<p>b</p>")
@@ -384,7 +458,7 @@ class BankSoalRenderTest extends PostgresTestBase {
     private ResultActions simpanSoal(PaketEntity paket, TopicEntity topik, String body,
                                      boolean lanjut, RequestPostProcessor admin) throws Exception {
         var permintaan = post("/bank-soal/paket/{id}/soal", paket.getId())
-                .param("topicId", topik.getId().toString())
+                .param("topicTitle", topik.getTitle())
                 .param("type", "MULTIPLE_CHOICE")
                 .param("bodyHtml", "<p>" + body + "</p>")
                 .param("optionBody", "<p>a</p>", "<p>b</p>")

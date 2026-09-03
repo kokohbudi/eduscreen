@@ -56,7 +56,7 @@
                    th:disabled="${soal.reveal()}"
                    th:attr="hx-put=${soal.reveal()} ? null : @{/siswa/sesi/{sid}/jawaban/{qid}(sid=${sesi.id},qid=${soal.sessionQuestion().id})}"
                    hx-trigger="change" hx-target="#soal" hx-swap="outerHTML">
-            <span class="prose min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
+            <span class="prose prose-opsi min-w-0 flex-1" th:utext="${opsi.bodyHtml}">Pilihan</span>
             <span th:if="${soal.reveal() and opsi.isCorrect()}" class="badge badge-success">Kunci</span>
           </label>
         </div>
@@ -99,6 +99,7 @@
       </div>
     </div>
 
+    <script th:src="@{/vendor/katex/katex.min.js}" defer></script>
     <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
     <script>
       // Render KaTeX untuk rumus LaTeX di batang soal/opsi/pembahasan, dipanggil ulang setelah

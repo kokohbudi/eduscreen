@@ -19,45 +19,29 @@
          class="crumb">← Semua Paket</a>
     </p>
 
-    <!-- Topic adalah pengelompokan di dalam halaman ini, bukan tingkat navigasi keempat.
-         Paket 30 soal dengan 3 Topic tidak layak menambah satu klik lagi (ADR-0018). -->
-    <section th:each="t : ${topics}" th:with="soalTopic=${soalPerTopic[t.id]}"
-             class="card mb-4">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="card-title" th:text="${t.title}">Topic</h2>
-        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id},topicId=${t.id})}"
-           class="btn btn-secondary btn-sm">
-          + Soal
-        </a>
-      </div>
-      <ol class="space-y-1.5">
-        <!-- th:each di blok pembungkus, th:replace di elemen lain: keduanya di satu elemen
-             membuat fragmen dipanggil sebelum variabel iterasinya terikat (lihat
-             MasterContentRenderTest, dan komentar sama di bank/paket.html). Nomor tampilan
-             dikirim sebagai parameter fragmen dari ${it.index}, bukan dibaca dari q.position:
-             position tersimpan berlubang setelah penghapusan (nextPosition cuma menambah dari
-             maksimum, tidak pernah merapatkan), jadi memakainya langsung membuat nomor melompat
-             1, 3 begitu soal di tengah dihapus (temuan review Task 10). -->
-        <th:block th:each="q, it : ${soalTopic ?: {}}">
-          <li th:replace="~{::barisSoal(q=${q}, nomor=${it.index + 1})}"></li>
-        </th:block>
-      </ol>
-      <p th:if="${soalTopic == null or soalTopic.isEmpty()}"
-         class="text-sm text-ink-2">Belum ada soal di Topic ini.</p>
-    </section>
+    <!--
+      Jalan pintas untuk Paket besar: menerbitkan 200 soal lewat tombol per baris tidak masuk akal
+      (AC-B19). Hanya di ruang kerja master — Paket milik Client tidak punya keadaan terbit sama
+      sekali. Form biasa, bukan HTMX: yang berubah setiap baris di setiap Topic sekaligus.
+    -->
+    <form th:if="${(master ?: false) and (jumlahDraf ?: 0) > 0}" method="post"
+          th:action="@{__${basePath}__/paket/{id}/soal/terbit-semua(id=${paket.id})}"
+          class="mb-4 flex flex-wrap items-center gap-3">
+      <span class="text-sm text-ink-2"
+            th:text="|${jumlahDraf} soal di Paket ini belum terbit.|">Sisa draf</span>
+      <button type="submit" class="btn btn-secondary btn-sm text-success"
+              th:text="|Terbitkan semua (${jumlahDraf})|">Terbitkan semua</button>
+    </form>
 
-    <div class="flex flex-wrap items-end gap-4">
-      <form method="post" class="flex w-full flex-wrap items-end gap-2 sm:w-auto"
-            th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/topic(id=${paket.id})}">
-        <div>
-          <label for="topicBaru" class="label">Topic baru</label>
-          <input type="text" id="topicBaru" name="title" required class="input sm:w-64">
-        </div>
-        <button type="submit" class="btn btn-secondary">
-          Tambah
-        </button>
-      </form>
-    </div>
+    <!--
+      Topic tidak lagi dibuat di sini: kolom Topic di editor soal sekaligus memilih yang sudah ada
+      dan membuat yang belum. Tombol ini karena itu berangkat tanpa topicId — Paket yang masih
+      kosong pun punya jalan menulis soal pertamanya.
+    -->
+    <p class="mb-4">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id})}"
+         class="btn btn-secondary">+ Soal di Topic baru</a>
+    </p>
 
     <!--
       Panel pinjam soal (ADR-0019). Muat pertama halaman ini tetap SSR — kerangka panel di bawah
@@ -91,244 +75,377 @@
       benar. Komentar parser-level lagi, alasan yang sama dengan di atas: komentar HTML biasa
       yang menyebut kata itu akan ikut lolos ke HTML dan memicu guard itu juga.
     */-->
-    <div th:attr="x-data=|pinjamPanel('${paket.id}', '${basePath ?: '/bank-soal'}')|" class="mt-6">
+    <div th:attr="x-data=|pinjamPanel('${paket.id}', '${basePath ?: '/bank-soal'}')|" class="mb-4">
       <button type="button" @click="buka()"
               class="btn btn-secondary">
         Pinjam soal dari Paket lain
       </button>
 
-      <div x-show="terbuka" x-transition.opacity.duration.200ms class="card mt-3 text-sm">
+      <!--
+        Panel pinjam tampil sebagai modal, memakai lapisan yang sama dengan dialog terbit dan
+        pratinjau soal. Ia TIDAK menumpang #panel: isinya dirender Alpine dari balasan JSON, bukan
+        fragmen HTMX, dan menempatkannya di wadah bersama membuat wadah itu tidak pernah :empty
+        sehingga scrim-nya menggantung terus. Lapisannya cukup dibuat sendiri — .lapis-panel
+        position: fixed, jadi ia bekerja di mana pun ia berada di DOM.
+      -->
+      <div x-show="terbuka" x-cloak class="lapis-panel"
+           x-transition.opacity.duration.200ms
+           @click.self="terbuka = false" @keydown.escape.window="terbuka = false">
+        <div class="panel-kartu panel-luas text-sm" role="dialog" aria-modal="true">
 
-        <!-- TC-31/TC-14 (tajam): pesan galat dari server ditampilkan apa adanya lewat x-text
-             (bukan x-html) — klien menampilkan, tidak menafsirkan atau merender ulang sebagai
-             markup. galat() sudah membuang tag pembungkus fragmen error milik GlobalExceptionAdvice
-             sebelum disimpan (lihat pesan() di skrip bawah). -->
-        <p x-show="galat" x-text="galat" class="alert alert-danger mb-3"></p>
+          <!-- TC-31/TC-14 (tajam): pesan galat dari server ditampilkan apa adanya lewat x-text
+               (bukan x-html) — klien menampilkan, tidak menafsirkan atau merender ulang sebagai
+               markup. galat() sudah membuang tag pembungkus fragmen error milik GlobalExceptionAdvice
+               sebelum disimpan (lihat pesan() di skrip bawah). -->
+          <p x-show="galat" x-text="galat" class="alert alert-danger mb-3"></p>
 
-        <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}">
+          <!-- Enter selama langkah Topic tujuan belum terbuka tidak boleh mengirim form: satu-
+               satunya tombol submit hidup di langkah itu, dan submit implisit mengabaikan
+               x-show. Tanpa penjaga ini, Enter di salah satu <select> penyaring mengirim POST
+               tanpa topicTitle terisi. -->
+          <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/pinjam(id=${paket.id})}"
+                @keydown.enter="if (!konfirmasi) $event.preventDefault()">
 
-          <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
-            <span class="card-title" th:text="|Pinjam soal ke ${paket.title}|">Pinjam soal</span>
-            <label class="flex items-center gap-2 text-ink-2">
-              Masukkan ke Topic
-              <select name="topicId" required class="select mt-0 w-auto">
-                <option th:each="t : ${topics}" th:value="${t.id}" th:text="${t.title}">Topic</option>
-              </select>
-            </label>
-          </div>
-
-          <!-- Aturan 7: dropdown menyempit mengikuti pilihan di atasnya. Menawarkan Paket/Topic
-               yang pasti nol hasil membuat penyaring terasa rusak, jadi ubahSubject/ubahPaket di
-               skrip bawah mengosongkan pilihan turunannya sebelum memuat ulang. -->
-          <div class="mb-3 grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <label class="label">Subject</label>
-              <select :value="subjectId" @change="ubahSubject($event.target.value)"
-                      class="select">
-                <option value="">Semua Subject</option>
-                <template x-for="s in subjects" :key="s.id">
-                  <option :value="s.id" x-text="s.label"></option>
-                </template>
-              </select>
+            <div class="mb-3">
+              <span class="card-title" th:text="|Pinjam soal ke ${paket.title}|">Pinjam soal</span>
             </div>
-            <div>
-              <label class="label">Paket</label>
-              <select :value="paketFilterId" @change="ubahPaket($event.target.value)"
-                      class="select">
-                <option value="">Semua Paket</option>
-                <template x-for="p in pakets" :key="p.id">
-                  <option :value="p.id" x-text="p.label"></option>
-                </template>
-              </select>
-            </div>
-            <div>
-              <label class="label">Topic</label>
-              <select :value="topicFilterId" @change="ubahTopic($event.target.value)" :disabled="!paketFilterId"
-                      class="select">
-                <option value="">Semua Topic</option>
-                <template x-for="t in topics" :key="t.id">
-                  <option :value="t.id" x-text="t.label"></option>
-                </template>
-              </select>
-            </div>
-            <div>
-              <label class="label">Cari</label>
-              <!-- TC-25: kata kunci menyentuh bodyText teks polos di server, bukan bodyHtml.
-                   @keydown.enter.prevent WAJIB: kolom ini duduk di dalam <form> yang tombol
-                   submit-nya "Salin soal terpilih" — tanpa ini, Enter (kebiasaan wajar di kotak
-                   pencarian) mengirim POST pinjam apa adanya yang sedang tercentang, melempar
-                   pengguna keluar panel, dan menghapus seluruh penyaring/pilihan (temuan review). -->
-              <input type="search" :value="q" @input.debounce.400ms="ubahCari($event.target.value)"
-                     @keydown.enter.prevent
-                     placeholder="Cari isi soal..." class="input">
-            </div>
-          </div>
 
-          <div x-show="subjectId || paketFilterId || topicFilterId || q" class="mb-3 flex flex-wrap gap-2">
-            <span x-show="subjectId"
-                  class="badge badge-accent">
-              <span x-text="opsiLabel(subjects, subjectId)"></span>
-              <button type="button" @click="lepasFilter('subject')" aria-label="Lepas penyaring Subject">✕</button>
-            </span>
-            <span x-show="paketFilterId"
-                  class="badge badge-accent">
-              <span x-text="opsiLabel(pakets, paketFilterId)"></span>
-              <button type="button" @click="lepasFilter('paket')" aria-label="Lepas penyaring Paket">✕</button>
-            </span>
-            <span x-show="topicFilterId"
-                  class="badge badge-accent">
-              <span x-text="opsiLabel(topics, topicFilterId)"></span>
-              <button type="button" @click="lepasFilter('topic')" aria-label="Lepas penyaring Topic">✕</button>
-            </span>
-            <span x-show="q"
-                  class="badge badge-accent">
-              <span x-text="q"></span>
-              <button type="button" @click="lepasFilter('q')" aria-label="Lepas kata kunci">✕</button>
-            </span>
-          </div>
-
-          <div class="seg mb-3">
-            <button type="button" @click="tabAktif='soal'"
-                    :class="tabAktif==='soal' && 'aktif'">Soal</button>
-            <button type="button" @click="tabAktif='terpilih'"
-                    :class="tabAktif==='terpilih' && 'aktif'">
-              Terpilih<span x-show="jumlahTerpilih>0" x-text="' (' + jumlahTerpilih + ')'"></span>
-            </button>
-          </div>
-
-          <!-- Tab Soal: seluruh soal milik pemanggil, lintas Subject dan Topic, terisi SEBELUM
-               satu penyaring pun disentuh (aturan 1) — itu inti perbaikan cacat asal (AC-B19).
-               Baris yang sudah tercentang tersorot (aturan 4); mengkliknya (di luar checkbox dan
-               tombol Paket) melompat ke tab Terpilih (aturan 5). -->
-          <div x-show="tabAktif==='soal'">
-            <p x-show="memuat" class="text-ink-2">Memuat…</p>
-            <table class="table" x-show="!memuat">
-              <thead>
-                <tr>
-                  <th class="w-8">
-                    <input type="checkbox" :checked="semuaTampakTerpilih()"
-                           @change="pilihSemuaTampak($event.target.checked)" aria-label="Pilih semua yang tampak">
-                  </th>
-                  <th>Isi soal</th>
-                  <th>Tipe</th>
-                  <th>Paket</th>
-                  <th>Subject</th>
-                  <th>Topic</th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="s in soal.content" :key="s.id">
-                  <tr class="cursor-pointer"
-                      :class="dipilih[s.id] ? 'bg-accent-soft font-medium' : ''"
-                      @click="onRowClick($event, s)">
-                    <td>
-                      <input type="checkbox" :checked="!!dipilih[s.id]" @change="toggle(s)">
-                    </td>
-                    <td x-text="s.isi"></td>
-                    <td x-text="s.tipe"></td>
-                    <td>
-                      <!-- Aturan: nilai Paket bisa diklik, menyaring sekaligus ke Subject-nya. -->
-                      <button type="button" class="underline decoration-line-2 underline-offset-2 hover:text-accent"
-                              @click.stop="saringPaket(s.paketId, s.subjectId)" x-text="s.paketTitle"></button>
-                    </td>
-                    <td x-text="s.subjectName"></td>
-                    <td x-text="s.topicTitle"></td>
-                  </tr>
-                </template>
-              </tbody>
-            </table>
-            <p x-show="!memuat && soal.content.length === 0" class="empty mt-2">
-              Tidak ada soal yang cocok dengan penyaring ini.
-            </p>
-
-            <div class="mt-3 flex items-center justify-between text-ink-2" x-show="soal.totalPages > 1">
-              <span x-text="'Halaman ' + (soal.page + 1) + ' dari ' + soal.totalPages"></span>
-              <div class="flex gap-2">
-                <button type="button" x-show="soal.hasPrevious" @click="segarkan(soal.page - 1)"
-                        class="btn btn-secondary btn-sm">Sebelumnya</button>
-                <button type="button" x-show="soal.hasNext" @click="segarkan(soal.page + 1)"
-                        class="btn btn-secondary btn-sm">Berikutnya</button>
+            <!-- Aturan 7: dropdown menyempit mengikuti pilihan di atasnya. Menawarkan Paket/Topic
+                 yang pasti nol hasil membuat penyaring terasa rusak, jadi ubahSubject/ubahPaket di
+                 skrip bawah mengosongkan pilihan turunannya sebelum memuat ulang. -->
+            <div class="mb-3 grid grid-cols-1 items-end gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div>
+                <label class="label">Subject</label>
+                <select :value="subjectId" @change="ubahSubject($event.target.value)"
+                        class="select">
+                  <option value="">Semua Subject</option>
+                  <template x-for="s in subjects" :key="s.id">
+                    <option :value="s.id" x-text="s.label"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="label">Paket</label>
+                <select :value="paketFilterId" @change="ubahPaket($event.target.value)"
+                        class="select">
+                  <option value="">Semua Paket</option>
+                  <template x-for="p in pakets" :key="p.id">
+                    <option :value="p.id" x-text="p.label"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="label">Topic</label>
+                <select :value="topicFilterId" @change="ubahTopic($event.target.value)" :disabled="!paketFilterId"
+                        class="select">
+                  <option value="">Semua Topic</option>
+                  <template x-for="t in topics" :key="t.id">
+                    <option :value="t.id" x-text="t.label"></option>
+                  </template>
+                </select>
+              </div>
+              <div>
+                <label class="label">Cari</label>
+                <!-- TC-25: kata kunci menyentuh bodyText teks polos di server, bukan bodyHtml.
+                     @keydown.enter.prevent WAJIB: kolom ini duduk di dalam <form> yang tombol
+                     submit-nya "Salin soal terpilih" — tanpa ini, Enter (kebiasaan wajar di kotak
+                     pencarian) mengirim POST pinjam apa adanya yang sedang tercentang, melempar
+                     pengguna keluar panel, dan menghapus seluruh penyaring/pilihan (temuan review). -->
+                <input type="search" :value="q" @input.debounce.400ms="ubahCari($event.target.value)"
+                       @keydown.enter.prevent
+                       placeholder="Cari isi soal..." class="input">
               </div>
             </div>
-          </div>
 
-          <!-- Tab Terpilih: keranjang, BUKAN hasil pencarian (aturan 6) — dirender langsung dari
-               `dipilih`, tidak ikut menyaring apa pun. Soal yang sedang tersaring-keluar dari tab
-               Soal tetap ada di sini, dan sebaliknya ditandai lewat hitungTersembunyi di bar
-               bawah (aturan 3). `questionIds` tersembunyi di sini-lah yang benar-benar terkirim
-               saat submit — bukan checkbox tab Soal, yang cuma UI penanda dan sengaja tanpa name. -->
-          <div x-show="tabAktif==='terpilih'">
-            <table class="table">
-              <thead>
-                <tr>
-                  <th>Isi soal</th>
-                  <th>Tipe</th>
-                  <th>Paket</th>
-                  <th>Subject</th>
-                  <th>Topic</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody>
-                <template x-for="[id, s] in Object.entries(dipilih)" :key="id">
-                  <tr :id="'pinjamTerpilih-' + id">
-                    <td x-text="s.isi"></td>
-                    <td x-text="s.tipe"></td>
-                    <td x-text="s.paket"></td>
-                    <td x-text="s.subject"></td>
-                    <td x-text="s.topic"></td>
-                    <td>
-                      <input type="hidden" name="questionIds" :value="id">
-                      <button type="button" class="btn btn-ghost btn-sm text-danger" @click="buang(id)">Hapus</button>
-                    </td>
+            <div x-show="subjectId || paketFilterId || topicFilterId || q" class="mb-3 flex flex-wrap gap-2">
+              <span x-show="subjectId"
+                    class="badge badge-accent">
+                <span x-text="opsiLabel(subjects, subjectId)"></span>
+                <button type="button" @click="lepasFilter('subject')" aria-label="Lepas penyaring Subject">✕</button>
+              </span>
+              <span x-show="paketFilterId"
+                    class="badge badge-accent">
+                <span x-text="opsiLabel(pakets, paketFilterId)"></span>
+                <button type="button" @click="lepasFilter('paket')" aria-label="Lepas penyaring Paket">✕</button>
+              </span>
+              <span x-show="topicFilterId"
+                    class="badge badge-accent">
+                <span x-text="opsiLabel(topics, topicFilterId)"></span>
+                <button type="button" @click="lepasFilter('topic')" aria-label="Lepas penyaring Topic">✕</button>
+              </span>
+              <span x-show="q"
+                    class="badge badge-accent">
+                <span x-text="q"></span>
+                <button type="button" @click="lepasFilter('q')" aria-label="Lepas kata kunci">✕</button>
+              </span>
+            </div>
+
+            <div class="seg mb-3">
+              <button type="button" @click="tabAktif='soal'"
+                      :class="tabAktif==='soal' && 'aktif'">Soal</button>
+              <button type="button" @click="tabAktif='terpilih'"
+                      :class="tabAktif==='terpilih' && 'aktif'">
+                Terpilih<span x-show="jumlahTerpilih>0" x-text="' (' + jumlahTerpilih + ')'"></span>
+              </button>
+            </div>
+
+            <!-- Tab Soal: seluruh soal milik pemanggil, lintas Subject dan Topic, terisi SEBELUM
+                 satu penyaring pun disentuh (aturan 1) — itu inti perbaikan cacat asal (AC-B19).
+                 Baris yang sudah tercentang tersorot (aturan 4); mengkliknya (di luar checkbox dan
+                 tombol Paket) melompat ke tab Terpilih (aturan 5). -->
+            <div x-show="tabAktif==='soal'">
+              <p x-show="memuat" class="text-ink-2">Memuat…</p>
+              <table class="table" x-show="!memuat">
+                <thead>
+                  <tr>
+                    <th class="w-8">
+                      <input type="checkbox" :checked="semuaTampakTerpilih()"
+                             @change="pilihSemuaTampak($event.target.checked)" aria-label="Pilih semua yang tampak">
+                    </th>
+                    <th>Isi soal</th>
+                    <th>Tipe</th>
+                    <th>Paket</th>
+                    <th>Subject</th>
+                    <th>Topic</th>
                   </tr>
-                </template>
-              </tbody>
-            </table>
-            <p x-show="jumlahTerpilih === 0" class="empty mt-2">
-              Belum ada soal terpilih. Centang di tab Soal.
-            </p>
-          </div>
+                </thead>
+                <tbody>
+                  <template x-for="s in soal.content" :key="s.id">
+                    <tr class="cursor-pointer"
+                        :class="dipilih[s.id] ? 'bg-accent-soft font-medium' : ''"
+                        @click="onRowClick($event, s)">
+                      <td>
+                        <input type="checkbox" :checked="!!dipilih[s.id]" @change="toggle(s)">
+                      </td>
+                      <td x-text="s.isi"></td>
+                      <td x-text="s.tipe"></td>
+                      <td>
+                        <!-- Aturan: nilai Paket bisa diklik, menyaring sekaligus ke Subject-nya. -->
+                        <button type="button" class="underline decoration-line-2 underline-offset-2 hover:text-accent"
+                                @click.stop="saringPaket(s.paketId, s.subjectId)" x-text="s.paketTitle"></button>
+                      </td>
+                      <td x-text="s.subjectName"></td>
+                      <td x-text="s.topicTitle"></td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <p x-show="!memuat && soal.content.length === 0" class="empty mt-2">
+                Tidak ada soal yang cocok dengan penyaring ini.
+              </p>
 
-          <!-- Bar aksi: aturan 3 (hitungan tersembunyi) dan tombol Salin/Bersihkan/Salin-seluruh-
-               Topic. Salin adalah POST biasa (bukan HTMX/JSON) — hasilnya redirect balik ke
-               halaman isi Paket ini, sama seperti sebelumnya. Bar ini terlihat kalau ADA soal
-               tercentang ATAU ada Topic yang sedang disaring — kemampuan "salin seluruh Topic"
-               tidak butuh satu pun centang, ia menyalin seluruh isi Topic yang difilter. -->
-          <div class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-4" x-show="jumlahTerpilih > 0 || topicFilterId">
-            <span>
-              <span x-show="jumlahTerpilih > 0" x-text="jumlahTerpilih + ' soal terpilih'"></span>
-              <span x-show="hitungTersembunyi > 0" class="text-ink-2"
-                    x-text="' · ' + hitungTersembunyi + ' tidak terlihat karena penyaring'"></span>
-            </span>
-            <span class="flex gap-2">
-              <button type="button" @click="bersihkan()" x-show="jumlahTerpilih > 0"
-                      class="btn btn-ghost">Bersihkan</button>
-              <!-- Salin soal terpilih WAJIB mendahului tombol Topic di bawah dalam urutan dokumen
-                   (temuan review, bukan sekadar tampilan): submit implisit (menekan Enter di
-                   <select> mana pun dalam form ini) memicu tombol submit PERTAMA dalam urutan
-                   pohon DOM, terlepas dari x-show/display:none-nya saat itu — bukan tombol yang
-                   kebetulan sedang paling terlihat. Kalau tombol Topic ada lebih dulu, Enter di
-                   penyaring mana pun menyalin seluruh isi Topic tanpa satu centang atau konfirmasi
-                   pun. Dengan urutan ini, submit implisit jatuh ke tombol ini — yang aman kosong
-                   (PaketBorrowService.borrowQuestions membalas 0 untuk questionIds null/kosong)
-                   saat tidak ada yang tercentang, bukan menyalin borongan diam-diam. -->
-              <button type="submit" x-show="jumlahTerpilih > 0"
-                      class="btn btn-primary">Salin soal terpilih</button>
-              <!-- name="sourceTopicId" SENGAJA beda dari topicFilterId (state Alpine si
-                   penyaring): keduanya hidup di form yang sama, dan menyamakan namanya akan
-                   membuat "Salin soal terpilih" ikut terbaca sebagai "Salin seluruh Topic" begitu
-                   saja karena Topic kebetulan sedang disaring — bukan soal yang dicentang
-                   pengguna yang menentukan aksinya. Tombol ini menyambung ke borrowTopic lewat
-                   cabang sourceTopicId di PaketBorrowService (BankSoalController#pinjam),
-                   dipertahankan sesuai bentuk yang disetujui — jangan dicabut lagi. -->
-              <button type="submit" name="sourceTopicId" :value="topicFilterId" x-show="topicFilterId"
-                      class="btn btn-secondary">Salin seluruh Topic ini</button>
-            </span>
-          </div>
-        </form>
+              <div class="mt-3 flex items-center justify-between text-ink-2" x-show="soal.totalPages > 1">
+                <span x-text="'Halaman ' + (soal.page + 1) + ' dari ' + soal.totalPages"></span>
+                <div class="flex gap-2">
+                  <button type="button" x-show="soal.hasPrevious" @click="segarkan(soal.page - 1)"
+                          class="btn btn-secondary btn-sm">Sebelumnya</button>
+                  <button type="button" x-show="soal.hasNext" @click="segarkan(soal.page + 1)"
+                          class="btn btn-secondary btn-sm">Berikutnya</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Tab Terpilih: keranjang, BUKAN hasil pencarian (aturan 6) — dirender langsung dari
+                 `dipilih`, tidak ikut menyaring apa pun. Soal yang sedang tersaring-keluar dari tab
+                 Soal tetap ada di sini, dan sebaliknya ditandai lewat hitungTersembunyi di bar
+                 bawah (aturan 3). `questionIds` tersembunyi di sini-lah yang benar-benar terkirim
+                 saat submit — bukan checkbox tab Soal, yang cuma UI penanda dan sengaja tanpa name. -->
+            <div x-show="tabAktif==='terpilih'">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th>Isi soal</th>
+                    <th>Tipe</th>
+                    <th>Paket</th>
+                    <th>Subject</th>
+                    <th>Topic</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="[id, s] in Object.entries(dipilih)" :key="id">
+                    <tr :id="'pinjamTerpilih-' + id">
+                      <td x-text="s.isi"></td>
+                      <td x-text="s.tipe"></td>
+                      <td x-text="s.paket"></td>
+                      <td x-text="s.subject"></td>
+                      <td x-text="s.topic"></td>
+                      <td>
+                        <input type="hidden" name="questionIds" :value="id">
+                        <button type="button" class="btn btn-secondary btn-sm btn-icon text-danger"
+                                title="Hapus" aria-label="Hapus" @click="buang(id)">
+                          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.2v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+                          <span class="sr-only">Hapus</span>
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+              <p x-show="jumlahTerpilih === 0" class="empty mt-2">
+                Belum ada soal terpilih. Centang di tab Soal.
+              </p>
+            </div>
+
+            <!-- Bar aksi: aturan 3 (hitungan tersembunyi) dan tombol Salin/Bersihkan/Salin-seluruh-
+                 Topic. Salin adalah POST biasa (bukan HTMX/JSON) — hasilnya redirect balik ke
+                 halaman isi Paket ini, sama seperti sebelumnya. Bar ini terlihat kalau ADA soal
+                 tercentang ATAU ada Topic yang sedang disaring — kemampuan "salin seluruh Topic"
+                 tidak butuh satu pun centang, ia menyalin seluruh isi Topic yang difilter.
+
+                 Menyalin berjalan DUA langkah: menekan Salin belum mengirim apa pun, ia membuka
+                 langkah Topic tujuan di tempat yang sama. Topic tujuan sempat berdiri sebagai
+                 kolom permanen di puncak panel dan tidak terbaca sebagai keputusan — pengguna
+                 melewatinya dan seluruh pinjaman mendarat di Topic pertama. Memunculkannya
+                 tepat setelah tombol yang baru saja ditekan yang membuatnya tidak terlewat. -->
+            <div class="mt-4 border-t border-line pt-4" x-show="jumlahTerpilih > 0 || topicFilterId">
+
+              <div class="flex flex-wrap items-center justify-between gap-2" x-show="!konfirmasi">
+                <span>
+                  <span x-show="jumlahTerpilih > 0" x-text="jumlahTerpilih + ' soal terpilih'"></span>
+                  <span x-show="hitungTersembunyi > 0" class="text-ink-2"
+                        x-text="' · ' + hitungTersembunyi + ' tidak terlihat karena penyaring'"></span>
+                </span>
+                <span class="flex gap-2">
+                  <button type="button" @click="bersihkan()" x-show="jumlahTerpilih > 0"
+                          class="btn btn-ghost">Bersihkan</button>
+                  <!-- type="button", bukan submit: keduanya membuka langkah Topic tujuan lebih
+                       dulu. Efek sampingnya menutup lubang lama — tidak ada lagi tombol submit
+                       yang bisa dipicu submit implisit (Enter di salah satu <select> penyaring)
+                       tanpa Topic tujuan pernah dipilih. -->
+                  <button type="button" @click="mintaTopic(false)" x-show="jumlahTerpilih > 0"
+                          class="btn btn-primary">Salin soal terpilih</button>
+                  <!-- Cabang borongan menyambung ke borrowTopic lewat sourceTopicId
+                       (BankSoalController#pinjam). Namanya SENGAJA beda dari topicFilterId (state
+                       Alpine si penyaring): keduanya hidup di form yang sama, dan menyamakannya
+                       akan membuat "Salin soal terpilih" ikut terbaca sebagai borongan begitu saja
+                       karena Topic kebetulan sedang disaring. Kemampuan ini dipertahankan sesuai
+                       bentuk yang disetujui — jangan dicabut lagi. -->
+                  <button type="button" @click="mintaTopic(true)" x-show="topicFilterId"
+                          class="btn btn-secondary">Salin seluruh Topic ini</button>
+                </span>
+              </div>
+
+              <!-- Langkah kedua: ke Topic mana. -->
+              <div x-show="konfirmasi" x-cloak>
+                <p class="mb-2 font-medium"
+                   x-text="borongan ? 'Salin seluruh Topic ini ke:' : 'Salin ' + jumlahTerpilih + ' soal ke:'"></p>
+
+                <label class="label" for="pinjamTopicPilih">Topic tujuan di Paket ini</label>
+
+                <!--
+                  <select> native, bukan daftar buatan sendiri: daftar buatan sempat dicoba dan
+                  langsung menuntut navigasi panah, gulir mandiri, dan pengelolaan fokus yang
+                  semuanya sudah dimiliki <select> dari lahir. Tiga jalan tetap muat: memilih Topic
+                  yang sudah ada, menerima nama Topic ASAL yang terisi otomatis (isiTopicAsal —
+                  menempel ke opsi kalau namanya ada, atau membuka kolom "Topic baru" berisi nama
+                  itu kalau belum), atau memilih "Topic baru…" lalu mengetik sendiri.
+
+                  Dua input bernama topicTitle, tepat satu yang aktif: yang hidden membawa pilihan
+                  <select>, yang teks membawa ketikan. :disabled yang memilih — input disabled
+                  tidak dikirim dan tidak divalidasi peramban, jadi required pada kolom teks hanya
+                  berlaku selagi ia benar-benar terlihat. Server tetap menerima satu topicTitle
+                  (PaketService#resolveTopic), tidak tahu-menahu ada dua sumber.
+                -->
+                <select id="pinjamTopicPilih" required x-model="topicPilih" x-ref="topicPilih" class="select">
+                  <option value="" disabled>Pilih Topic…</option>
+                  <option th:each="t : ${topics}" th:value="${t.title}" th:text="${t.title}">Topic</option>
+                  <option value="__baru__">+ Topic baru…</option>
+                </select>
+                <input type="hidden" name="topicTitle" :value="topicPilih" :disabled="topicPilih === '__baru__'">
+
+                <input type="text" name="topicTitle" x-show="topicPilih === '__baru__'" x-cloak
+                       x-model="topicBaru" x-ref="topicBaru" required autocomplete="off"
+                       :disabled="topicPilih !== '__baru__'"
+                       placeholder="Nama Topic baru" class="input mt-2">
+                <p class="mt-1 text-xs text-ink-2" x-show="topicPilih === '__baru__' && topicBaru.trim()"
+                   x-text="topicTujuanAda()
+                           ? 'Nama itu sudah ada di Paket ini — soal akan masuk ke Topic tersebut.'
+                           : 'Topic baru \u201c' + topicBaru.trim() + '\u201d akan dibuat di Paket ini.'"></p>
+
+                <div class="mt-3 flex flex-wrap gap-2">
+                  <button type="button" @click="konfirmasi = false" class="btn btn-ghost">Batal</button>
+                  <!-- Satu-satunya tombol submit di form ini. :name/:value null saat bukan borongan
+                       — Alpine mencopot atributnya, jadi sourceTopicId tidak pernah ikut terkirim
+                       di cabang "soal terpilih". -->
+                  <button type="submit" class="btn btn-primary"
+                          :name="borongan ? 'sourceTopicId' : null"
+                          :value="borongan ? topicFilterId : null"
+                          x-text="borongan ? 'Salin seluruh Topic ke sini' : 'Salin ' + jumlahTerpilih + ' soal ke sini'">Salin</button>
+                </div>
+              </div>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
+
+    <!-- Topic adalah pengelompokan di dalam halaman ini, bukan tingkat navigasi keempat.
+         Paket 30 soal dengan 3 Topic tidak layak menambah satu klik lagi (ADR-0018). -->
+    <!--
+      `massal` (AC-B26): centang beberapa soal di satu Topic lalu terbitkan/tarik/hapus sekaligus.
+      Di ruang kerja master hanya selama Paket belum terbit — Paket terbit menolak tarik maupun
+      hapus per soal (AC-B17), jadi menawarkan aksi massalnya cuma menjanjikan 409. Di Bank Soal
+      Client selalu ada (aksinya cuma Hapus). Variabel lokal ini juga terbaca di fragmen
+      barisSoal di bawah, yang memunculkan kotak centangnya.
+    -->
+    <section th:each="t : ${topics}"
+             th:with="soalTopic=${soalPerTopic[t.id]},massal=${(master ?: false) ? !paket.published : true}"
+             class="card mb-4">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="card-title" th:text="${t.title}">Topic</h2>
+        <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id},topicId=${t.id})}"
+           class="btn btn-secondary btn-sm">
+          + Soal
+        </a>
+      </div>
+      <!-- Form biasa + redirect, sama dengan "Terbitkan semua": banyak baris berubah sekaligus.
+           Satu form per Topic, jadi centangan di Topic lain tidak ikut terkirim. Komponen
+           `massal` (layout/base) menghitung centangan dan meminta konfirmasi. Saat aksi massal
+           tidak ditawarkan, form ini pembungkus kosong tanpa action. -->
+      <!-- th:action, BUKAN th:attr="action=...": hanya th:action yang membuat Thymeleaf-Spring
+           menyisipkan token _csrf tersembunyi; lewat th:attr form ini terkirim tanpa token dan
+           ditolak 403. -->
+      <form method="post"
+            th:action="${massal} ? @{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/massal(id=${paket.id})} : null"
+            x-data="massal" @change="hitung()">
+      <ol class="space-y-1.5">
+        <!-- th:each di blok pembungkus, th:replace di elemen lain: keduanya di satu elemen
+             membuat fragmen dipanggil sebelum variabel iterasinya terikat (lihat
+             MasterContentRenderTest, dan komentar sama di bank/paket.html). Nomor tampilan
+             dikirim sebagai parameter fragmen dari ${it.index}, bukan dibaca dari q.position:
+             position tersimpan berlubang setelah penghapusan (nextPosition cuma menambah dari
+             maksimum, tidak pernah merapatkan), jadi memakainya langsung membuat nomor melompat
+             1, 3 begitu soal di tengah dihapus (temuan review Task 10). -->
+        <th:block th:each="q, it : ${soalTopic ?: {}}">
+          <li th:replace="~{::barisSoal(q=${q}, nomor=${it.index + 1})}"></li>
+        </th:block>
+      </ol>
+      <p th:if="${soalTopic == null or soalTopic.isEmpty()}"
+         class="text-sm text-ink-2">Belum ada soal di Topic ini.</p>
+      <!-- Bar aksi massal, tampil begitu ada yang tercentang. confirm() native, pesan yang sama
+           dengan hx-confirm tombol per baris. type=submit + name=aksi: tombol yang ditekan yang
+           menentukan aksinya. Hapus paling belakang dalam urutan DOM — submit implisit (Enter)
+           jatuh ke tombol submit PERTAMA, dan itu harus yang tidak memusnahkan apa pun. -->
+      <div th:if="${massal}" x-show="n > 0" x-cloak
+           class="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3 text-sm">
+        <span x-text="n + ' soal tercentang'"></span>
+        <span class="flex flex-wrap gap-2">
+          <button type="button" class="btn btn-ghost btn-sm" @click="bersihkan()">Bersihkan</button>
+          <button th:if="${master ?: false}" type="submit" name="aksi" value="terbit"
+                  class="btn btn-secondary btn-sm text-success">Terbitkan</button>
+          <button th:if="${master ?: false}" type="submit" name="aksi" value="tarik" class="btn btn-secondary btn-sm"
+                  @click="tanya('Tarik ' + n + ' soal dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh.', $event)">Tarik dari katalog</button>
+          <!-- Dua tombol, bukan satu th:attr bercabang: koma di dalam pesan konfirmasi terbaca
+               parser th:attr sebagai pemisah assignasi. -->
+          <button th:if="${master ?: false}" type="submit" name="aksi" value="hapus" class="btn btn-secondary btn-sm text-danger"
+                  @click="tanya('Hapus ' + n + ' soal dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh.', $event)">Hapus</button>
+          <button th:unless="${master ?: false}" type="submit" name="aksi" value="hapus" class="btn btn-secondary btn-sm text-danger"
+                  @click="tanya('Hapus ' + n + ' soal dari bank soal? Exercise yang sudah memakainya tidak terpengaruh.', $event)">Hapus</button>
+        </span>
+      </div>
+      </form>
+    </section>
 
   </div>
 
@@ -353,46 +470,92 @@
   -->
   <li th:fragment="barisSoal(q, nomor)" th:id="|soal-${q.id}|"
       class="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm">
+    <!-- Kotak centang aksi massal (AC-B26); `massal` datang dari <section> pemanggil. -->
+    <input th:if="${massal ?: false}" type="checkbox" name="questionIds" th:value="${q.id}" data-massal
+           th:attr="aria-label=|Pilih soal ${nomor}|">
     <span class="w-6 shrink-0 text-right tabular-nums text-ink-3" th:text="${nomor}">1</span>
     <!-- Cuplikan dari body_text yang teks polos, bukan body_html: markup dan gambar tidak boleh
          ikut terpotong ke dalam daftar (TC-25). -->
     <span class="flex-1" th:text="${#strings.abbreviate(q.bodyText, 110)}">Cuplikan soal</span>
 
-    <!-- Keadaan terbit hanya ada pada konten master; konten Client tidak memilikinya (FR-066). -->
-    <span th:if="${master ?: false}">
-      <span th:if="${q.published}"
-            class="badge badge-success">Terbit</span>
-      <span th:unless="${q.published}"
-            class="badge">Belum terbit</span>
+    <span class="ml-auto flex shrink-0 items-center gap-1">
+      <!-- Keadaan terbit hanya ada pada konten master; konten Client tidak memilikinya (FR-066). -->
+      <span th:if="${master ?: false}">
+        <span th:if="${q.published}" class="badge badge-success">Terbit</span>
+        <span th:unless="${q.published}" class="badge">Belum terbit</span>
+      </span>
+      <!--
+        Ruang kerja master punya tiga aksi (Ubah, Terbitkan/Tarik, Hapus) sehingga digulung ke
+        menu ellipsis; Bank Soal Client hanya punya dua dan tetap tombol ikon sebaris. Lihat
+        DESIGN.md, "Aturan aksi baris".
+      -->
+      <div th:if="${master ?: false}" x-data="menuAksi" class="shrink-0">
+        <button type="button" x-ref="pemicu" @click="toggle()" class="btn btn-ghost btn-sm btn-icon"
+                aria-haspopup="menu" :aria-expanded="buka" title="Aksi lain" aria-label="Aksi lain">
+          <svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/><circle cx="7.5" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="16.5" cy="12" r="1.1" fill="currentColor" stroke="none"/>
+          </svg>
+        </button>
+        <div x-ref="panel" x-show="buka" x-cloak role="menu" class="menu" :style="gaya"
+             x-transition.opacity.duration.200ms
+             @click="buka = false" @click.outside="tutupDariLuar($event)"
+             @keydown.escape.window="buka = false" @scroll.window="buka = false"
+             @resize.window="buka = false">
+          <button role="menuitem" type="button"
+                  th:attr="hx-get=@{__${basePath ?: '/bank-soal'}__/soal/{id}/pratinjau(id=${q.id})}"
+                  hx-target="#panel" hx-swap="innerHTML" class="menu-item">
+            <span>Pratinjau</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+          </button>
+          <a role="menuitem" th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}" class="menu-item">
+            <span>Ubah</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+          </a>
+          <button role="menuitem" type="button" th:if="${(master ?: false) and !q.published}"
+                  th:attr="hx-post=@{__${basePath}__/soal/{id}/terbit(id=${q.id})},hx-target=|#soal-${q.id}|"
+                  hx-swap="outerHTML" class="menu-item">
+            <span>Terbitkan</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+          </button>
+          <button role="menuitem" type="button" th:if="${(master ?: false) and q.published}"
+                  th:attr="hx-post=@{__${basePath}__/soal/{id}/tarik(id=${q.id})},hx-target=|#soal-${q.id}|"
+                  hx-swap="outerHTML"
+                  hx-confirm="Tarik soal ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
+                  class="menu-item">
+            <span>Tarik dari katalog</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243"/></svg>
+          </button>
+          <div class="menu-pisah" role="separator"></div>
+          <!-- Hapus tersedia di Bank Soal Client maupun ruang kerja master (FR-018): soal hilang dari
+               pencarian, Exercise/Assignment/pengerjaan yang sudah memakainya tetap utuh (BR-Q04).
+               Pesan konfirmasinya saja yang beda, karena hanya konten master yang punya salinan
+               hasil adopsi untuk disebut. -->
+          <button role="menuitem" type="button"
+                  th:attr="hx-delete=@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})},
+                           hx-target=|#soal-${q.id}|,
+                           hx-confirm=${(master ?: false)} ? 'Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh.' : 'Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh.'"
+                  hx-swap="outerHTML" class="menu-item menu-item-danger">
+            <span>Hapus</span>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.2v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+          </button>
+        </div>
+      </div>
+      <a th:unless="${master ?: false}"
+         th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
+         class="btn btn-secondary btn-sm btn-icon shrink-0" title="Ubah" aria-label="Ubah">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/></svg>
+        <span class="sr-only">Ubah</span>
+      </a>
+      <button th:unless="${master ?: false}" type="button"
+              th:attr="hx-delete=@{/bank-soal/soal/{id}(id=${q.id})},hx-target=|#soal-${q.id}|"
+              hx-swap="outerHTML"
+              hx-confirm="Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh."
+              class="btn btn-secondary btn-sm btn-icon shrink-0 text-danger"
+              title="Hapus" aria-label="Hapus">
+        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.2v.916m7.5 0a48.667 48.667 0 00-7.5 0"/></svg>
+        <span class="sr-only">Hapus</span>
+      </button>
     </span>
-
-    <a th:href="@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})}"
-       class="btn btn-ghost btn-sm shrink-0">Ubah</a>
-
-    <button th:if="${(master ?: false) and !q.published}"
-            th:attr="hx-post=@{__${basePath}__/soal/{id}/terbit(id=${q.id})},hx-target=|#soal-${q.id}|"
-            hx-swap="outerHTML"
-            class="btn btn-secondary btn-sm shrink-0 text-success">
-      Terbitkan
-    </button>
-    <button th:if="${(master ?: false) and q.published}"
-            th:attr="hx-post=@{__${basePath}__/soal/{id}/tarik(id=${q.id})},hx-target=|#soal-${q.id}|"
-            hx-swap="outerHTML"
-            hx-confirm="Tarik soal ini dari katalog? Salinan yang sudah diadopsi Client tidak terpengaruh."
-            class="btn btn-secondary btn-sm shrink-0 text-warn">
-      Tarik
-    </button>
-    <!-- Hapus tersedia di Bank Soal Client maupun ruang kerja master (FR-018, kembali dibuka
-         Task 14 setelah keliru dicatat sudah dicabut): soal hilang dari pencarian, Exercise/
-         Assignment/pengerjaan yang sudah memakainya tetap utuh (BR-Q04). Pesan konfirmasinya saja
-         yang beda, karena hanya konten master yang punya salinan hasil adopsi untuk disebut. -->
-    <button th:attr="hx-delete=@{__${basePath ?: '/bank-soal'}__/soal/{id}(id=${q.id})},
-                     hx-target=|#soal-${q.id}|,
-                     hx-confirm=${(master ?: false)} ? 'Hapus soal ini dari bank soal master? Salinan yang sudah diadopsi Client tidak terpengaruh.' : 'Hapus soal ini dari bank soal? Exercise yang sudah memakainya tidak terpengaruh.'"
-            hx-swap="outerHTML"
-            class="btn btn-ghost btn-sm shrink-0 text-danger">
-      Hapus
-    </button>
   </li>
 
   <li th:fragment="konfirmasiHapus" class="alert alert-success"
@@ -418,6 +581,12 @@
       dipilih: {},
       hitungTersembunyi: 0,
 
+      // Topic tujuan di Paket ini: nama, bukan id — kolomnya menerima yang sudah ada maupun
+      // yang belum (PaketService#resolveTopic di server yang memutuskan menempel atau membuat).
+      // `konfirmasi` = langkah kedua sedang terbuka; `borongan` = yang ditekan "Salin seluruh
+      // Topic ini", bukan "Salin soal terpilih".
+      topicPilih: '', topicBaru: '', konfirmasi: false, borongan: false,
+
       subjectId: '', paketFilterId: '', topicFilterId: '', q: '',
       subjects: [], pakets: [], topics: [],
       soal: { content: [], page: 0, totalPages: 0, totalElements: 0, hasPrevious: false, hasNext: false },
@@ -428,6 +597,7 @@
 
       async buka() {
         this.terbuka = true;
+        this.konfirmasi = false;
         if (!this.dimuat) {
           await this.segarkan(0);
         }
@@ -490,6 +660,7 @@
       },
       ubahTopic(v) {
         this.topicFilterId = v;
+        this.isiTopicAsal(this.opsiLabel(this.topics, v));
         this.segarkan(0);
       },
       ubahCari(v) {
@@ -524,6 +695,42 @@
         return ditemukan ? ditemukan.label : id;
       },
 
+      /** Judul Topic Paket ini dibaca dari <option> yang sudah dirender SSR, bukan disalin lagi
+       *  ke state Alpine: satu sumber. Perbandingan tanpa peduli besar-kecil huruf, sama dengan
+       *  PaketService#resolveTopic, supaya catatan "akan dibuat" tidak berbohong. */
+      opsiTopic(nama) {
+        const cari = (nama || '').trim().toLowerCase();
+        return [...(this.$refs.topicPilih?.options || [])]
+            .find(o => o.value && o.value !== '__baru__' && o.value.trim().toLowerCase() === cari)?.value;
+      },
+      topicTujuanAda() {
+        return !!this.opsiTopic(this.topicBaru);
+      },
+      /** Menekan Salin belum mengirim apa pun: ia membuka langkah Topic tujuan dan menaruh kursor
+       *  di kolomnya, supaya keputusan itu tidak bisa terlewat seperti waktu kolomnya berdiri
+       *  permanen di puncak panel. */
+      mintaTopic(bor) {
+        this.borongan = bor;
+        this.konfirmasi = true;
+        this.$nextTick(() => (this.topicPilih === '__baru__' ? this.$refs.topicBaru : this.$refs.topicPilih)?.focus());
+      },
+      /** Terisi dari Topic ASAL, dan hanya selama belum ada pilihan: begitu pengguna memilih
+       *  atau mengetik sendiri, pilihan itu tidak boleh ditimpa balik oleh centangan berikutnya.
+       *  Nama yang sudah ada menempel ke opsinya; yang belum membuka kolom "Topic baru" berisi
+       *  nama itu — menempel atau membuat tetap diputuskan server saat submit. */
+      isiTopicAsal(nama) {
+        if (this.topicPilih || !nama) {
+          return;
+        }
+        const ada = this.opsiTopic(nama);
+        if (ada) {
+          this.topicPilih = ada;
+        } else {
+          this.topicPilih = '__baru__';
+          this.topicBaru = nama;
+        }
+      },
+
       toggle(s) {
         if (this.dipilih[s.id]) {
           delete this.dipilih[s.id];
@@ -531,6 +738,7 @@
           this.dipilih[s.id] = {
             isi: s.isi, tipe: s.tipe, paket: s.paketTitle, subject: s.subjectName, topic: s.topicTitle,
           };
+          this.isiTopicAsal(s.topicTitle);
         }
         this.segarkanHitung();
       },
@@ -540,6 +748,7 @@
       },
       bersihkan() {
         this.dipilih = {};
+        this.konfirmasi = false;
         this.segarkanHitung();
       },
       pilihSemuaTampak(checked) {
@@ -548,6 +757,7 @@
             this.dipilih[s.id] = {
               isi: s.isi, tipe: s.tipe, paket: s.paketTitle, subject: s.subjectName, topic: s.topicTitle,
             };
+            this.isiTopicAsal(s.topicTitle);
           } else {
             delete this.dipilih[s.id];
           }
@@ -589,6 +799,25 @@
         });
       },
     }));
+  });
+</script>
+
+<!--
+  Rumus di pratinjau juga LaTeX yang baru dirender di peramban (TC-24). Halaman ini tidak memuat
+  KaTeX sebelumnya karena isinya hanya cuplikan teks polos; panel pratinjau mengubah itu.
+-->
+<script th:src="@{/vendor/katex/katex.min.js}" defer></script>
+<script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
+<script>
+  document.body.addEventListener('htmx:afterSwap', function (e) {
+    if (window.renderMathInElement) {
+      window.renderMathInElement(e.detail.target, {
+        delimiters: [
+          { left: '$$', right: '$$', display: true },
+          { left: '$', right: '$', display: false }
+        ]
+      });
+    }
   });
 </script>
 </body>

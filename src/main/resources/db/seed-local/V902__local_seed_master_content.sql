@@ -56,7 +56,7 @@ insert into exercise_item (id, exercise_id, question_id, position) values
     ('01920000-0000-7000-8000-000000009500', '01920000-0000-7000-8000-000000009400', '01920000-0000-7000-8000-000000009200', 0),
     ('01920000-0000-7000-8000-000000009501', '01920000-0000-7000-8000-000000009400', '01920000-0000-7000-8000-000000009201', 1),
     ('01920000-0000-7000-8000-000000009502', '01920000-0000-7000-8000-000000009400', '01920000-0000-7000-8000-000000009202', 2),
-    -- Paket draf sengaja memuat soal yang juga masih digarap: menerbitkannya harus ditolak
-    -- dengan menyebut soal penyebabnya (FR-069), dan itu bisa dicoba langsung di layar.
+    -- Paket draf sengaja memuat soal yang juga masih digarap: menerbitkannya harus menawarkan
+    -- pilihan ikut/tidak ikut menerbitkan drafnya (AC-B12, ADR-0020), bisa dicoba di layar.
     ('01920000-0000-7000-8000-000000009503', '01920000-0000-7000-8000-000000009401', '01920000-0000-7000-8000-000000009203', 0),
     ('01920000-0000-7000-8000-000000009504', '01920000-0000-7000-8000-000000009401', '01920000-0000-7000-8000-000000009205', 1);

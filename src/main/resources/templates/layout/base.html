@@ -5,6 +5,16 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
+  <!--/*
+    Tema tersimpan dipasang sebelum paint supaya tidak ada kedip terang -> gelap.
+    Harus sinkron dan mendahului stylesheet, jadi tidak bisa ikut defer seperti skrip lain.
+  */-->
+  <script>
+    try {
+      var t = localStorage.getItem('tema');
+      if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+    } catch (e) { /* abaikan */ }
+  </script>
   <meta name="_csrf" th:content="${_csrf?.token}">
   <meta name="_csrf_header" th:content="${_csrf?.headerName}">
   <title th:text="|${pageTitle} · Eduscreen|">Eduscreen</title>
@@ -16,18 +26,107 @@
   <script th:src="@{/vendor/alpine/cdn.min.js}" defer></script>
   <script>
     /*
-     * Keadaan shell: sidebar diciutkan (rail) diingat per peramban. localStorage bisa
-     * melempar di mode privat tertentu, jadi setiap akses dibungkus try.
+     * Keadaan shell: sidebar diciutkan (rail) dan tema pilihan diingat per peramban.
+     * localStorage bisa melempar di mode privat tertentu, jadi setiap akses dibungkus try.
+     *
+     * tema '' berarti ikut sistem operasi: atribut data-theme dilepas dan :root kembali
+     * ke `color-scheme: light dark`. Nilai awalnya sudah dipasang skrip di atas; di sini
+     * hanya dibaca ulang supaya tombol yang aktif cocok dengan keadaan halaman.
      */
     document.addEventListener('alpine:init', () => {
       Alpine.data('shell', () => ({
         rail: false,
         buka: false,
+        tema: '',
         init() {
           try { this.rail = localStorage.getItem('sidebar') === 'rail'; } catch (e) { /* abaikan */ }
+          try { this.tema = localStorage.getItem('tema') || ''; } catch (e) { /* abaikan */ }
           this.$watch('rail', v => { try { localStorage.setItem('sidebar', v ? 'rail' : ''); } catch (e) { /* abaikan */ } });
+          this.$watch('tema', v => {
+            if (v) document.documentElement.dataset.theme = v;
+            else delete document.documentElement.dataset.theme;
+            try {
+              if (v) localStorage.setItem('tema', v); else localStorage.removeItem('tema');
+            } catch (e) { /* abaikan */ }
+          });
         }
       }));
+
+      /*
+       * Menu aksi baris. Panelnya position: fixed dan koordinatnya dihitung di sini, sebab
+       * tabel menggulir sendiri (`table { overflow-x: auto }`) dan memotong panel absolut.
+       * Menu dibalik ke atas pemicu kalau ruang di bawah tidak cukup.
+       */
+      Alpine.data('menuAksi', () => ({
+        buka: false,
+        gaya: '',
+        toggle() {
+          this.buka = !this.buka;
+          if (this.buka) this.$nextTick(() => this.tempatkan());
+        },
+        tempatkan() {
+          const pemicu = this.$refs.pemicu.getBoundingClientRect();
+          const panel = this.$refs.panel;
+          const lebar = panel.offsetWidth, tinggi = panel.offsetHeight, tepi = 8;
+          /*
+           * Acuannya clientWidth/clientHeight, bukan innerWidth/innerHeight: panel ini
+           * position: fixed sehingga berpatokan pada viewport tata letak, dan kedua angka itu
+           * berbeda begitu ada bilah gulir atau emulasi peramban.
+           */
+          const layar = document.documentElement;
+          const kiri = Math.min(Math.max(tepi, pemicu.right - lebar), layar.clientWidth - lebar - tepi);
+          const bawah = pemicu.bottom + 6;
+          const atas = bawah + tinggi > layar.clientHeight - tepi
+            ? Math.max(tepi, pemicu.top - tinggi - 6)
+            : bawah;
+          this.gaya = `left:${kiri}px;top:${atas}px`;
+        },
+        /* Klik pemicu sudah ditangani toggle(); tanpa penjagaan ini menu langsung tertutup lagi. */
+        tutupDariLuar(e) {
+          if (!this.$refs.pemicu.contains(e.target)) this.buka = false;
+        }
+      }));
+
+      /*
+       * Aksi massal di daftar (AC-B26): centang beberapa baris, satu bar aksi muncul. Dipasang
+       * pada <form> (atau pembungkus HTMX) yang memuat kotak centang ber-atribut data-massal.
+       * Hitungannya dibaca dari DOM saat @change, bukan disimpan per baris — kotak centangnya
+       * milik form, Alpine cuma menghitung dan meminta konfirmasi.
+       */
+      Alpine.data('massal', () => ({
+        n: 0,
+        kotak() { return this.$root.querySelectorAll('input[data-massal]:checked'); },
+        hitung() { this.n = this.kotak().length; },
+        semua(checked) {
+          this.$root.querySelectorAll('input[data-massal]').forEach(c => { c.checked = checked; });
+          this.hitung();
+        },
+        bersihkan() { this.semua(false); },
+        /* Dipasang di @click tombol submit: batal = submit-nya dicegah. */
+        tanya(pesan, e) { if (!confirm(pesan)) e.preventDefault(); }
+      }));
+    });
+
+    /*
+     * Balasan galat sampai ke layar. HTMX bawaan tidak menukar respons 4xx/5xx, jadi fragmen
+     * `.eduscreen-error` dari GlobalExceptionAdvice hilang tanpa jejak dan tombol yang ditolak
+     * aturan (mis. Terbitkan Paket, AC-B12/AC-B16) tampak mati tanpa sebab. Pesannya dialihkan
+     * ke satu wadah tetap, bukan ke hx-target aslinya — target itu biasanya baris tabel yang
+     * tidak boleh ditimpa div pesan (BR-O05).
+     *
+     * 401 + HX-Redirect dilewatkan apa adanya supaya sesi kedaluwarsa tetap mendarat di /login
+     * (TC-30), bukan berubah jadi toast.
+     */
+    document.addEventListener('htmx:beforeSwap', (e) => {
+      const xhr = e.detail.xhr;
+      if (xhr.status < 400 || xhr.getResponseHeader('HX-Redirect')) return;
+      e.detail.shouldSwap = false;
+      e.detail.isError = false;
+      const kotak = document.getElementById('galat');
+      if (!kotak) return;
+      kotak.innerHTML = xhr.responseText;
+      clearTimeout(kotak.dataset.t);
+      kotak.dataset.t = setTimeout(() => { kotak.innerHTML = ''; }, 8000);
     });
   </script>
 </head>
@@ -196,10 +295,56 @@
   <main class="konten">
     <div class="page-header">
       <h1 th:text="${pageTitle}">Judul</h1>
+      <div th:replace="~{layout/base :: tema}"></div>
     </div>
     <div th:replace="${content}">Isi halaman</div>
   </main>
 
+  <!--/*
+    Wadah pesan galat, diisi listener htmx:beforeSwap di atas. Kosong berarti tak terlihat
+    dan tak menghalangi klik (.toast-galat:empty), jadi tidak perlu keadaan JS sendiri.
+  */-->
+  <div id="galat" class="toast-galat" aria-live="assertive" onclick="this.innerHTML = ''"></div>
+
+  <!--/*
+    Wadah panel pilihan, diisi fragmen yang dialihkan server lewat HX-Retarget (mis. pilihan
+    terbit Paket, ADR-0020). Kosong berarti tidak ada; tidak ada keadaan JS yang perlu dijaga.
+  */-->
+  <!--
+    Klik latar dan Escape menutup panel apa pun yang sedang terbuka. Ditaruh di wadahnya, bukan di
+    tiap fragmen: dialog terbit dan pratinjau soal sama-sama mendarat di sini, dan keduanya berhak
+    ditutup dengan cara yang sama.
+  -->
+  <div id="panel" class="lapis-panel" x-data
+       @click.self="$el.innerHTML = ''"
+       @keydown.escape.window="$el.innerHTML = ''"></div>
+
+</div>
+
+<!--/*
+  Pemilih tema. Tempatnya di kanan atas konten, sebaris dengan judul halaman: satu titik
+  untuk semua peran dan semua lebar layar, tidak bergantung ada tidaknya sidebar (topbar
+  disembunyikan di >=768 px ketika sidebar hadir).
+
+  Nilai '' berarti ikut sistem operasi. Keadaan disimpan di Alpine `shell`, jadi fragmen
+  ini hanya boleh dipakai di dalam x-data="shell".
+*/-->
+<div th:fragment="tema" class="seg seg-tema" role="group" aria-label="Tema tampilan">
+  <button type="button" title="Terang" @click="tema = 'light'"
+          :class="{ aktif: tema === 'light' }" :aria-pressed="tema === 'light'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z"/></svg>
+    <span class="sr-only">Terang</span>
+  </button>
+  <button type="button" title="Gelap" @click="tema = 'dark'"
+          :class="{ aktif: tema === 'dark' }" :aria-pressed="tema === 'dark'">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z"/></svg>
+    <span class="sr-only">Gelap</span>
+  </button>
+  <button type="button" title="Ikut sistem" @click="tema = ''"
+          :class="{ aktif: tema === '' }" :aria-pressed="tema === ''">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25"/></svg>
+    <span class="sr-only">Ikut sistem</span>
+  </button>
 </div>
 </body>
 </html>

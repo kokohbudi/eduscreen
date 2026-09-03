@@ -96,7 +96,9 @@ public class ContentAdoptionService {
                         copy.getId(), topicMaster.getTitle(), topicMaster.getPosition()));
                 jumlahTopic++;
 
-                for (QuestionEntity q : questions.findByTopicIdOrderByPositionAsc(topicMaster.getId())) {
+                // Hanya soal TERBIT yang ikut menyeberang: sejak ADR-0020 Paket terbit boleh menyisakan
+                // draf di dalamnya, dan draf itu pekerjaan yang belum selesai — bukan isi katalog.
+                for (QuestionEntity q : questions.findPublishedByTopicIdOrderByPositionAsc(topicMaster.getId())) {
                     salinQuestion(q, copy, topicCopy, actor);
                     jumlahQuestion++;
                 }

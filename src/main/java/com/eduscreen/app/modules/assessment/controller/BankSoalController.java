@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.ResponseBody;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -77,15 +78,17 @@ public class BankSoalController {
      */
     @GetMapping("/bank-soal")
     public String index(@RequestParam(required = false) UUID subjectId,
+                        @RequestParam(required = false) String cariPaket,
                         @AuthenticationPrincipal UserPrincipal user,
                         Model model) {
         UUID clientId = user.requireClientId();
         List<SubjectEntity> subjects = taxonomy.visibleSubjects(clientId);
         model.addAttribute("subjects", subjects);
         model.addAttribute("subjectId", subjectId);
-        model.addAttribute("pakets", subjectId == null
+        model.addAttribute("cariPaket", cariPaket);
+        model.addAttribute("pakets", saringJudul(subjectId == null
                 ? paketRepository.findByClientIdOrderByTitleAsc(clientId)
-                : paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(clientId, subjectId));
+                : paketRepository.findByClientIdAndSubjectIdOrderByTitleAsc(clientId, subjectId), cariPaket));
         if (subjectId != null) {
             model.addAttribute("subject", taxonomy.requireVisibleSubject(subjectId, clientId));
         }
@@ -169,7 +172,8 @@ public class BankSoalController {
     }
 
     @GetMapping("/bank-soal/paket/{id}/soal/baru")
-    public String soalBaru(@PathVariable UUID id, @RequestParam UUID topicId,
+    public String soalBaru(@PathVariable UUID id,
+                           @RequestParam(required = false) UUID topicId,
                            @AuthenticationPrincipal UserPrincipal user, Model model) {
         PaketEntity paket = pakets.require(id, user.requireClientId());
         isiEditor(paket, null, topicId, model);
@@ -182,7 +186,7 @@ public class BankSoalController {
      */
     @PostMapping("/bank-soal/paket/{id}/soal")
     public String simpanSoal(@PathVariable UUID id,
-                             @RequestParam UUID topicId,
+                             @RequestParam String topicTitle,
                              @RequestParam QuestionType type,
                              @RequestParam String bodyHtml,
                              @RequestParam(required = false) String explanationHtml,
@@ -190,6 +194,7 @@ public class BankSoalController {
                              @RequestParam(defaultValue = "-1") int correctIndex,
                              @RequestParam(required = false) String lanjut,
                              @AuthenticationPrincipal UserPrincipal user) {
+        UUID topicId = pakets.resolveTopic(id, topicTitle, user.requireClientId()).getId();
         questions.create(
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml,
                         optionBody, correctIndex),
@@ -212,10 +217,23 @@ public class BankSoalController {
         return "soal/editor";
     }
 
+    /**
+     * Pratinjau soal sebagaimana Siswa melihatnya, dibalas sebagai fragmen panel untuk ditumpuk
+     * di atas halaman isi Paket — memeriksa pilihan dan kuncinya tidak perlu membuka editor.
+     */
+    @GetMapping("/bank-soal/soal/{id}/pratinjau")
+    public String pratinjauSoal(@PathVariable UUID id,
+                                @AuthenticationPrincipal UserPrincipal user, Model model) {
+        QuestionEntity soal = questions.require(id, user.requireClientId());
+        model.addAttribute("soal", soal);
+        model.addAttribute("opsi", questions.optionsOf(soal.getId()));
+        return "soal/editor :: pratinjauPanel";
+    }
+
     /** Perubahan dibalas fragmen detail di tempat, bukan halaman penuh (TC-14). */
     @PutMapping("/bank-soal/soal/{id}")
     public String updateSoal(@PathVariable UUID id,
-                             @RequestParam UUID topicId,
+                             @RequestParam String topicTitle,
                              @RequestParam QuestionType type,
                              @RequestParam String bodyHtml,
                              @RequestParam(required = false) String explanationHtml,
@@ -225,6 +243,7 @@ public class BankSoalController {
         UUID clientId = user.requireClientId();
         PaketEntity paket = pakets.require(
                 questions.require(id, clientId).getPaketId(), clientId);
+        UUID topicId = pakets.resolveTopic(paket.getId(), topicTitle, user.requireClientId()).getId();
         QuestionEntity soal = questions.update(id,
                 QuestionService.draftOf(topicId, type, bodyHtml, explanationHtml,
                         optionBody, correctIndex),
@@ -239,6 +258,23 @@ public class BankSoalController {
      * sama persis dipakai {@code MasterContentController#hapusSoal}, cuma {@code clientId}-nya
      * bukan {@code null}.
      */
+    /** Kembaran {@link MasterContentController#massalSoal} sisi Client: hanya Hapus (AC-B26). */
+    @PostMapping("/bank-soal/paket/{id}/soal/massal")
+    public String massalSoal(@PathVariable UUID id,
+                             @RequestParam String aksi,
+                             @RequestParam(required = false) List<UUID> questionIds,
+                             @AuthenticationPrincipal UserPrincipal user) {
+        UUID clientId = user.requireClientId();
+        pakets.require(id, clientId);
+        if (!"hapus".equals(aksi)) {
+            throw new IllegalArgumentException("Aksi massal tidak dikenal: " + aksi);
+        }
+        for (UUID qid : questionIds == null ? List.<UUID>of() : questionIds) {
+            questions.softDelete(qid, clientId);
+        }
+        return "redirect:/bank-soal/paket/" + id;
+    }
+
     @DeleteMapping("/bank-soal/soal/{id}")
     public String hapusSoal(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user, Model model) {
         questions.softDelete(id, user.requireClientId());
@@ -362,13 +398,26 @@ public class BankSoalController {
         return text.length() <= 110 ? text : text.substring(0, 107) + "...";
     }
 
+    /**
+     * Topic tujuan datang sebagai NAMA, bukan id: kolomnya di panel pinjam menerima Topic yang
+     * sudah ada di Paket ini maupun nama yang belum ada, sama seperti kolom Topic di editor soal.
+     * {@link PaketService#resolveTopic} yang memutuskan menempel atau membuat.
+     *
+     * <p>Tidak ada yang disalin berarti tidak ada Topic yang dibuat: submit kosong (mis. Enter di
+     * salah satu penyaring) tidak boleh meninggalkan Topic kosong di Paket ini sebagai efek
+     * samping.
+     */
     @PostMapping("/bank-soal/paket/{id}/pinjam")
     public String pinjam(@PathVariable UUID id,
-                         @RequestParam UUID topicId,
+                         @RequestParam String topicTitle,
                          @RequestParam(required = false) List<UUID> questionIds,
                          @RequestParam(required = false) UUID sourceTopicId,
                          @AuthenticationPrincipal UserPrincipal user) {
         UUID clientId = user.requireClientId();
+        if (sourceTopicId == null && (questionIds == null || questionIds.isEmpty())) {
+            return "redirect:/bank-soal/paket/" + id;
+        }
+        UUID topicId = pakets.resolveTopic(id, topicTitle, clientId).getId();
         if (sourceTopicId != null) {
             borrow.borrowTopic(id, topicId, sourceTopicId, clientId, user.userId());
         } else {
@@ -387,7 +436,15 @@ public class BankSoalController {
         model.addAttribute("soal", soal);
         model.addAttribute("opsi", soal == null ? List.of() : questions.optionsOf(soal.getId()));
         model.addAttribute("topicId", topicId);
-        model.addAttribute("topics", pakets.topicsOf(paket.getId()));
+        List<TopicEntity> daftarTopic = pakets.topicsOf(paket.getId());
+        model.addAttribute("topics", daftarTopic);
+        // Editor menyunting JUDUL Topic, bukan id-nya: satu kolom ber-datalist yang sekaligus
+        // memilih yang sudah ada dan membuat yang belum (PaketService#resolveTopic).
+        model.addAttribute("topicTitle", daftarTopic.stream()
+                .filter(t -> t.getId().equals(topicId))
+                .map(TopicEntity::getTitle)
+                .findFirst()
+                .orElse(""));
         model.addAttribute("basePath", "/bank-soal");
     }
 
@@ -397,4 +454,21 @@ public class BankSoalController {
         subjects.forEach(s -> nama.put(s.getId(), s.getName()));
         return nama;
     }
+
+    /**
+     * Menyaring daftar Paket berdasarkan potongan judul. Penyaringnya di sini, bukan di query:
+     * satu ruang kerja hanya punya puluhan Paket dan daftarnya memang sudah ditarik utuh untuk
+     * halaman ini, jadi menambah kombinasi query baru tidak membayar dirinya sendiri. Pindahkan
+     * ke repository begitu jumlah Paket menuntut paginasi.
+     */
+    private static List<PaketEntity> saringJudul(List<PaketEntity> pakets, String cari) {
+        if (cari == null || cari.isBlank()) {
+            return pakets;
+        }
+        String kunci = cari.trim().toLowerCase(Locale.ROOT);
+        return pakets.stream()
+                .filter(p -> p.getTitle() != null && p.getTitle().toLowerCase(Locale.ROOT).contains(kunci))
+                .toList();
+    }
+
 }
