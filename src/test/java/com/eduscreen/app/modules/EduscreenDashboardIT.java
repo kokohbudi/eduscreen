@@ -126,14 +126,16 @@ class EduscreenDashboardIT extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("AC-B16 (BR-O05): paket master kosong tidak pernah disebut siap terbit")
-    void paketKosongBukanSiapTerbit() {
+    @DisplayName("AC-B16 (BR-O05): paket master kosong masuk antrean macet, bukan siap terbit")
+    void paketKosongMacetBukanSiapTerbit() {
         PaketEntity kosong = data.masterPaket("Matematika Kelas 4 Dashboard Kosong", "Paket kosong dashboard");
 
         assertThat(dashboard.antrean().paketSiapTerbit().tampil())
                 .extracting(PaketEntity::getId).doesNotContain(kosong.getId());
-        assertThat(dashboard.antrean().paketMacet().tampil())
-                .extracting(PaketEntity::getId).doesNotContain(kosong.getId());
+        // Query penuh, bukan tampil(): daftar tampilan dipotong lima, jadi di database tes
+        // bersama isinya bergantung pada Paket macet lain yang ditinggalkan kelas tes lain.
+        assertThat(paketRepository.findMasterBlocked())
+                .extracting(PaketEntity::getId).contains(kosong.getId());
     }
 
     @Test

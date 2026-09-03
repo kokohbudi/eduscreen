@@ -47,7 +47,8 @@ meminjam ini konsisten dengan ADR-0001, yang sudah menetapkan salinan penuh untu
 - **Perubahan pada soal asal tidak merambat ke salinan.** Sama seperti adopsi katalog (ADR-0001),
   sekarang berlaku seragam untuk pinjam antar-Paket juga. Soal yang meminjam sudah ada di Paket
   tujuan (`sourceQuestionId` yang sama) disembunyikan dari daftar pinjam, supaya tidak tersalin
-  dua kali secara tidak sengaja.
+  dua kali secara tidak sengaja. Begitu salinan disunting, `sourceQuestionId`-nya dikosongkan:
+  ia bukan kembaran asal lagi, dan soal asal kembali muncul di daftar pinjam.
 - **Exercise dan Session tidak terpengaruh.** `ExerciseItem` tetap menunjuk `questionId` sebagai
   referensi, tidak berubah. Session yang sedang berjalan tetap dilindungi Snapshot seperti
   sebelumnya, tanpa hubungan dengan perubahan taksonomi ini.

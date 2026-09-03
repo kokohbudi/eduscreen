@@ -242,6 +242,9 @@ public class QuestionService {
         int posisi = pindahTopic ? questions.nextPosition(topic.getId()) : question.getPosition();
         question.reparent(paketId, topic.getId());
         question.moveTo(posisi);
+        // Salinan pinjam yang disunting bukan kembaran asalnya lagi: asalnya boleh dipinjam ulang
+        // (AC-B04). Setiap simpan lewat editor dihitung suntingan, tanpa membandingkan isi lama.
+        question.setSourceQuestionId(null);
         // Sanitasi dan turunan teks polos ditulis dalam operasi yang sama dengan bodyHtml,
         // supaya keduanya tidak pernah sempat tidak sinkron (TC-25).
         question.setBodyHtml(bodyHtml);

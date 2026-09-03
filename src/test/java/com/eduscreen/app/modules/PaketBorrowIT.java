@@ -9,6 +9,7 @@ import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.modules.assessment.repository.TopicEntity;
 import com.eduscreen.app.modules.assessment.service.PaketBorrowService;
 import com.eduscreen.app.modules.assessment.service.PaketService;
+import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.support.PostgresTestBase;
 import com.eduscreen.app.support.TestData;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,8 @@ class PaketBorrowIT extends PostgresTestBase {
     PaketService pakets;
     @Autowired
     PaketBorrowService borrow;
+    @Autowired
+    QuestionService questionService;
     @Autowired
     QuestionRepository questions;
     @Autowired
@@ -133,6 +136,32 @@ class PaketBorrowIT extends PostgresTestBase {
 
         assertThat(tersalin).isEqualTo(0);
         assertThat(questions.findByPaketIdOrderByPositionAsc(tujuan.getId())).isEmpty();
+    }
+
+    @Test
+    @DisplayName("AC-B04: salinan yang disunting lewat editor melepas asalnya, asal boleh dipinjam lagi")
+    void editedCopyReleasesSourceForBorrowing() {
+        ClientEntity client = data.client("SD Pinjam Lepas");
+        PaketEntity sumber = data.paket(client, "Kimia Kelas 9 Pinjam", "Sumber");
+        PaketEntity tujuan = data.paket(client, "Kimia Kelas 9 Pinjam", "Tujuan");
+        TopicEntity topicSumber = pakets.topicsOf(sumber.getId()).get(0);
+        TopicEntity topicTujuan = pakets.topicsOf(tujuan.getId()).get(0);
+        QuestionEntity asal = data.essay(client, topicSumber, "Sebutkan rumus air");
+
+        borrow.borrowQuestions(
+                tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
+        assertThat(borrow.borrowedSourceIds(tujuan.getId())).containsExactly(asal.getId());
+
+        QuestionEntity salinan = questions.findByPaketIdOrderByPositionAsc(tujuan.getId()).get(0);
+        questionService.update(salinan.getId(), new QuestionService.QuestionDraft(
+                topicTujuan.getId(), salinan.getType(), "<p>Sebutkan rumus air, disunting</p>",
+                null, List.of()), client.getId(), tujuan.getId());
+
+        assertThat(borrow.borrowedSourceIds(tujuan.getId())).isEmpty();
+        int tersalinLagi = borrow.borrowQuestions(
+                tujuan.getId(), topicTujuan.getId(), List.of(asal.getId()), client.getId(), null);
+        assertThat(tersalinLagi).isEqualTo(1);
+        assertThat(questions.findByPaketIdOrderByPositionAsc(tujuan.getId())).hasSize(2);
     }
 
     @Test

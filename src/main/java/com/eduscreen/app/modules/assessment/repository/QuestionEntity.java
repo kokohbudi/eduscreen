@@ -59,7 +59,10 @@ public class QuestionEntity {
     @Column(name = "explanation_text")
     private String explanationText;
 
-    /** Jejak adopsi saja; tidak dipakai untuk sinkronisasi apa pun (ADR-0001). */
+    /**
+     * Soal asal yang salinan ini masih kembarannya (ADR-0001, ADR-0018). Dikosongkan begitu
+     * salinan disunting lewat editor; tidak dipakai untuk sinkronisasi apa pun.
+     */
     @Column(name = "source_question_id")
     private UUID sourceQuestionId;
 

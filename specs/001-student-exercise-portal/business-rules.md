@@ -393,7 +393,8 @@ berikut:
 - **AC-B03**: Meminjam soal dari Paket lain menghasilkan Question baru milik Paket tujuan,
   dengan `sourceQuestionId` menunjuk soal asal. Mengubah salinan tidak mengubah soal asal.
 - **AC-B04**: Soal yang `sourceQuestionId`-nya sudah ada di Paket tujuan tidak muncul lagi di
-  daftar pinjam Paket itu.
+  daftar pinjam Paket itu. Menyunting salinan mengosongkan `sourceQuestionId`-nya, sehingga
+  soal asal muncul kembali di daftar pinjam dan boleh dipinjam ulang.
 - **AC-B05**: Adopsi katalog dilakukan per Paket dan menyalin Paket, seluruh Topic, seluruh
   Question, beserta Option-nya.
 - **AC-B06**: Paket yang dibuat dengan nama Subject yang sudah ada menempel ke Subject itu,

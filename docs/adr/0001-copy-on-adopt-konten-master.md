@@ -14,4 +14,4 @@ Referensi hidup berarti Eduscreen Admin bisa mengubah kalimat soal yang sedang d
 
 - Perbaikan salah ketik di master **tidak** merambat ke Client yang sudah mengadopsi. Ini disengaja; koreksi lintas Client bukan fitur v1.
 - Penyimpanan berlipat: 100 Client yang mengadopsi paket yang sama menyimpan 100 salinan. Diterima — Question adalah baris teks, bukan berkas besar; aset gambar boleh berbagi penyimpanan.
-- Setiap Question membawa penanda asal (`sourceQuestionId`) agar jejak adopsi tetap bisa ditelusuri, meski tidak dipakai untuk sinkronisasi apa pun.
+- Setiap Question membawa penanda asal (`sourceQuestionId`) selama isinya masih kembaran asal; penanda dikosongkan begitu salinan disunting (ADR-0018). Jejak adopsi yang bertahan hidup di tingkat Paket (`sourcePaketId`). Tidak satu pun dipakai untuk sinkronisasi.

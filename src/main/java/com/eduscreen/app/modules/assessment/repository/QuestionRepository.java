@@ -192,7 +192,7 @@ public interface QuestionRepository extends JpaRepository<QuestionEntity, UUID> 
 
     /**
      * Jejak pinjam yang sudah mendarat di Paket ini: {@code sourceQuestionId} tiap salinan yang
-     * hasil pinjam-antar-Paket (AC-B04). Sama seperti {@link #findByPaketIdOrderByPositionAsc},
+     * hasil pinjam-antar-Paket dan belum disunting (AC-B04). Sama seperti {@link #findByPaketIdOrderByPositionAsc},
      * tidak menyaring Paket yang sudah ter-soft-delete — pemanggil wajib memastikan Paket
      * tujuannya masih hidup lebih dulu (mis. lewat {@code PaketService.require}).
      */
