@@ -63,14 +63,15 @@ class BankSoalRenderTest extends PostgresTestBase {
         data.mcq(client, topik1, "Soal isi paket render", 4);
 
         // Tingkat 1: tabel Paket menyambut langsung (bukan tabel Subject), lengkap dengan nama
-        // Subject per baris dan form buat Paket. URL harus benar-benar terpasang, bukan
-        // "basePath" harfiah — kelas kesalahan yang pernah lolos di templat bersama lain.
+        // Subject per baris dan tombol ke halaman Paket baru (BR-Q07). URL harus benar-benar
+        // terpasang, bukan "basePath" harfiah — kelas kesalahan yang pernah lolos di templat
+        // bersama lain.
         mvc.perform(get("/bank-soal").with(admin))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Paket Aritmetika Render")))
                 .andExpect(content().string(containsString("Matematika Kelas 4 BankRender")))
                 .andExpect(content().string(containsString("/bank-soal/paket/" + paket.getId())))
-                .andExpect(content().string(containsString("action=\"/bank-soal/paket\"")))
+                .andExpect(content().string(containsString("href=\"/bank-soal/paket/baru\"")))
                 .andExpect(content().string(not(containsString("basePath"))));
 
         // Subject sekarang penyaring lewat subjectId, bukan tingkat navigasi terpisah — tabel
@@ -156,6 +157,47 @@ class BankSoalRenderTest extends PostgresTestBase {
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Topik 1")))
                 .andExpect(content().string(containsString("soal/baru?topicId=")));
+    }
+
+    @Test
+    @DisplayName("AC-B29 (BR-Q07): halaman Paket baru menyimpan nama, Subject, Topic, dan soal-soalnya dalam satu kiriman; blok kosong sisa penghapusan dilewati")
+    void paketLahirBersamaSoalDariSatuLayar() throws Exception {
+        ClientEntity client = data.client("SD Bank B29");
+        var admin = user(data.principal(data.user(client, UserRole.CLIENT_ADMIN, "Admin B29")));
+
+        mvc.perform(get("/bank-soal/paket/baru").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("action=\"/bank-soal/paket\"")))
+                .andExpect(content().string(containsString("Simpan Paket")))
+                .andExpect(content().string(not(containsString("basePath"))));
+
+        // Indeks 0 dan 2 saja: blok 1 dihapus di layar, dan celahnya tidak boleh menggagalkan
+        // kiriman maupun melahirkan soal kosong.
+        String location = mvc.perform(post("/bank-soal/paket")
+                        .param("title", "Paket Satu Layar B29")
+                        .param("subjectName", "IPS Kelas 6 BankRender")
+                        .param("soal[0].topicTitle", "Peta Indonesia")
+                        .param("soal[0].type", "MULTIPLE_CHOICE")
+                        .param("soal[0].bodyHtml", "<p>Ibu kota Jawa Timur?</p>")
+                        .param("soal[0].optionBody", "<p>Surabaya</p>", "<p>Malang</p>")
+                        .param("soal[0].correctIndex", "0")
+                        .param("soal[2].topicTitle", "peta indonesia")
+                        .param("soal[2].type", "ESSAY")
+                        .param("soal[2].bodyHtml", "<p>Sebutkan tiga pulau besar.</p>")
+                        .with(admin).with(csrf()))
+                .andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", startsWith("/bank-soal/paket/")))
+                .andReturn().getResponse().getHeader("Location");
+
+        UUID paketId = UUID.fromString(location.substring(location.lastIndexOf('/') + 1));
+        // Topic senama (beda kapital) dipakai ulang, bukan dua Topic kembar (aturan resolveTopic).
+        assertThat(paketService.topicsOf(paketId)).extracting(TopicEntity::getTitle)
+                .containsExactly("Topik 1", "Peta Indonesia");
+        mvc.perform(get(location).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(containsString("Paket Satu Layar B29")))
+                .andExpect(content().string(containsString("Ibu kota Jawa Timur?")))
+                .andExpect(content().string(containsString("Sebutkan tiga pulau besar.")));
     }
 
     @Test

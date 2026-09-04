@@ -30,6 +30,7 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -176,14 +177,18 @@ public class MasterContentController {
         return "redirect:" + BASE_PATH + "?subjectId=" + id;
     }
 
-    /** Subject GLOBAL sudah ada dipakai ulang, belum ada dibuat — satu kolom nama (AC-B06 setara). */
+    /** Halaman Paket master baru (BR-Q07), sejajar {@link BankSoalController#paketBaru}. */
+    @GetMapping("/eduscreen/bank-soal/paket/baru")
+    public String paketBaru(Model model) {
+        model.addAttribute("subjects", taxonomy.visibleSubjects(MASTER));
+        isiJalur(model);
+        return "bank/paket-baru";
+    }
+
+    /** Paket master lahir bersama soal-soalnya (BR-Q07); Subject GLOBAL senama dipakai ulang (AC-B06 setara). */
     @PostMapping("/eduscreen/bank-soal/paket")
-    public String createPaket(@RequestParam String title,
-                              @RequestParam(required = false) UUID subjectId,
-                              @RequestParam(required = false) String subjectName,
-                              @AuthenticationPrincipal UserPrincipal user) {
-        PaketEntity paket = pakets.create(
-                new PaketService.PaketDraft(title, subjectId, subjectName), MASTER, user.userId());
+    public String createPaket(@ModelAttribute PaketBaruForm form, @AuthenticationPrincipal UserPrincipal user) {
+        PaketEntity paket = questions.createPaket(form.draft(), form.soalBaru(), MASTER, user.userId());
         return "redirect:" + BASE_PATH + "/paket/" + paket.getId();
     }
 

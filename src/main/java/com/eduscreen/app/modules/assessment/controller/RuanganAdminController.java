@@ -1,6 +1,7 @@
 package com.eduscreen.app.modules.assessment.controller;
 
 import com.eduscreen.app.modules.assessment.domain.MemberRole;
+import com.eduscreen.app.modules.assessment.domain.UserRole;
 import com.eduscreen.app.modules.assessment.repository.RuanganEntity;
 import com.eduscreen.app.modules.assessment.service.RuanganService;
 import com.eduscreen.app.modules.identity.service.UserManagementService;
@@ -48,13 +49,33 @@ public class RuanganAdminController {
         return "admin/ruangan";
     }
 
+    /** Halaman Ruangan baru (BR-U05): nama dan anggota pertamanya di satu layar. */
+    @GetMapping("/admin/ruangan/baru")
+    public String baru(@AuthenticationPrincipal UserPrincipal admin, Model model) {
+        UUID clientId = admin.requireClientId();
+        model.addAttribute("guru", users.list(clientId, UserRole.GURU, KANDIDAT).getContent());
+        model.addAttribute("siswa", users.list(clientId, UserRole.SISWA, KANDIDAT).getContent());
+        return "admin/ruangan-baru";
+    }
+
+    /**
+     * Ruangan lahir bersama anggotanya (BR-U05). Form biasa + redirect ke detailnya, bukan
+     * fragmen HTMX: yang dibuat bukan lagi satu baris tabel, melainkan Ruangan berisi anggota.
+     */
     @PostMapping("/admin/ruangan")
     public String tambah(@RequestParam String name,
-                         @AuthenticationPrincipal UserPrincipal admin,
-                         Model model) {
-        RuanganEntity dibuat = ruangan.create(admin.requireClientId(), name);
-        model.addAttribute("ruangan", List.of(dibuat));
-        return "admin/ruangan :: baris";
+                         @RequestParam(required = false) List<UUID> guruIds,
+                         @RequestParam(required = false) List<UUID> siswaIds,
+                         @AuthenticationPrincipal UserPrincipal admin) {
+        UUID clientId = admin.requireClientId();
+        RuanganEntity dibuat = ruangan.create(clientId, name);
+        if (guruIds != null && !guruIds.isEmpty()) {
+            ruangan.addMembers(dibuat.getId(), clientId, guruIds, MemberRole.GURU);
+        }
+        if (siswaIds != null && !siswaIds.isEmpty()) {
+            ruangan.addMembers(dibuat.getId(), clientId, siswaIds, MemberRole.SISWA);
+        }
+        return "redirect:/admin/ruangan/" + dibuat.getId();
     }
 
     @GetMapping("/admin/ruangan/{id}")

@@ -31,57 +31,12 @@
       </table>
     </section>
 
-    <!--
-      Onboarding sengaja TIDAK membuat Ruangan maupun akun Siswa (BR-O01). Susunan kelas adalah
-      pengetahuan Client Admin, bukan Eduscreen; menebaknya di sini akan menghasilkan Ruangan
-      kosong yang harus dihapus satu per satu.
-    -->
-    <section class="card p-6">
-      <h2 class="card-title">Client baru</h2>
-      <form method="post" th:action="@{/eduscreen/client}" class="mt-4 grid gap-4 sm:grid-cols-2">
-        <div>
-          <label for="name" class="label">Nama sekolah</label>
-          <input id="name" name="name" required class="input">
-        </div>
-        <div>
-          <label for="timezone" class="label">Zona waktu</label>
-          <!-- Tiga zona Indonesia; seluruh batas akhir ditafsirkan di zona ini (BR-T02). -->
-          <select id="timezone" name="timezone" class="select">
-            <option value="Asia/Jakarta">Asia/Jakarta (WIB)</option>
-            <option value="Asia/Makassar">Asia/Makassar (WITA)</option>
-            <option value="Asia/Jayapura">Asia/Jayapura (WIT)</option>
-          </select>
-        </div>
-        <div>
-          <label for="adminFullName" class="label">Nama Client Admin</label>
-          <input id="adminFullName" name="adminFullName" required class="input">
-        </div>
-        <div>
-          <label for="adminEmail" class="label">Email Client Admin</label>
-          <input type="email" id="adminEmail" name="adminEmail" required class="input">
-        </div>
-        <fieldset class="sm:col-span-2">
-          <legend class="label">Paket konten master yang diberikan</legend>
-          <!--
-            Akses, bukan salinan (ADR-0021): sekolah membaca versi terbit Paket master apa adanya.
-            Batas waktu dan versi bisa diatur belakangan di Akses Paket.
-          -->
-          <div class="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label th:each="p : ${paket}" class="opt items-center py-3">
-              <input type="checkbox" name="paketIds" th:value="${p.id}">
-              <span class="text-sm font-medium" th:text="${p.title}">Judul paket</span>
-            </label>
-            <p th:if="${#lists.isEmpty(paket)}" class="text-sm text-ink-2 sm:col-span-2">
-              Belum ada paket master.
-            </p>
-          </div>
-        </fieldset>
-        <div class="sm:col-span-2 border-t border-line pt-4">
-          <button type="submit" class="btn btn-primary w-full sm:w-auto">
-            Buat Client dan kirim undangan
-          </button>
-        </div>
-      </form>
+    <!-- Formulir onboarding di halamannya sendiri: nama, zona waktu, Client Admin pertama, dan
+         Akses Paket di satu layar. Onboarding sengaja TIDAK membuat Ruangan maupun akun Siswa
+         (BR-O01); susunan kelas adalah pengetahuan Client Admin, bukan Eduscreen. -->
+    <section class="card flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-ink-2">Nama, zona waktu, Client Admin, dan Akses Paket diisi di satu layar.</p>
+      <a th:href="@{/eduscreen/client/baru}" class="btn btn-primary">Buat Client</a>
     </section>
 
   </div>

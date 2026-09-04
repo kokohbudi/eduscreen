@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Ruangan Baru')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Ruangan Baru', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <a th:href="@{/admin/ruangan}" class="crumb">← Ruangan</a>
+
+    <!-- Ruangan lahir bersama anggotanya (BR-U05): nama, Guru, dan Siswa di satu layar. Form
+         biasa + redirect ke detail Ruangan, bukan fragmen HTMX (TC-14 hanya untuk endpoint
+         HTMX). Anggota boleh kosong — Ruangan tanpa anggota tetap sah, dan detailnya punya
+         formulir tambah anggota untuk menyusul. -->
+    <form method="post" th:action="@{/admin/ruangan}" class="card mt-4 grid gap-4 sm:grid-cols-2">
+      <div class="sm:col-span-2">
+        <label for="name" class="label">Nama Ruangan</label>
+        <input type="text" id="name" name="name" required placeholder="mis. Kelas 4B 2026/2027" class="input">
+      </div>
+      <div>
+        <label for="guruIds" class="label">Guru</label>
+        <select id="guruIds" name="guruIds" multiple size="6" class="select h-auto bg-none py-1">
+          <option th:each="u : ${guru}" th:value="${u.id}"
+                  th:text="|${u.fullName} (${u.email})|" class="rounded px-2 py-1">Nama (email)</option>
+        </select>
+        <p class="hint">Tahan Ctrl / ⌘ untuk memilih lebih dari satu. Boleh dikosongkan.</p>
+      </div>
+      <div>
+        <label for="siswaIds" class="label">Siswa</label>
+        <select id="siswaIds" name="siswaIds" multiple size="6" class="select h-auto bg-none py-1">
+          <option th:each="u : ${siswa}" th:value="${u.id}"
+                  th:text="|${u.fullName} (${u.email})|" class="rounded px-2 py-1">Nama (email)</option>
+        </select>
+        <p class="hint">Tahan Ctrl / ⌘ untuk memilih lebih dari satu. Boleh dikosongkan.</p>
+      </div>
+      <div class="sm:col-span-2 border-t border-line pt-4">
+        <button type="submit" class="btn btn-primary w-full sm:w-auto">Buat Ruangan</button>
+      </div>
+    </form>
+
+  </div>
+</div>
+</body>
+</html>

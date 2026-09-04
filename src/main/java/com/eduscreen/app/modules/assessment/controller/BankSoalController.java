@@ -25,6 +25,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -162,15 +163,24 @@ public class BankSoalController {
         return "bank/cari";
     }
 
-    /** Subject sudah ada dipakai ulang, belum ada dibuat — satu kolom nama (AC-B06). */
+    /**
+     * Halaman Paket baru (BR-Q07): judul, Subject, dan soal-soal pertamanya di satu layar.
+     * Daftar Subject untuk datalist; Topic-nya belum ada karena Paketnya belum lahir.
+     */
+    @GetMapping("/bank-soal/paket/baru")
+    public String paketBaru(@AuthenticationPrincipal UserPrincipal user, Model model) {
+        model.addAttribute("subjects", taxonomy.visibleSubjects(user.requireClientId()));
+        return "bank/paket-baru";
+    }
+
+    /**
+     * Paket lahir bersama soal-soalnya dalam satu kiriman (BR-Q07). Subject sudah ada dipakai
+     * ulang, belum ada dibuat — satu kolom nama (AC-B06); Topic tiap soal mengikuti aturan yang sama.
+     */
     @PostMapping("/bank-soal/paket")
-    public String createPaket(@RequestParam String title,
-                              @RequestParam(required = false) UUID subjectId,
-                              @RequestParam(required = false) String subjectName,
-                              @AuthenticationPrincipal UserPrincipal user) {
-        PaketEntity paket = pakets.create(
-                new PaketService.PaketDraft(title, subjectId, subjectName),
-                user.requireClientId(), user.userId());
+    public String createPaket(@ModelAttribute PaketBaruForm form, @AuthenticationPrincipal UserPrincipal user) {
+        PaketEntity paket = questions.createPaket(
+                form.draft(), form.soalBaru(), user.requireClientId(), user.userId());
         return "redirect:/bank-soal/paket/" + paket.getId();
     }
 

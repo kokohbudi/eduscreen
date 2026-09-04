@@ -44,17 +44,25 @@ class EduscreenDashboardRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("BR-O05: /eduscreen/client memuat daftar Client dan form onboarding, bukan antrean")
+    @DisplayName("BR-O05: /eduscreen/client memuat daftar Client dan tombol ke halaman Client baru, bukan antrean; form onboarding di halamannya sendiri")
     void halamanClientMemuatOnboarding() throws Exception {
         var admin = user(data.principal(data.eduscreenAdmin()));
         data.client("SD Render Dashboard");
 
         mockMvc.perform(get("/eduscreen/client").with(admin))
                 .andExpect(status().isOk())
-                .andExpect(content().string(
-                        org.hamcrest.Matchers.containsString("Buat Client dan kirim undangan")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("SD Render Dashboard")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("href=\"/eduscreen/client/baru\"")))
+                .andExpect(content().string(org.hamcrest.Matchers.not(
+                        org.hamcrest.Matchers.containsString("Buat Client dan kirim undangan"))))
                 .andExpect(content().string(org.hamcrest.Matchers.not(
                         org.hamcrest.Matchers.containsString("Butuh perhatian"))));
+
+        mockMvc.perform(get("/eduscreen/client/baru").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("action=\"/eduscreen/client\"")))
+                .andExpect(content().string(
+                        org.hamcrest.Matchers.containsString("Buat Client dan kirim undangan")));
     }
 
     @Test

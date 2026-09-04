@@ -2,6 +2,7 @@ package com.eduscreen.app.modules.assessment.service;
 
 import com.eduscreen.app.modules.assessment.domain.QuestionType;
 import com.eduscreen.app.modules.assessment.domain.StatusTerbit;
+import com.eduscreen.app.modules.assessment.repository.PaketEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketItemEntity;
 import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketItemRepository.Placement;
@@ -72,6 +73,30 @@ public class QuestionService {
     /** Isi Question mentah dari editor, sebelum disanitasi (dipakai create dan update). */
     public record QuestionDraft(UUID topicId, QuestionType type, String bodyHtml,
                                  String explanationHtml, List<OptionDraft> options) {
+    }
+
+    /** Satu soal dari halaman Paket baru: Topic-nya disebut lewat nama karena Paketnya belum ada (BR-Q07). */
+    public record SoalBaru(String topicTitle, QuestionDraft draft) {
+    }
+
+    /**
+     * Paket lahir bersama soal-soal pertamanya dalam satu transaksi (BR-Q07): judul, Subject,
+     * Topic, dan soal diisi di satu layar, lalu disimpan sekali. Topic senama dipakai ulang,
+     * belum ada dibuat — aturan {@link PaketService#resolveTopic} yang sama dengan editor soal.
+     * Soal yang gagal validasi membatalkan seluruhnya: Paket setengah jadi lebih menyesatkan
+     * daripada formulir yang ditolak.
+     */
+    @Transactional
+    public PaketEntity createPaket(PaketService.PaketDraft draft, List<SoalBaru> soal,
+                                   UUID clientId, UUID actor) {
+        PaketEntity paket = pakets.create(draft, clientId, actor);
+        for (SoalBaru s : soal) {
+            UUID topicId = pakets.resolveTopic(paket.getId(), s.topicTitle(), clientId).getId();
+            QuestionDraft d = s.draft();
+            create(new QuestionDraft(topicId, d.type(), d.bodyHtml(), d.explanationHtml(), d.options()),
+                    clientId, paket.getId());
+        }
+        return paket;
     }
 
     /**

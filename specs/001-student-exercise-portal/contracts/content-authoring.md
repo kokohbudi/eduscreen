@@ -14,9 +14,10 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/bank-soal` | Client Admin, Guru | — | `page` tabel Paket lintas Subject, dengan jumlah soal per Paket, plus formulir buat Paket | — |
+| GET | `/bank-soal` | Client Admin, Guru | — | `page` tabel Paket lintas Subject, dengan jumlah soal per Paket, plus tombol ke halaman Paket baru | — |
 | GET | `/bank-soal?subjectId={id}` | Client Admin, Guru | `subjectId` | `page` tabel yang sama tersaring ke satu Subject | `404` |
-| POST | `/bank-soal/paket` | Client Admin, Guru | `title`, `subjectId` atau `subjectName` | `302` ke isi Paket | `400` |
+| GET | `/bank-soal/paket/baru` | Client Admin, Guru | — | `page` formulir Paket baru: nama, Subject, dan blok-blok soal (BR-Q07) | — |
+| POST | `/bank-soal/paket` | Client Admin, Guru | `title`, `subjectId` atau `subjectName`, `soal[i].topicTitle`, `soal[i].type`, `soal[i].bodyHtml`, `soal[i].explanationHtml`, `soal[i].optionBody[]`, `soal[i].correctIndex` | `302` ke isi Paket | `400` |
 | GET | `/bank-soal/paket/{id}` | Client Admin, Guru | — | `page` isi Paket: soal dikelompokkan per Topic | `404` bila di luar Client |
 | POST | `/bank-soal/paket/{id}/topic` | Client Admin, Guru | `title` | `fragment` daftar Topic | `404`, `400` |
 | GET | `/bank-soal/paket/{id}/soal/baru` | Client Admin, Guru | `topicId` | `page` editor, `topicId` sebagai induk | `404` |
@@ -29,6 +30,8 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 **Aturan mengikat**
 
 - Paket baru MUST lahir dengan tepat satu Topic bernama `Topik 1` (AC-B01).
+- Paket baru MUST lahir bersama seluruh soal yang dikirim bersamanya dalam satu transaksi (BR-Q07);
+  blok `soal[i]` yang `bodyHtml`-nya kosong dilewati, indeks `i` boleh berlubang.
 - Question MUST menunjuk Topic yang `paketId`-nya sama dengan `paketId` Question itu; kombinasi
   lain MUST ditolak (AC-B02).
 - Meminjam soal dari Paket lain MUST menghasilkan Question baru milik Paket tujuan dengan
@@ -116,7 +119,8 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
-| GET | `/eduscreen/client` | Eduscreen Admin | — | `page` daftar Client | — |
+| GET | `/eduscreen/client` | Eduscreen Admin | — | `page` daftar Client, plus tombol ke halaman Client baru | — |
+| GET | `/eduscreen/client/baru` | Eduscreen Admin | — | `page` formulir onboarding | — |
 | POST | `/eduscreen/client` | Eduscreen Admin | `name`, `timezone`, `adminEmail`, `paketIds[]` | `302` ke detail Client | `400` |
 | GET | `/katalog` | Client Admin | `subjectId` | `page` katalog master | — |
 | POST | `/katalog/adopsi` | Client Admin | `paketIds[]` | `fragment` ringkasan salinan | `400` |

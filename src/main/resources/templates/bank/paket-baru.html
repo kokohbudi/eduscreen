@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Paket Baru')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Paket Baru', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <p class="mb-4">
+      <a th:href="@{__${basePath ?: '/bank-soal'}__}" class="crumb">← Semua Paket</a>
+    </p>
+
+    <!--
+      Paket lahir bersama soal-soal pertamanya (BR-Q07): nama, Subject, Topic, dan soal diisi di
+      satu layar, lalu disimpan sekali. Sebelumnya nama dan Subject diminta di bawah tabel daftar
+      dan soalnya baru bisa ditulis sesudah Paket ada — satu pekerjaan terpecah dua layar.
+
+      Tiap blok soal adalah editor yang sama dengan Bank Soal (soalEditor + rte), lahir dari
+      x-for. Namanya berindeks lewat uid yang stabil, BUKAN indeks urutan: menghapus blok di
+      tengah menggeser indeks blok sesudahnya, sedangkan textarea rte sudah memegang namanya sejak
+      dipasang. Celah indeks tidak apa-apa — server melewati blok kosong (PaketBaruForm).
+    -->
+    <script>
+      window.seedSoalEditor = {tipe: 'MULTIPLE_CHOICE', opsi: []};
+    </script>
+
+    <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket}" class="space-y-4"
+          x-data="paketBaru()">
+
+      <section class="card grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <div>
+          <label for="title" class="label">Nama Paket</label>
+          <input type="text" id="title" name="title" required class="input">
+        </div>
+        <div>
+          <label for="subjectName" class="label">Subject</label>
+          <!-- Satu kolom ber-datalist: Subject yang sudah ada dipakai ulang, yang belum ada
+               dibuat saat simpan (AC-B06). -->
+          <input type="text" id="subjectName" name="subjectName" list="daftarSubject" required
+                 autocomplete="off" class="input">
+          <datalist id="daftarSubject">
+            <option th:each="s : ${subjects}" th:value="${s.name}"></option>
+          </datalist>
+        </div>
+      </section>
+
+      <template x-for="(s, i) in soal" :key="s.uid">
+        <section class="card space-y-4" x-data="soalEditor()">
+          <div class="flex items-center justify-between">
+            <h2 class="card-title" x-text="'Soal ' + (i + 1)">Soal</h2>
+            <button type="button" @click="hapusSoal(i)" x-show="soal.length > 1"
+                    class="btn btn-ghost btn-sm text-danger">Hapus soal</button>
+          </div>
+
+          <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label class="label" :for="'topic-' + s.uid">Topic</label>
+              <!-- Topic belum ada satu pun — Paketnya belum lahir. Datalist-nya diisi nama yang
+                   sudah diketik di blok lain, supaya soal berikutnya tinggal memilih. -->
+              <input type="text" :id="'topic-' + s.uid" :name="'soal[' + s.uid + '].topicTitle'"
+                     list="daftarTopic" required autocomplete="off" x-model="s.topic"
+                     placeholder="Pilih atau ketik Topic baru" class="input">
+            </div>
+            <div>
+              <label class="label" :for="'tipe-' + s.uid">Tipe soal</label>
+              <select :id="'tipe-' + s.uid" :name="'soal[' + s.uid + '].type'" x-model="tipe" class="select">
+                <option value="MULTIPLE_CHOICE">Pilihan Ganda</option>
+                <option value="ESSAY">Esai</option>
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label class="label">Isi soal</label>
+            <div x-data="rte({name: 'soal[' + s.uid + '].bodyHtml', baris: 8, wajib: true, ringkas: false, label: 'Isi soal'})"
+                 x-init="pasang()" @focusin="sorot()" @click.outside="lepas($event)"
+                 @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+              <p class="hint mb-2" x-show="kode" x-cloak>
+                Rumus ditulis LaTeX di antara <code class="rounded bg-surface-2 px-1">$...$</code> (sebaris) atau <code class="rounded bg-surface-2 px-1">$$...$$</code> (blok).
+              </p>
+              <div th:replace="~{soal/editor :: isiKaya(id=null, name='', baris=8, nilai='', wajib=true)}"></div>
+            </div>
+          </div>
+
+          <div x-show="tipe === 'MULTIPLE_CHOICE'" x-transition.opacity.duration.200ms>
+            <div class="mb-2 flex items-center justify-between">
+              <label class="label">Pilihan jawaban</label>
+              <button type="button" @click="tambahOpsi()" class="btn btn-secondary btn-sm">
+                + Tambah pilihan
+              </button>
+            </div>
+            <template x-for="(o, idx) in opsi" :key="idx">
+              <div class="mb-2 flex items-start gap-2 rounded-lg border border-line p-2"
+                   :class="correctIndex === idx && 'border-success/50 bg-success-soft'">
+                <input type="radio" :name="'soal[' + s.uid + '].correctIndex'" :value="idx"
+                       x-model.number="correctIndex" required
+                       class="mt-3 accent-success" aria-label="Tandai sebagai jawaban benar">
+                <div class="mt-0 flex-1"
+                     x-data="rte({name: 'soal[' + s.uid + '].optionBody', baris: 2, wajib: true, ringkas: true, label: 'Pilihan jawaban'})"
+                     x-modelable="nilai" x-model="o.body"
+                     x-init="pasang()" @focusin="sorot()" @click.outside="lepas($event)"
+                     @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+                  <div th:replace="~{soal/editor :: isiKaya(id=null, name='', baris=2, nilai='', wajib=true)}"></div>
+                </div>
+                <button type="button" @click="hapusOpsi(idx)" class="btn btn-ghost btn-sm text-danger">
+                  Hapus
+                </button>
+              </div>
+            </template>
+            <p class="hint">Tandai bulatan di sisi kiri pilihan yang benar. Tepat satu pilihan boleh ditandai.</p>
+          </div>
+
+          <div>
+            <label class="label">Pembahasan (opsional)</label>
+            <div x-data="rte({name: 'soal[' + s.uid + '].explanationHtml', baris: 6, wajib: false, ringkas: false, label: 'Pembahasan'})"
+                 x-init="pasang()" @focusin="sorot()" @click.outside="lepas($event)"
+                 @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+              <p class="hint mb-2" x-show="kode" x-cloak>
+                Rumus ditulis LaTeX di antara <code class="rounded bg-surface-2 px-1">$...$</code> (sebaris) atau <code class="rounded bg-surface-2 px-1">$$...$$</code> (blok).
+              </p>
+              <div th:replace="~{soal/editor :: isiKaya(id=null, name='', baris=6, nilai='', wajib=false)}"></div>
+            </div>
+          </div>
+        </section>
+      </template>
+
+      <datalist id="daftarTopic">
+        <template x-for="t in topicTerpakai" :key="t">
+          <option :value="t"></option>
+        </template>
+      </datalist>
+
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <button type="button" @click="tambahSoal()" class="btn btn-secondary">+ Tambah soal</button>
+        <button type="submit" class="btn btn-primary">Simpan Paket</button>
+      </div>
+    </form>
+
+    <!-- Bilah alat dan pegangan gambar tunggal untuk seluruh halaman, sama seperti editor soal. -->
+    <div th:replace="~{soal/editor :: bilahFormat}"></div>
+    <div class="editor-pegangan" x-show="$store.rte.aktif &amp;&amp; $store.rte.aktif.gambar" x-cloak
+         :style="$store.rte.aktif ? $store.rte.aktif.gayaPegangan : ''"
+         @pointerdown="$store.rte.aktif.mulaiTarik($event)" aria-hidden="true"></div>
+
+  </div>
+</div>
+
+<th:block th:replace="~{soal/editor :: skrip}"></th:block>
+<script>
+  document.addEventListener('alpine:init', function () {
+    Alpine.data('paketBaru', function () {
+      return {
+        berikut: 0,
+        soal: [],
+        init: function () {
+          this.tambahSoal();
+        },
+        // Blok baru mewarisi Topic blok terakhir: menulis soal berderet di Topic yang sama
+        // adalah kebiasaan, sama seperti "Simpan & buat lagi" di editor soal.
+        tambahSoal: function () {
+          var terakhir = this.soal.length ? this.soal[this.soal.length - 1].topic : 'Topik 1';
+          this.soal.push({uid: this.berikut++, topic: terakhir});
+        },
+        hapusSoal: function (i) {
+          this.soal.splice(i, 1);
+        },
+        get topicTerpakai() {
+          var unik = [];
+          this.soal.forEach(function (s) {
+            var t = (s.topic || '').trim();
+            if (t && unik.indexOf(t) < 0) {
+              unik.push(t);
+            }
+          });
+          return unik;
+        }
+      };
+    });
+  });
+</script>
+</body>
+</html>

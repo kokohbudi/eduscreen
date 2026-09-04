@@ -30,31 +30,14 @@
       </button>
     </form>
 
-    <!-- Tingkat pertama menyambut dengan formulir buat Paket, bukan tabel Subject tanpa satu pun
-         jalan membuat sesuatu (revisi PO pasca-ADR-0018). Subject yang sudah ada dipakai ulang,
-         yang belum ada dibuat saat simpan (AC-B06). Satu kolom ber-datalist, bukan dua jalur
-         terpisah "pilih dari daftar" dan "tambah baru": autocomplete native, tanpa JS dan tanpa
-         pustaka. -->
-    <form method="post" th:action="@{__${basePath ?: '/bank-soal'}__/paket}"
-          class="card mb-4 flex flex-wrap items-end gap-3">
-      <div class="flex-1">
-        <label for="title" class="label">Nama Paket</label>
-        <input type="text" id="title" name="title" required
-               class="input">
-      </div>
-      <div>
-        <label for="subjectName" class="label">Subject</label>
-        <input type="text" id="subjectName" name="subjectName" list="daftarSubject" required
-               th:value="${subject != null ? subject.name : ''}"
-               class="input sm:w-64">
-        <datalist id="daftarSubject">
-          <option th:each="s : ${subjects}" th:value="${s.name}"></option>
-        </datalist>
-      </div>
-      <button type="submit" class="btn btn-primary w-full sm:w-auto">
-        Buat Paket
-      </button>
-    </form>
+    <!-- Tingkat pertama menyambut dengan jalan membuat Paket, bukan tabel tanpa satu pun
+         pintu (revisi PO pasca-ADR-0018). Formulirnya di halaman sendiri (BR-Q07): Paket lahir
+         bersama nama, Subject, dan soal-soal pertamanya sekaligus, bukan nama dulu lalu soal
+         belakangan lewat layar lain. -->
+    <section class="card mb-4 flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-ink-2">Nama, Subject, Topic, dan soal pertamanya diisi di satu layar.</p>
+      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/baru}" class="btn btn-primary">Buat Paket</a>
+    </section>
 
     <!-- Subject turun jadi penyaring, bukan tingkat navigasi sendiri: memilih satu Subject di
          sini menyempitkan tabel di bawah lewat subjectId, tanpa berpindah URL ke tingkat lain.

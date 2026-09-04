@@ -5,18 +5,10 @@
 <div th:replace="~{layout/base :: page('Ruangan', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <!-- Ruangan baru lahir ACTIVE; hasilnya satu baris tabel lewat HTMX (TC-14). -->
-    <section class="card mb-6">
-      <h2 class="card-title mb-3">Buat Ruangan</h2>
-      <form class="flex flex-col gap-3 sm:flex-row sm:items-end"
-            th:attr="hx-post=@{/admin/ruangan}"
-            hx-target="#tabel-ruangan" hx-swap="beforeend">
-        <div class="flex-1">
-          <label for="name" class="label">Nama Ruangan</label>
-          <input type="text" id="name" name="name" required placeholder="mis. Kelas 4B" class="input">
-        </div>
-        <button type="submit" class="btn btn-primary">Buat</button>
-      </form>
+    <!-- Ruangan baru lahir ACTIVE, di halamannya sendiri bersama anggota pertamanya (BR-U05). -->
+    <section class="card mb-6 flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-ink-2">Nama, Guru, dan Siswa-nya diisi di satu layar.</p>
+      <a th:href="@{/admin/ruangan/baru}" class="btn btn-primary">Buat Ruangan</a>
     </section>
 
     <!-- Aksi massal (AC-B26): centang beberapa Ruangan aktif lalu arsipkan sekaligus. -->

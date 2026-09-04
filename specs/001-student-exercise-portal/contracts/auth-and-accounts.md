@@ -54,7 +54,8 @@
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/admin/ruangan` | Client Admin | — | `page` daftar | — |
-| POST | `/admin/ruangan` | Client Admin | `name` | `fragment` baris baru | `400` |
+| GET | `/admin/ruangan/baru` | Client Admin | — | `page` formulir Ruangan baru: nama, Guru, Siswa (BR-U05) | — |
+| POST | `/admin/ruangan` | Client Admin | `name`, `guruIds[]`, `siswaIds[]` | `302` ke detail Ruangan | `400` |
 | GET | `/admin/ruangan/{id}` | Client Admin | — | `page` anggota | `404` bila di luar Client |
 | POST | `/admin/ruangan/{id}/anggota` | Client Admin | `userIds[]`, `memberRole` | `fragment` daftar anggota | `404`; `409` bila Ruangan `ARCHIVED` |
 | DELETE | `/admin/ruangan/{id}/anggota/{userId}` | Client Admin | — | `fragment` daftar anggota | `404` |

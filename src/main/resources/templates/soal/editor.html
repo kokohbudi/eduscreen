@@ -231,10 +231,13 @@
         kaya ia disembunyikan dengan sr-only, BUKAN x-show: `required` pada elemen display:none
         membuat peramban menolak submit dengan pesan yang tak bisa ditampilkan.
       -->
-      <!-- name/rows/required dirender server, bukan di-bind Alpine: kolom ini yang benar-benar
-           dikirim, dan sebuah field tanpa nama akan hilang dari kiriman tanpa gejala apa pun
-           kalau skripnya gagal termuat. -->
+      <!-- name/rows/required dirender server: kolom ini yang benar-benar dikirim, dan sebuah
+           field tanpa nama akan hilang dari kiriman tanpa gejala apa pun kalau skripnya gagal
+           termuat. :name di sampingnya hanya berarti di halaman Paket baru, tempat blok soal
+           lahir dari x-for dan namanya berindeks — di editor biasa nilainya sama dengan yang
+           dirender server. -->
       <textarea x-ref="teks" th:id="${id}" th:name="${name}" th:rows="${baris}" th:required="${wajib}"
+                :name="name || $el.getAttribute('name')"
                 :class="kode ? 'textarea rounded-none border-0 font-mono' : 'sr-only'"
                 th:text="${nilai}" @input="serap()"></textarea>
     </div>

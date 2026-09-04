@@ -73,7 +73,7 @@ Mengelola Subject `GLOBAL`, Paket master beserta versinya, dan Question master. 
 
 ### 6.3 Client Admin — Ruangan dan akun
 
-1. Buat Ruangan dengan nama yang memuat periode (`Kelas 4B 2026/2027`).
+1. Buat Ruangan dengan nama yang memuat periode (`Kelas 4B 2026/2027`), sekaligus Guru dan Siswa pertamanya.
 2. Buat akun Guru dan Siswa satu per satu atau lewat impor.
 3. Tugaskan Guru dan Siswa ke satu atau lebih Ruangan.
 4. Di akhir tahun ajaran, arsipkan Ruangan dan buat yang baru.
@@ -82,6 +82,7 @@ Mengelola Subject `GLOBAL`, Paket master beserta versinya, dan Question master. 
 - **BR-U02** — Ruangan `ARCHIVED` bersifat read-only: tidak menerima Assignment baru, tidak menerima anggota baru, Session baru tidak bisa dimulai. Riwayat Result tetap terbaca.
 - **BR-U03** — Menonaktifkan akun Siswa tidak menghapus Session dan Result miliknya.
 - **BR-U04** — Email **transaksional** termasuk lingkup v1: undangan akun dan reset password. Tanpanya setiap password lupa menjadi tiket ke Client Admin. Email **pemberitahuan** (tugas baru terbit, pengingat deadline) tetap di luar v1 — lihat §12.
+- **BR-U05** — Ruangan dibuat dari satu layar: nama beserta Guru dan Siswa pertamanya disimpan sekali, lalu Client Admin mendarat di detail Ruangan itu. Anggota boleh kosong saat lahir; detail Ruangan tetap punya jalan menambahnya.
 
 ### 6.4 Client Admin & Guru — Question Bank
 
@@ -97,6 +98,7 @@ Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisia
 - **BR-Q04** — Penghapusan Question dan Exercise selalu soft delete. Konten yang dihapus hilang dari pencarian bank soal tetapi tetap utuh di Exercise, Assignment, dan Session yang sudah memakainya.
 - **BR-Q05** — Impor menolak seluruh berkas hanya bila formatnya tidak terbaca; kegagalan per baris tidak membatalkan baris lain.
 - **BR-Q06** — Satu berkas impor memuat maksimum **500 baris**. Berkas yang lebih besar ditolak sebelum diproses, disertai pesan yang meminta pengguna memecahnya. Batas ini menjaga impor tetap berjalan sinkron tanpa infrastruktur pekerjaan latar (ADR-0014).
+- **BR-Q07** — Paket lahir bersama soal-soal pertamanya dari satu layar: nama, Subject, Topic tiap soal, dan isi soal disimpan dalam satu transaksi. Satu soal yang ditolak membatalkan seluruhnya — Paket setengah jadi lebih menyesatkan daripada formulir yang ditolak. Subject dan Topic senama dipakai ulang, belum ada dibuat (AC-B06, AC-B24).
 
 ### 6.5 Guru — meracik Exercise
 
@@ -485,6 +487,10 @@ berikut:
 - **AC-B28** *(ADR-0021)*: Guru dapat memasang seluruh isi satu Paket — miliknya sendiri maupun
   Paket Eduscreen yang aksesnya dimiliki — ke Exercise sekaligus, urut Topic dan posisi; yang
   lahir hanya ExerciseItem. Guru boleh mengurangi item dan mencampurnya dengan soal sekolah.
+- **AC-B29** *(BR-Q07)*: Halaman Paket baru menerima nama, Subject, dan sejumlah soal (masing-masing
+  dengan nama Topic-nya) dalam satu kiriman; hasilnya Paket berisi Topic dan soal itu, dan penulis
+  mendarat di halaman isinya. Blok soal kosong sisa penghapusan di layar dilewati, dan nama Topic
+  yang sama (mengabaikan besar-kecil huruf) di beberapa blok melahirkan satu Topic saja.
 - **AC-B24**: Topic tujuan pada panel pinjam ditentukan lewat NAMA, dan satu kolom itu melayani
   tiga jalan: nama yang sudah ada di Paket tujuan menempel ke Topic itu (mengabaikan besar-kecil
   huruf dan spasi tepi, sama dengan AC-B06), nama yang belum ada melahirkan Topic baru di Paket
@@ -748,6 +754,12 @@ Given Client Admin membuat akun Guru baru
 When akun tersimpan
 Then undangan terkirim ke alamat emailnya dan Guru bisa menetapkan password sendiri lewat tautan itu
 And Guru yang lupa password bisa memulihkannya sendiri lewat email tanpa menghubungi Client Admin.
+
+**AC-U05** (BR-U05)
+Given Client Admin membuka halaman Ruangan baru
+When ia mengisi nama, memilih beberapa Guru dan Siswa, lalu menyimpan
+Then Ruangan itu lahir `ACTIVE` bersama anggota terpilih sebagai Guru dan Siswa, dan ia mendarat di detail Ruangan itu;
+akun milik Client lain yang diselundupkan lewat daftar id tidak pernah jadi anggota.
 
 **AC-U03** (BR-U03)
 Given seorang Siswa dengan 12 Result dinonaktifkan Client Admin

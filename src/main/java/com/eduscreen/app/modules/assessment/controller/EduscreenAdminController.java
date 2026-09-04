@@ -45,11 +45,17 @@ public class EduscreenAdminController {
     @GetMapping("/eduscreen/client")
     public String clients(Model model) {
         model.addAttribute("clients", clients.all());
+        return "eduscreen/client";
+    }
+
+    /** Halaman Client baru: formulir onboarding di layarnya sendiri, bukan di bawah tabel daftar. */
+    @GetMapping("/eduscreen/client/baru")
+    public String baru(Model model) {
         // Paket master yang bisa diberikan saat onboarding, lintas Subject (ADR-0018, ADR-0021):
         // hanya yang sudah TERBIT. Paket yang masih digarap tidak boleh terbaca sekolah baru lewat
         // pintu belakang onboarding (FR-067).
         model.addAttribute("paket", pakets.findAllMasterPublished());
-        return "eduscreen/client";
+        return "eduscreen/client-baru";
     }
 
     /**
