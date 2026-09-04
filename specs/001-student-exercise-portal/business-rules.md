@@ -92,7 +92,7 @@ Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisia
 3. **Impor Excel/CSV** — hanya soal berbasis teks. Alurnya: unggah berkas → pratinjau hasil parsing → laporan baris gagal beserta alasannya → simpan hanya baris yang valid.
 
 - **BR-Q01** — Question `MULTIPLE_CHOICE` wajib punya minimal 2 Option dan tepat 1 Option benar.
-- **BR-Q02** — Question wajib melekat pada tepat satu Topic.
+- **BR-Q02** — Question yang ditulis ke dalam sebuah Paket wajib melekat pada tepat satu Topic milik Paket itu. Pengecualiannya satu: Soal Lepas yang ditulis di dalam perakit Exercise, yang memang tidak punya Paket untuk menaunginya (BR-E05).
 - **BR-Q03** — Question yang akan dipakai Practice wajib punya `explanation`; divalidasi saat publish, bukan saat penulisan.
 - **BR-Q04** — Penghapusan Question dan Exercise selalu soft delete. Konten yang dihapus hilang dari pencarian bank soal tetapi tetap utuh di Exercise, Assignment, dan Session yang sudah memakainya.
 - **BR-Q05** — Impor menolak seluruh berkas hanya bila formatnya tidak terbaca; kegagalan per baris tidak membatalkan baris lain.
@@ -109,6 +109,8 @@ Keduanya boleh menulis Topic dan Question di lingkup Client. Tiga jalur pengisia
 - **BR-E02** — Exercise terlihat dan bisa diduplikasi oleh seluruh Guru di Client yang sama.
 - **BR-E03** — Exercise wajib memuat minimal 1 Question untuk bisa diterbitkan.
 - **BR-E04** — Begitu Assignment pertamanya dibuat, `lockedAt` terisi dan Exercise menjadi read-only. Untuk mengubahnya, Guru menduplikasinya menjadi Exercise baru.
+- **BR-E05** — Guru boleh menulis soal baru langsung di dalam perakit Exercise, tanpa menyebut Paket. Soal itu milik sekolah dan lahir tanpa penempatan Paket: ia hidup di Exercise yang memuatnya, tidak pernah muncul di panel referensi, dan terhapus begitu Exercise terakhir yang memakainya melepasnya. Soal yang punya penempatan — milik sekolah maupun master — tidak bisa disunting lewat jalur ini.
+- **BR-E06** — Exercise lahir berjudul bawaan begitu Guru menekan buat; judulnya diubah di dalam perakit selama Exercise belum terkunci.
 
 ### 6.6 Guru — menerbitkan Assignment
 
@@ -394,9 +396,10 @@ When Eduscreen Admin menonaktifkan akun itu
 Then penonaktifan ditolak dengan pesan bahwa Client harus punya minimal satu Client Admin aktif, dan setelah admin kedua ditambahkan penonaktifan yang pertama berhasil.
 
 **AC-Q04** (BR-Q02)
-Given Guru menulis Question tanpa memilih Topic
+Given Guru menulis Question ke dalam sebuah Paket tanpa memilih Topic
 When ia menyimpan
-Then penyimpanan ditolak; Question tidak boleh menggantung di luar taksonomi.
+Then penyimpanan ditolak; di dalam Paket, Question tidak boleh menggantung di luar taksonomi.
+Soal Lepas di perakit Exercise (BR-E05) tidak melewati jalur ini sama sekali.
 
 **AC-Q05** (BR-Q03)
 Given Exercise berisi 10 Question `MULTIPLE_CHOICE`, dua di antaranya tanpa `explanation`
@@ -549,6 +552,29 @@ When ia memilih Paket `A` di panel tanpa mengganti Topic atau kata kunci
 Then hasil pencarian hanya memuat soal dari Paket `A`; soal dari Paket `B` tidak ikut tampil
 sampai Paket `A` dikosongkan atau diganti. Saringan ini murni tampilan panel — BR-E01 tetap
 mengizinkan Guru MENAMBAHKAN soal dari Paket mana pun, terlepas dari Paket yang sedang disaring.
+
+**AC-E06** (BR-E05)
+Given Guru sedang merakit Exercise `X`
+When ia menulis satu soal baru dari dalam perakit
+Then soal itu tersimpan sebagai milik sekolah tanpa penempatan Paket mana pun, dan langsung
+terpasang di `X`.
+
+**AC-E07** (BR-E05)
+Given sekolah punya soal tulisan Guru yang lahir di dalam perakit Exercise `X`
+When Guru menelusuri panel referensi di perakit Exercise mana pun
+Then soal itu tidak pernah ikut tampil; yang tampil hanya soal yang punya penempatan Paket.
+
+**AC-E08** (BR-E05)
+Given soal tulisan Guru terpasang hanya di Exercise `X`
+When Guru melepasnya dari `X`
+Then soal itu ikut terhapus, sedangkan soal yang punya penempatan Paket hanya lepas dari `X` dan
+tetap ada di Paketnya.
+
+**AC-E09** (BR-E06)
+Given Guru menekan buat Exercise tanpa mengisi judul
+When perakitnya terbuka
+Then Exercise sudah ada dengan judul bawaan, dan mengubah judul dari dalam perakit menyimpannya;
+Exercise yang sudah terkunci menolak perubahan judul.
 
 **AC-M03** (BR-M01)
 Given Guru ditugaskan di `4A` (`ACTIVE`) dan `3C` (`ARCHIVED`), serta ada Ruangan `4B` yang bukan miliknya

@@ -13,31 +13,55 @@
     -->
     <div id="soal-editor" th:fragment="detail">
 
-      <!-- Editor selalu dibuka dari dalam satu Paket (Bank Soal Client maupun ruang kerja
-           master), jadi jalan pulangnya ke isi Paket itu (ADR-0018). -->
-      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}" class="crumb">← <span th:text="${paket.title}">Paket</span></a>
+      <!-- Editor dibuka dari dalam satu Paket (Bank Soal Client maupun ruang kerja master),
+           jadi jalan pulangnya ke isi Paket itu (ADR-0018). Dibuka dari perakit Exercise
+           (BR-E05) tidak ada Paket sama sekali: ${paket} null, dan tidak ada jalan pulang
+           karena editornya memang sedang berada di dalam halaman perakit. -->
+      <a th:if="${paket != null}" th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}(id=${paket.id})}" class="crumb">← <span th:text="${paket.title}">Paket</span></a>
 
       <div th:if="${soal != null}" class="alert alert-success mb-4"
            id="pesan-simpan" role="status">
         Tersimpan.
       </div>
 
-      <!-- Menyimpan ke jalur per-Paket: paketId ada di URL, bukan disimpulkan dari Topic (AC-B02). -->
-      <form th:action="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal(id=${paket.id})}"
+      <!--
+        Keadaan awal komponen Alpine, dirender di DALAM fragmen ini. Definisinya sendiri
+        (fragmen "skrip") dimuat sekali per halaman dan tidak tahu apa-apa tentang soal yang
+        sedang dibuka: tanpa pemisahan ini, editor yang dimuat HTMX ke dalam perakit Exercise
+        datang tanpa definisi maupun seed — bilah format mati dan blok pilihan ganda tidak
+        pernah dirender. Ditulis sebelum form supaya sudah terisi saat Alpine memindai x-data.
+      -->
+      <script th:inline="javascript">
+        window.seedSoalEditor = {
+          tipe: /*[[${soal != null ? soal.type.name() : 'MULTIPLE_CHOICE'}]]*/ 'MULTIPLE_CHOICE',
+          opsi: [
+            /*[# th:each="o : ${opsi}"]*/
+            {body: /*[[${o.bodyHtml}]]*/ '', benar: /*[[${o.correct}]]*/ false},
+            /*[/]*/
+          ]
+        };
+      </script>
+
+      <!-- Menyimpan ke jalur per-Paket: paketId ada di URL, bukan disimpulkan dari Topic (AC-B02).
+           Jalur perakit Exercise (${paket} null) menyimpan ke Exercise-nya sendiri: soal lepas
+           tidak punya Paket untuk disebut (BR-E05), dan balasannya daftar item, bukan editor. -->
+      <form th:action="${paket != null}
+                       ? @{__${basePath ?: '/bank-soal'}__/paket/{id}/soal(id=${paket.id})}
+                       : @{/exercise/{id}/soal(id=${exerciseId})}"
             method="post" class="space-y-4"
-            th:attr="hx-put=${soal == null} ? null : @{__${basePath ?: '/bank-soal'}__/soal/{id}__${(revisi ?: false) ? '/revisi' : ''}__(id=${soal.id})},
-                     hx-target=${soal != null} ? '#soal-editor' : null,
-                     hx-swap=${soal != null} ? 'outerHTML' : null"
-            x-data="soalEditor()" x-init="pasangEditor($el)"
-            @focusin="sorotKolom($event)"
-            @click.outside="lepasSorot()"
-            @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+            th:attr="hx-post=${paket == null and soal == null} ? @{/exercise/{id}/soal(id=${exerciseId})} : null,
+                     hx-put=${soal == null} ? null : (${paket != null}
+                             ? @{__${basePath ?: '/bank-soal'}__/soal/{id}__${(revisi ?: false) ? '/revisi' : ''}__(id=${soal.id})}
+                             : @{/exercise/{eid}/soal/{qid}(eid=${exerciseId},qid=${soal.id})}),
+                     hx-target=${paket == null} ? '#daftar-item' : (${soal != null} ? '#soal-editor' : null),
+                     hx-swap=${paket == null} ? 'outerHTML' : (${soal != null} ? 'outerHTML' : null)"
+            x-data="soalEditor()">
 
         <!-- Paket tempat soal ini disunting: soal master bisa berada di banyak Paket (ADR-0021),
              jadi PUT membawanya eksplisit, bukan menebak dari penempatan pertama. -->
-        <input type="hidden" name="paketId" th:value="${paket.id}">
+        <input th:if="${paket != null}" type="hidden" name="paketId" th:value="${paket.id}">
         <section class="card grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div>
+          <div th:if="${paket != null}">
             <label for="topicTitle" class="label">Topic</label>
             <!-- Daftar Topic sudah milik satu Paket (${paket}), dirender langsung dari server —
                  tidak ada cascading Subject->Topic lagi di sini sejak Subject tidak dipilih di
@@ -67,26 +91,8 @@
 
         <section class="card">
           <label for="bodyHtml" class="label">Isi soal</label>
-          <!-- Rumus dirender di sisi peramban, tidak pernah disimpan sebagai HTML hasil
-               render (TC-24); itu keputusan internal, tidak perlu dibaca Guru. -->
-          <!-- Petunjuk sintaks hanya muncul di mode HTML mentah; di mode kaya tugas itu sudah
-               diambil alih tombol Rumus di bilah alat. -->
-          <p class="hint mb-2" x-show="kode" x-cloak>
-            Rumus ditulis LaTeX di antara <code class="rounded bg-surface-2 px-1">$...$</code> (sebaris) atau <code class="rounded bg-surface-2 px-1">$$...$$</code> (blok).
-          </p>
-          <div class="editor-kaya">
-            <div class="editor-isi prose max-w-none" contenteditable="true" data-teks="bodyHtml"
-                 role="textbox" aria-multiline="true" aria-label="Isi soal"
-                 x-show="!kode"></div>
-            <!--
-              Kolom sungguhan tetap textarea ini; permukaan di atas hanya menyalin isinya. Saat
-              mode kaya ia disembunyikan dengan sr-only, BUKAN x-show: `required` pada elemen
-              display:none membuat peramban menolak submit dengan pesan yang tak bisa ditampilkan.
-            -->
-            <textarea id="bodyHtml" name="bodyHtml" required rows="8"
-                      :class="kode ? 'textarea rounded-none border-0 font-mono' : 'sr-only'"
-                      th:text="${soal != null ? soal.bodyHtml : ''}"></textarea>
-          </div>
+          <div th:replace="~{::kaya(id='bodyHtml', name='bodyHtml', label='Isi soal', baris=8,
+                                    nilai=${soal != null ? soal.bodyHtml : ''}, wajib=true, ringkas=false)}"></div>
         </section>
 
         <section x-show="tipe === 'MULTIPLE_CHOICE'" x-transition.opacity.duration.200ms class="card">
@@ -102,8 +108,18 @@
                  :class="correctIndex === idx && 'border-success/50 bg-success-soft'">
               <input type="radio" name="correctIndex" :value="idx" x-model.number="correctIndex"
                      class="mt-3 accent-success" required aria-label="Tandai sebagai jawaban benar">
-              <textarea name="optionBody" x-model="o.body" rows="2" required
-                        class="textarea mt-0 flex-1 font-mono"></textarea>
+              <!-- Pilihan jawaban memakai komponen yang sama, preset ringkas: bilah alatnya
+                   cuma Rumus dan Gambar. Seragam sampai animasinya, karena markup dan transisi
+                   datang dari satu tempat — bukan dua jalur di dalam satu editor sehalaman. -->
+              <div class="mt-0 flex-1"
+                   x-data="rte({name: 'optionBody', baris: 2, wajib: true, ringkas: true, label: 'Pilihan jawaban'})"
+                   x-modelable="nilai" x-model="o.body"
+                   x-init="pasang()" @focusin="sorot()" @click.outside="lepas($event)"
+                   @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+                <!-- Tanpa id maupun nilai server: pilihan jawaban lahir dari x-for, isinya
+                     mengalir lewat x-model ke array `opsi`, bukan dari atribut yang dirender. -->
+                <div th:replace="~{::isiKaya(id=null, name='optionBody', baris=2, nilai='', wajib=true)}"></div>
+              </div>
               <button type="button" @click="hapusOpsi(idx)"
                       class="btn btn-ghost btn-sm text-danger">
                 Hapus
@@ -116,19 +132,13 @@
 
         <section class="card">
           <label for="explanationHtml" class="label">Pembahasan (opsional)</label>
-          <div class="editor-kaya">
-            <div class="editor-isi prose max-w-none" contenteditable="true" data-teks="explanationHtml"
-                 role="textbox" aria-multiline="true" aria-label="Pembahasan"
-                 x-show="!kode"></div>
-            <textarea id="explanationHtml" name="explanationHtml" rows="6"
-                      :class="kode ? 'textarea rounded-none border-0 font-mono' : 'sr-only'"
-                      th:text="${soal != null ? soal.explanationHtml : ''}"></textarea>
-          </div>
+          <div th:replace="~{::kaya(id='explanationHtml', name='explanationHtml', label='Pembahasan', baris=6,
+                                    nilai=${soal != null ? soal.explanationHtml : ''}, wajib=false, ringkas=false)}"></div>
         </section>
 
         <!-- Menulis soal baru di dalam Paket biasanya berderet: "buat lagi" kembali ke
              formulir Topic yang sama tanpa mampir ke halaman isi tiap satu soal. -->
-        <div th:if="${soal == null}" class="flex flex-col gap-2 sm:flex-row">
+        <div th:if="${soal == null and paket != null}" class="flex flex-col gap-2 sm:flex-row">
           <button type="submit" name="lanjut" value="1" class="btn btn-primary">
             Simpan &amp; buat lagi
           </button>
@@ -136,6 +146,11 @@
             Simpan &amp; selesai
           </button>
         </div>
+        <!-- Di perakit Exercise soal langsung terpasang begitu disimpan, jadi tidak ada
+             "selesai" yang berbeda dari "buat lagi": editornya tetap di tempat. -->
+        <button th:if="${soal == null and paket == null}" type="submit" class="btn btn-primary">
+          Simpan &amp; masukkan
+        </button>
         <!-- Soal master terbit beku (ADR-0021): yang tersimpan adalah revisi, baris baru yang
              menggantikannya di versi kerja Paket. Baris lama tetap dibaca versi terbit dan sesi. -->
         <p th:if="${revisi ?: false}" class="alert mb-2" role="note">
@@ -147,11 +162,19 @@
           Simpan
         </button>
 
-        <!-- Pegangan ubah ukuran, mengikuti gambar yang sedang dipilih. Satu instance, seperti bilah. -->
-        <div class="editor-pegangan" x-show="gambar" x-cloak :style="gayaPegangan"
-             @pointerdown="mulaiTarik($event)" aria-hidden="true"></div>
-        <div th:replace="~{::bilahFormat}"></div>
       </form>
+
+      <!--
+        Bilah alat dan pegangan gambar: SATU untuk seluruh formulir, melayani kolom mana pun yang
+        sedang disorot ($store.rte.aktif). Keadaannya sendiri tetap milik tiap kolom — permukaan,
+        textarea cermin, mode HTML mentah, gambar terpilih. Menaruhnya di dalam tiap instance
+        berarti soal berisi empat pilihan jawaban menggandakan bilah enam kali padahal hanya satu
+        yang pernah terlihat pada satu waktu.
+      -->
+      <div th:replace="~{::bilahFormat}"></div>
+      <div class="editor-pegangan" x-show="$store.rte.aktif &amp;&amp; $store.rte.aktif.gambar" x-cloak
+           :style="$store.rte.aktif ? $store.rte.aktif.gayaPegangan : ''"
+           @pointerdown="$store.rte.aktif.mulaiTarik($event)" aria-hidden="true"></div>
 
       <section th:if="${soal != null}" class="card mt-6">
         <h2 class="card-title mb-2">Pratinjau</h2>
@@ -171,6 +194,52 @@
     editorlah yang membaca src dari <img> di dalamnya — jadi tidak perlu endpoint kedua hanya
     demi bentuk balasan yang berbeda.
   -->
+  <!--
+    Komponen editor konten kaya. Satu instance per kolom: ia memiliki permukaan contenteditable,
+    textarea cerminnya, mode HTML mentahnya, dan bilah alatnya sendiri. Dua preset saja —
+    penuh (Isi soal, Pembahasan) dan ringkas (pilihan jawaban, hanya Rumus dan Gambar).
+
+    Sebelumnya ini satu editor sehalaman dengan cabang "kolom prosa vs pilihan jawaban" di
+    dalamnya: mode kode satu untuk seluruh form, dan pilihan jawaban tak pernah kebagian
+    permukaan kaya sama sekali. Memecahnya jadi komponen membuat ketiga permukaan seragam
+    sampai animasi bilahnya, karena markup dan transisinya cuma ditulis sekali di sini.
+  -->
+  <div th:fragment="kaya(id, name, label, baris, nilai, wajib, ringkas)"
+       th:attr="x-data=|rte({name: '${name}', baris: ${baris}, wajib: ${wajib}, ringkas: ${ringkas}, label: '${label}'})|"
+       x-init="pasang()" @focusin="sorot()" @click.outside="lepas($event)"
+       @scroll.window="letakkanPegangan()" @resize.window="letakkanPegangan()">
+    <!-- Petunjuk sintaks hanya muncul di mode HTML mentah; di mode kaya tugas itu sudah
+         diambil alih tombol Rumus di bilah alat. -->
+    <p class="hint mb-2" x-show="kode" x-cloak>
+      Rumus ditulis LaTeX di antara <code class="rounded bg-surface-2 px-1">$...$</code> (sebaris) atau <code class="rounded bg-surface-2 px-1">$$...$$</code> (blok).
+    </p>
+    <div th:replace="~{::isiKaya(id=${id}, name=${name}, baris=${baris}, nilai=${nilai}, wajib=${wajib})}"></div>
+  </div>
+
+  <!--
+    Badan komponen: permukaan kaya, textarea cerminnya, bilah alat, dan pegangan ukuran gambar.
+    Fragmen tersendiri supaya pilihan jawaban — yang lahir dari x-for Alpine, jadi tidak bisa
+    membawa id dari server — memakai badan yang sama persis tanpa menyalin markupnya.
+  -->
+  <div th:fragment="isiKaya(id, name, baris, nilai, wajib)" th:remove="tag">
+    <div class="editor-kaya">
+      <div class="editor-isi prose max-w-none" contenteditable="true" x-ref="permukaan"
+           role="textbox" aria-multiline="true" :aria-label="label"
+           x-show="!kode"></div>
+      <!--
+        Kolom sungguhan tetap textarea ini; permukaan di atas hanya menyalin isinya. Saat mode
+        kaya ia disembunyikan dengan sr-only, BUKAN x-show: `required` pada elemen display:none
+        membuat peramban menolak submit dengan pesan yang tak bisa ditampilkan.
+      -->
+      <!-- name/rows/required dirender server, bukan di-bind Alpine: kolom ini yang benar-benar
+           dikirim, dan sebuah field tanpa nama akan hilang dari kiriman tanpa gejala apa pun
+           kalau skripnya gagal termuat. -->
+      <textarea x-ref="teks" th:id="${id}" th:name="${name}" th:rows="${baris}" th:required="${wajib}"
+                :class="kode ? 'textarea rounded-none border-0 font-mono' : 'sr-only'"
+                th:text="${nilai}" @input="serap()"></textarea>
+    </div>
+  </div>
+
   <div th:fragment="gambarTerunggah" th:remove="tag" class="space-y-2">
     <img th:src="@{/gambar/{id}(id=${imageId})}" alt="Gambar terunggah" class="max-h-40 rounded-lg border border-line">
     <input type="text" readonly onclick="this.select()"
@@ -194,33 +263,41 @@
       Yang tersimpan tetap HTML dan tetap disanitasi allowlist di sisi tulis (ContentSanitizer,
       TC-22), jadi bilah ini murni urusan tampilan.
     -->
-    <div th:fragment="bilahFormat" class="editor-bar-melayang terbalik" x-show="aktif || aktifOpsi" x-cloak
+    <!--
+      `aktif` menyimpan kolom terakhir dan TIDAK ikut kosong saat sorotan dilepas: transisi keluar
+      berlangsung sekitar 200ms, dan mengosongkannya membuat kelompok tombol berganti ke preset
+      penuh lebih dulu — bilah pilihan jawaban terlihat mekar jadi bilah penuh sesaat sebelum
+      hilang. Yang menentukan tampil atau tidak tetap $store.rte.aktif di x-show.
+    -->
+    <div th:fragment="bilahFormat" class="editor-bar-melayang terbalik" x-show="$store.rte.aktif" x-cloak
          x-transition:enter="naik" x-transition:enter-start="naik-mulai" x-transition:enter-end="naik-akhir"
          x-transition:leave="naik" x-transition:leave-start="naik-akhir" x-transition:leave-end="naik-mulai"
+         x-data="{ aktif: {} }"
+         x-effect="if ($store.rte.aktif) aktif = $store.rte.aktif"
          role="toolbar" aria-label="Format teks"
          @mousedown.prevent>
     <!--
       Kelompok teks lengkap: hanya untuk kolom prosa. Sembunyi saat sebuah gambar sedang dipilih
       (bilah berganti jadi kontrol ukuran) dan saat yang disorot adalah pilihan jawaban.
     -->
-    <span x-show="!gambar &amp;&amp; !aktifOpsi" class="contents">
-      <button type="button" class="editor-tombol font-bold" title="Tebal" @click="perintah('bold')">B</button>
-      <button type="button" class="editor-tombol italic" title="Miring" @click="perintah('italic')">I</button>
-      <button type="button" class="editor-tombol hidden underline md:grid" title="Garis bawah" @click="perintah('underline')">U</button>
+    <span x-show="!aktif.gambar &amp;&amp; !aktif.ringkas" class="contents">
+      <button type="button" class="editor-tombol font-bold" title="Tebal" @click="aktif.perintah('bold')">B</button>
+      <button type="button" class="editor-tombol italic" title="Miring" @click="aktif.perintah('italic')">I</button>
+      <button type="button" class="editor-tombol hidden underline md:grid" title="Garis bawah" @click="aktif.perintah('underline')">U</button>
       <span class="editor-pisah" aria-hidden="true"></span>
-      <button type="button" class="editor-tombol" title="Daftar berbutir" @click="perintah('insertUnorderedList')">
+      <button type="button" class="editor-tombol" title="Daftar berbutir" @click="aktif.perintah('insertUnorderedList')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M4.125 6.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 5.25a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 5.25a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
         <span class="sr-only">Daftar berbutir</span>
       </button>
-      <button type="button" class="editor-tombol" title="Daftar bernomor" @click="perintah('insertOrderedList')">
+      <button type="button" class="editor-tombol" title="Daftar bernomor" @click="aktif.perintah('insertOrderedList')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.242 5.992h12m-12 6.003H20.24m-12 5.999H20.24M4.117 6.008a1.125 1.125 0 111.75.938L4.125 8.25h1.875M4.125 12.375h1.5l-1.5 2.25h1.5m-1.875 3h.75a1.125 1.125 0 010 2.25h-.75"/></svg>
         <span class="sr-only">Daftar bernomor</span>
       </button>
       <span class="editor-pisah hidden md:block" aria-hidden="true"></span>
-      <button type="button" class="editor-tombol hidden md:grid" title="Pangkat" @click="perintah('superscript')">x&#178;</button>
-      <button type="button" class="editor-tombol hidden md:grid" title="Indeks" @click="perintah('subscript')">x&#8322;</button>
-      <button type="button" class="editor-tombol hidden md:grid" title="Sub-judul" @click="perintah('formatBlock', 'h3')">H</button>
-      <button type="button" class="editor-tombol hidden md:grid" title="Bersihkan format" @click="perintah('removeFormat')">
+      <button type="button" class="editor-tombol hidden md:grid" title="Pangkat" @click="aktif.perintah('superscript')">x&#178;</button>
+      <button type="button" class="editor-tombol hidden md:grid" title="Indeks" @click="aktif.perintah('subscript')">x&#8322;</button>
+      <button type="button" class="editor-tombol hidden md:grid" title="Sub-judul" @click="aktif.perintah('formatBlock', 'h3')">H</button>
+      <button type="button" class="editor-tombol hidden md:grid" title="Bersihkan format" @click="aktif.perintah('removeFormat')">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 6.042V21m0-14.958L6.75 3.75h10.5L12 6.042zM3.75 21h16.5"/></svg>
         <span class="sr-only">Bersihkan format</span>
       </button>
@@ -230,7 +307,7 @@
         membungkus teks terpilih dengan penandanya, supaya penulis soal tidak perlu menghafal
         sintaksnya — itulah yang dulu hanya diberitahukan lewat satu baris petunjuk di atas kolom.
       -->
-      <button type="button" class="editor-tombol" title="Rumus (LaTeX)" @click="sisipRumus()">
+      <button type="button" class="editor-tombol" title="Rumus (LaTeX)" @click="aktif.sisipRumus()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.75 21V7.5a3 3 0 013-3h.75m-4.5 6h6M13.5 21l6-9m-6 0l6 9"/></svg>
         <span class="sr-only">Rumus</span>
       </button>
@@ -241,29 +318,29 @@
         demi bentuk balasan yang berbeda.
       -->
       <button type="button" class="editor-tombol" title="Sisipkan gambar"
-              :disabled="unggah" @click="$refs.berkas.click()">
+              :disabled="aktif.unggah" @click="$refs.berkas.click()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
         <span class="sr-only">Sisipkan gambar</span>
       </button>
       <input type="file" x-ref="berkas" accept="image/png,image/jpeg" class="hidden"
-             @change="sisipGambar($event)">
+             @change="aktif.sisipGambar($event)">
       <span class="editor-pisah hidden md:block" aria-hidden="true"></span>
-      <button type="button" class="editor-tombol hidden md:grid" :class="kode &amp;&amp; 'aktif'"
-              title="Sunting sebagai HTML" :aria-pressed="kode" @click="alihKode()">&lt;/&gt;</button>
+      <button type="button" class="editor-tombol hidden md:grid" :class="aktif.kode &amp;&amp; 'aktif'"
+              title="Sunting sebagai HTML" :aria-pressed="aktif.kode" @click="aktif.alihKode()">&lt;/&gt;</button>
     </span>
 
     <!--
-      Kelompok pilihan jawaban: dua tombol saja. Teks pilihan terlalu pendek untuk butuh tebal,
+      Preset ringkas: dua tombol saja. Teks pilihan jawaban terlalu pendek untuk butuh tebal,
       daftar, atau sub-judul; yang benar-benar dipakai di sana cuma rumus dan gambar.
     -->
-    <span x-show="aktifOpsi" x-cloak class="contents">
-      <button type="button" class="editor-tombol" title="Rumus (LaTeX)" @click="sisipRumus()">
+    <span x-show="aktif.ringkas &amp;&amp; !aktif.gambar" x-cloak class="contents">
+      <button type="button" class="editor-tombol" title="Rumus (LaTeX)" @click="aktif.sisipRumus()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6.75 21V7.5a3 3 0 013-3h.75m-4.5 6h6M13.5 21l6-9m-6 0l6 9"/></svg>
         <span class="sr-only">Rumus</span>
       </button>
       <span class="editor-pisah" aria-hidden="true"></span>
       <button type="button" class="editor-tombol" title="Sisipkan gambar"
-              :disabled="unggah" @click="$refs.berkas.click()">
+              :disabled="aktif.unggah" @click="$refs.berkas.click()">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/></svg>
         <span class="sr-only">Sisipkan gambar</span>
       </button>
@@ -274,28 +351,28 @@
       ditulis ke atribut width karena hanya itu yang lolos allowlist ContentSanitizer; style
       inline dibuang saat simpan.
     -->
-    <span x-show="gambar" x-cloak class="contents">
-      <button type="button" class="editor-tombol" title="Perkecil" @click="skalaGambar(0.8)">
+    <span x-show="aktif.gambar" x-cloak class="contents">
+      <button type="button" class="editor-tombol" title="Perkecil" @click="aktif.skalaGambar(0.8)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M5 12h14"/></svg>
         <span class="sr-only">Perkecil gambar</span>
       </button>
-      <button type="button" class="editor-tombol" title="Perbesar" @click="skalaGambar(1.25)">
+      <button type="button" class="editor-tombol" title="Perbesar" @click="aktif.skalaGambar(1.25)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
         <span class="sr-only">Perbesar gambar</span>
       </button>
       <span class="editor-pisah" aria-hidden="true"></span>
       <button type="button" class="editor-tombol whitespace-nowrap px-3" title="Selebar kolom"
-              @click="lebarPenuh()">Penuh</button>
+              @click="aktif.lebarPenuh()">Penuh</button>
       <button type="button" class="editor-tombol whitespace-nowrap px-3" title="Kembalikan ukuran asli"
-              @click="ukuranAsli()">Asli</button>
+              @click="aktif.ukuranAsli()">Asli</button>
       <span class="editor-pisah" aria-hidden="true"></span>
-      <button type="button" class="editor-tombol whitespace-nowrap px-3" :class="pindahMode &amp;&amp; 'aktif'"
-              :title="pindahMode ? 'Ketuk titik tujuannya' : 'Pindahkan gambar'"
-              :aria-pressed="pindahMode" @click="pindahMode = !pindahMode"
-              x-text="pindahMode ? 'Ketuk tujuan' : 'Pindah'">Pindah</button>
+      <button type="button" class="editor-tombol whitespace-nowrap px-3" :class="aktif.pindahMode &amp;&amp; 'aktif'"
+              :title="aktif.pindahMode ? 'Ketuk titik tujuannya' : 'Pindahkan gambar'"
+              :aria-pressed="pindahMode" @click="aktif.pindahMode = !aktif.pindahMode"
+              x-text="aktif.pindahMode ? 'Ketuk tujuan' : 'Pindah'">Pindah</button>
       <span class="editor-pisah" aria-hidden="true"></span>
       <button type="button" class="editor-tombol whitespace-nowrap px-3" title="Selesai mengatur gambar"
-              @click="pilihGambar(null)">Selesai</button>
+              @click="aktif.pilihGambar(null)">Selesai</button>
     </span>
     </div>
 
@@ -351,19 +428,34 @@
   </div>
 </div>
 
+<!--
+  Skrip editor sebagai fragmen tersendiri: halaman yang memuat editor lewat HTMX (perakit
+  Exercise, BR-E05) menyertakannya sekali, sementara fragmen "detail" cukup membawa seed-nya.
+-->
+<th:block th:fragment="skrip">
 <script th:src="@{/vendor/katex/katex.min.js}" defer></script>
 <script th:src="@{/vendor/katex/contrib/auto-render.min.js}" defer></script>
 <script th:inline="javascript">
   document.addEventListener('alpine:init', function () {
+    /*
+     * Kolom yang sedang disorot. Bilah alat dan pegangan gambar tunggal untuk seluruh formulir
+     * dan membaca dari sini: satu soal dengan empat pilihan jawaban berarti enam instance rte,
+     * dan menyalin bilah enam kali hanya menambah DOM yang tidak pernah terlihat bersamaan.
+     */
+    Alpine.store('rte', {aktif: null});
+
+    /*
+     * Formulir soal: tipe soal, daftar pilihan jawaban, dan itu saja. Isi tiap kolom diurus
+     * komponen `rte` di bawah — satu instance per kolom, masing-masing memiliki permukaannya
+     * sendiri. Sebelumnya keduanya bercampur di sini, sehingga mode HTML mentah satu untuk
+     * seluruh formulir dan pilihan jawaban tidak pernah kebagian permukaan kaya.
+     */
     Alpine.data('soalEditor', function () {
+      var seed = window.seedSoalEditor || {tipe: 'MULTIPLE_CHOICE', opsi: []};
       return {
-        tipe: /*[[${soal != null ? soal.type.name() : 'MULTIPLE_CHOICE'}]]*/ 'MULTIPLE_CHOICE',
+        tipe: seed.tipe,
         correctIndex: 0,
-        opsi: [
-          /*[# th:each="o, it : ${opsi}"]*/
-          {body: /*[[${o.bodyHtml}]]*/ '', benar: /*[[${o.correct}]]*/ false},
-          /*[/]*/
-        ],
+        opsi: seed.opsi.map(function (o) { return {body: o.body, benar: o.benar}; }),
         init: function () {
           this.opsi.forEach(function (o, idx) {
             if (o.benar) {
@@ -374,85 +466,121 @@
             this.opsi = [{body: '', benar: true}, {body: '', benar: false}];
           }
         },
-        /*
-         * Editor konten kaya, satu instance untuk seluruh halaman. Setiap permukaan
-         * contenteditable menunjuk textarea sungguhannya lewat data-teks; permukaan itu hanya
-         * cermin, yang dikirim ke server tetap isi textarea.
-         */
-        aktif: null,
+        tambahOpsi: function () {
+          this.opsi.push({body: '', benar: false});
+        },
+        hapusOpsi: function (idx) {
+          this.opsi.splice(idx, 1);
+          if (this.correctIndex >= this.opsi.length) {
+            this.correctIndex = 0;
+          }
+        }
+      };
+    });
+
+    /*
+     * Editor konten kaya, satu instance per kolom. Permukaan contenteditable hanya cermin;
+     * yang dikirim ke server tetap isi textarea di sebelahnya (x-ref="teks").
+     *
+     * `ringkas` memilih preset bilah alat: penuh untuk kolom prosa, dua tombol (Rumus, Gambar)
+     * untuk pilihan jawaban. Bedanya cuma tombol yang tampil — permukaan, transisi, penanganan
+     * gambar, dan mode HTML mentahnya identik, sehingga ketiganya seragam sampai animasinya.
+     *
+     * `nilai` ada supaya pemakai bisa mengikatnya lewat x-modelable/x-model: pilihan jawaban
+     * lahir dari x-for, jadi isinya harus mengalir balik ke array `opsi` milik soalEditor.
+     */
+    Alpine.data('rte', function (opsi) {
+      opsi = opsi || {};
+      return {
+        name: opsi.name || '',
+        label: opsi.label || '',
+        baris: opsi.baris || 6,
+        wajib: opsi.wajib === true,
+        ringkas: opsi.ringkas === true,
+        nilai: '',
         kode: false,
         unggah: false,
-        pasangEditor: function (form) {
+        gambar: null,
+        gayaPegangan: '',
+        pindahMode: false,
+
+        pasang: function () {
           var diri = this;
-          this.permukaan = Array.prototype.slice.call(
-            form.querySelectorAll('[contenteditable][data-teks]'));
-          this.permukaan.forEach(function (el) {
-            var teks = document.getElementById(el.dataset.teks);
-            el.innerHTML = teks.value;
-            el.addEventListener('input', function () {
-              teks.value = diri.isiBersih(el);
-              // Mengetik menggeser gambar, jadi pegangannya ikut dihitung ulang.
-              diri.letakkanPegangan();
-            });
-            // Klik gambar memilihnya untuk diubah ukurannya; klik di tempat lain melepasnya.
-            // Saat mode pindah menyala, klik berikutnya justru memindahkan gambar ke titik itu.
-            el.addEventListener('click', function (e) {
-              // Menyorot lewat klik, bukan hanya lewat focusin: setelah bilah dilepas oleh klik
-              // di luar formulir, kursor sering masih tertinggal di kolom ini — klik berikutnya
-              // tidak memicu focusin sama sekali, dan bilahnya tak akan pernah muncul lagi.
-              diri.aktif = el;
-              if (diri.pindahMode && diri.gambar && e.target !== diri.gambar) {
-                diri.jatuhkanDiKursor();
-                return;
-              }
-              diri.pilihGambar(e.target.tagName === 'IMG' ? e.target : null);
-            });
-            // Tempel sebagai teks polos: menyalin dari pengolah kata membawa gaya berlapis yang
-            // toh dibuang sanitizer, tapi sempat mengacaukan tampilan editor lebih dulu.
-            el.addEventListener('paste', function (e) {
-              e.preventDefault();
-              var polos = (e.clipboardData || window.clipboardData).getData('text/plain');
-              document.execCommand('insertText', false, polos);
-            });
+          var el = this.$refs.permukaan;
+          var teks = this.$refs.teks;
+          // x-model mengisi `nilai` setelah init; kalau ada, ia yang menang atas isi textarea
+          // yang dirender server (pilihan jawaban tidak punya nilai server sama sekali).
+          if (this.nilai) {
+            teks.value = this.nilai;
+          }
+          el.innerHTML = teks.value;
+          this.nilai = teks.value;
+          el.addEventListener('input', function () {
+            diri.tulisBalik();
+            // Mengetik menggeser gambar, jadi pegangannya ikut dihitung ulang.
+            diri.letakkanPegangan();
+          });
+          // Klik gambar memilihnya untuk diubah ukurannya; klik di tempat lain melepasnya.
+          // Saat mode pindah menyala, klik berikutnya justru memindahkan gambar ke titik itu.
+          el.addEventListener('click', function (e) {
+            // Menyorot lewat klik, bukan hanya lewat focusin: setelah bilah dilepas oleh klik
+            // di luar kolom, kursor sering masih tertinggal di sini — klik berikutnya tidak
+            // memicu focusin sama sekali, dan bilahnya tak akan pernah muncul lagi.
+            diri.$store.rte.aktif = diri;
+            if (diri.pindahMode && diri.gambar && e.target !== diri.gambar) {
+              diri.jatuhkanDiKursor();
+              return;
+            }
+            diri.pilihGambar(e.target.tagName === 'IMG' ? e.target : null);
+          });
+          // Tempel sebagai teks polos: menyalin dari pengolah kata membawa gaya berlapis yang
+          // toh dibuang sanitizer, tapi sempat mengacaukan tampilan editor lebih dulu.
+          el.addEventListener('paste', function (e) {
+            e.preventDefault();
+            var polos = (e.clipboardData || window.clipboardData).getData('text/plain');
+            document.execCommand('insertText', false, polos);
           });
         },
-        /* Bilah alat mengikuti kolom yang sedang disorot, dan menghilang saat fokus keluar. */
+        /** Menyunting textarea langsung (mode HTML mentah) juga harus terbaca pemakai komponen. */
+        serap: function () {
+          this.nilai = this.$refs.teks.value;
+        },
+        tulisBalik: function () {
+          var isi = this.isiBersih();
+          this.$refs.teks.value = isi;
+          this.nilai = isi;
+        },
+        sorot: function () {
+          this.$store.rte.aktif = this;
+        },
         /*
-         * Klik di luar formulir melepas bilah. Tanpa ini bilah menggantung terus setelah orang
+         * Klik di luar kolom melepas bilahnya. Tanpa ini bilah menggantung terus setelah orang
          * beralih ke bagian lain halaman: focusin saja tidak cukup, sebab area yang tidak bisa
          * difokus tidak pernah memicunya.
          */
-        lepasSorot: function () {
-          this.pilihGambar(null);
-          this.aktif = null;
-          this.aktifOpsi = null;
-        },
         /*
-         * Bilah melayani dua macam kolom. Kolom prosa (Isi soal, Pembahasan) berupa permukaan
-         * contenteditable; pilihan jawaban tetap textarea polos dan hanya kebagian dua tombol —
-         * Rumus dan Sisipkan gambar. Itu memang satu-satunya yang dibutuhkan di teks sependek
-         * pilihan, dan menahannya sebagai textarea menjauhkan contenteditable dari x-for Alpine,
-         * yang menyusun ulang DOM tiap kali pilihan ditambah atau dihapus.
+         * Klik yang mendarat di bilah alat atau pegangan gambar bukan "di luar": keduanya sengaja
+         * dipasang di luar tiap kolom supaya tunggal, jadi setiap penekanan tombolnya akan
+         * terbaca sebagai klik ke luar dan menutup bilah yang barusan dipakai.
          */
-        aktifOpsi: null,
-        sorotKolom: function (e) {
-          var el = e.target.closest('[contenteditable][data-teks]');
-          var opsi = e.target.matches('textarea[name="optionBody"]') ? e.target : null;
-          if (el !== this.aktif) {
-            this.pilihGambar(null);
+        lepas: function (e) {
+          if (e && e.target.closest && e.target.closest('.editor-bar-melayang, .editor-pegangan')) {
+            return;
           }
-          this.aktif = el || null;
-          this.aktifOpsi = opsi;
-        },
-        /** Menyisipkan teks di posisi kursor sebuah textarea, menimpa yang tersorot. */
-        sisipKeOpsi: function (teks) {
-          var t = this.aktifOpsi;
-          var mulai = t.selectionStart, akhir = t.selectionEnd;
-          t.value = t.value.slice(0, mulai) + teks + t.value.slice(akhir);
-          t.selectionStart = t.selectionEnd = mulai + teks.length;
-          // x-model baru ikut kalau event input dilepas sendiri.
-          t.dispatchEvent(new Event('input', {bubbles: true}));
-          t.focus();
+          this.pilihGambar(null);
+          /*
+           * Hanya melepas kalau memang kolom INI yang sedang tercatat: klik yang memindahkan
+           * sorotan ke kolom lain memicu lepas() di kolom lama SESUDAH sorot() di kolom baru,
+           * dan mengosongkannya begitu saja akan membuat bilah berkedip hilang tiap perpindahan.
+           *
+           * Dibandingkan lewat $el, BUKAN lewat `this`: `this` di dalam metode Alpine adalah
+           * proxy gabungan yang dibuat ulang tiap evaluasi, sehingga `aktif === this` tidak
+           * pernah benar walau komponennya sama persis — bilahnya lalu menggantung selamanya.
+           * $el adalah simpul DOM sungguhan, dan itu stabil.
+           */
+          if (this.$store.rte.aktif && this.$store.rte.aktif.$el === this.$el) {
+            this.$store.rte.aktif = null;
+          }
         },
 
         /*
@@ -461,9 +589,6 @@
          * ukuran lewat CSS inline akan hilang tanpa jejak saat simpan. height dilepas supaya
          * rasionya mengikuti width (lihat aturan `.editor-isi img { height: auto }`).
          */
-        gambar: null,
-        gayaPegangan: '',
-        pindahMode: false,
         /*
          * Memindahkan gambar. Menyeretnya hanya andal dengan tetikus; di layar sentuh seret di
          * dalam contenteditable nyaris tidak bisa diandalkan. Jadi caranya dua ketukan: pilih
@@ -475,7 +600,6 @@
             return;
           }
           var img = this.gambar;
-          var tujuan = this.aktif;
           // Penanda kosong dipasang lebih dulu: begitu gambar dicabut, offset di dalam range
           // ikut bergeser dan titik jatuhnya meleset.
           var penanda = document.createTextNode('');
@@ -484,7 +608,7 @@
           penanda.parentNode.insertBefore(img, penanda);
           penanda.remove();
           this.pindahMode = false;
-          document.getElementById(tujuan.dataset.teks).value = this.isiBersih(tujuan);
+          this.tulisBalik();
           this.letakkanPegangan();
         },
         letakkanPegangan: function () {
@@ -518,17 +642,15 @@
           function lepas() {
             window.removeEventListener('pointermove', gerak);
             window.removeEventListener('pointerup', lepas);
-            diri.simpanUkuran();
+            diri.tulisBalik();
           }
           window.addEventListener('pointermove', gerak);
           window.addEventListener('pointerup', lepas);
         },
         pilihGambar: function (img) {
-          this.permukaan.forEach(function (el) {
-            Array.prototype.forEach.call(el.querySelectorAll('img.terpilih'), function (g) {
-              g.classList.remove('terpilih');
-            });
-          });
+          Array.prototype.forEach.call(
+            this.$refs.permukaan.querySelectorAll('img.terpilih'),
+            function (g) { g.classList.remove('terpilih'); });
           if (img) {
             img.classList.add('terpilih');
           }
@@ -543,18 +665,9 @@
             img.addEventListener('load', this.letakkanPegangan.bind(this), {once: true});
           }
         },
-        /*
-         * `terpilih` hanya penanda tampilan. Ia dilepas sesaat sebelum isi disalin ke textarea
-         * supaya tidak ikut terkirim — sanitizer memang membuang atribut class, tapi mengirim
-         * penanda yang mustahil berarti apa pun di server hanya menyesatkan pembaca berikutnya.
-         */
-        simpanUkuran: function () {
-          var el = this.gambar.closest('[contenteditable][data-teks]');
-          document.getElementById(el.dataset.teks).value = this.isiBersih(el);
-        },
         /** Lebar kolom yang benar-benar tersedia: clientWidth masih memuat padding permukaan. */
         lebarKolom: function () {
-          var el = this.gambar.closest('[contenteditable]');
+          var el = this.$refs.permukaan;
           var gaya = getComputedStyle(el);
           return Math.round(el.clientWidth
                   - parseFloat(gaya.paddingLeft) - parseFloat(gaya.paddingRight));
@@ -562,7 +675,7 @@
         aturLebar: function (px) {
           this.gambar.setAttribute('width', Math.max(40, Math.min(px, this.lebarKolom())));
           this.gambar.removeAttribute('height');
-          this.simpanUkuran();
+          this.tulisBalik();
           this.letakkanPegangan();
         },
         skalaGambar: function (faktor) {
@@ -576,10 +689,16 @@
         ukuranAsli: function () {
           this.gambar.removeAttribute('width');
           this.gambar.removeAttribute('height');
-          this.simpanUkuran();
+          this.tulisBalik();
         },
-        /** innerHTML tanpa penanda pilihan tampilan. */
-        isiBersih: function (el) {
+        /*
+         * innerHTML tanpa penanda pilihan tampilan. `terpilih` dilepas sesaat sebelum isi
+         * disalin ke textarea supaya tidak ikut terkirim — sanitizer memang membuang atribut
+         * class, tapi mengirim penanda yang mustahil berarti apa pun di server hanya
+         * menyesatkan pembaca berikutnya.
+         */
+        isiBersih: function () {
+          var el = this.$refs.permukaan;
           var terpilih = el.querySelector('img.terpilih');
           if (!terpilih) {
             return el.innerHTML;
@@ -593,46 +712,31 @@
           return html;
         },
         perintah: function (nama, nilai) {
-          if (!this.aktif) {
-            return;
-          }
-          this.aktif.focus();
+          this.$refs.permukaan.focus();
           document.execCommand(nama, false, nilai || null);
-          document.getElementById(this.aktif.dataset.teks).value = this.isiBersih(this.aktif);
+          this.tulisBalik();
         },
         /*
          * Rumus tetap disimpan sebagai LaTeX di antara $...$, bukan HTML hasil render (TC-24).
          * Tombol ini hanya membungkus teks terpilih supaya penandanya tidak perlu dihafal.
          */
         sisipRumus: function () {
-          if (this.aktifOpsi) {
-            var tersorot = this.aktifOpsi.value.slice(
-              this.aktifOpsi.selectionStart, this.aktifOpsi.selectionEnd);
-            this.sisipKeOpsi('$' + (tersorot || 'x^2') + '$');
-            return;
-          }
-          if (!this.aktif) {
-            return;
-          }
-          this.aktif.focus();
+          this.$refs.permukaan.focus();
           var pilihan = String(window.getSelection());
           document.execCommand('insertText', false, '$' + (pilihan || 'x^2') + '$');
-          document.getElementById(this.aktif.dataset.teks).value = this.isiBersih(this.aktif);
+          this.tulisBalik();
         },
         alihKode: function () {
           this.kode = !this.kode;
-          var diri = this;
           if (this.kode) {
             this.pilihGambar(null);
           } else {
-            this.permukaan.forEach(function (el) {
-              el.innerHTML = document.getElementById(el.dataset.teks).value;
-            });
+            this.$refs.permukaan.innerHTML = this.$refs.teks.value;
           }
         },
         sisipGambar: function (e) {
           var berkas = e.target.files[0];
-          if (!berkas || (!this.aktif && !this.aktifOpsi)) {
+          if (!berkas) {
             return;
           }
           var data = new FormData();
@@ -647,27 +751,13 @@
             .then(function (html) {
               var src = new DOMParser().parseFromString(html, 'text/html')
                 .querySelector('img').getAttribute('src');
-              if (diri.aktifOpsi) {
-                diri.sisipKeOpsi('<img src="' + src + '" alt="">');
-                return;
-              }
               diri.perintah('insertHTML', '<img src="' + src + '" alt="">');
-              var baru = diri.aktif.querySelector('img[src="' + src + '"]');
-              diri.pilihGambar(baru);
+              diri.pilihGambar(diri.$refs.permukaan.querySelector('img[src="' + src + '"]'));
             })
             .finally(function () {
               diri.unggah = false;
               e.target.value = '';
             });
-        },
-        tambahOpsi: function () {
-          this.opsi.push({body: '', benar: false});
-        },
-        hapusOpsi: function (idx) {
-          this.opsi.splice(idx, 1);
-          if (this.correctIndex >= this.opsi.length) {
-            this.correctIndex = 0;
-          }
         }
       };
     });
@@ -693,6 +783,7 @@
   document.addEventListener('DOMContentLoaded', renderPratinjauLatex);
   document.body.addEventListener('htmx:afterSwap', renderPratinjauLatex);
 </script>
+</th:block>
 
 </body>
 </html>

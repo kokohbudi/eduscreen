@@ -52,7 +52,7 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
     @Autowired AssignmentPublishingService publishing;
 
     @Test
-    @DisplayName("TC-13: perakit Exercise dirender dengan dropdown Paket dan panel hasil kosong tanpa galat templat")
+    @DisplayName("TC-13: perakit Exercise dirender dengan dropdown sumber referensi dan panel hasil kosong tanpa galat templat")
     void perakitDirenderDenganDropdownPaket() throws Exception {
         ClientEntity client = data.client("SD Perakit Render");
         AppUserEntity guruEntity = data.user(client, UserRole.GURU, "Guru Render");
@@ -63,7 +63,7 @@ class ExerciseBuilderRenderTest extends PostgresTestBase {
         mvc.perform(get("/exercise/{id}", exercise.getId()).with(guru))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Paket Render A")))
-                .andExpect(content().string(containsString("-- Paket --")))
+                .andExpect(content().string(containsString("-- Sumber --")))
                 .andExpect(content().string(containsString("Belum ada soal yang cocok.")))
                 .andExpect(content().string(not(containsString("Subject"))));
     }

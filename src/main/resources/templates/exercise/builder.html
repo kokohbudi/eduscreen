@@ -20,12 +20,38 @@
       </form>
     </div>
 
+    <!-- Judul disunting di tempat (BR-E06): merakit Exercise adalah satu layar — memberi judul,
+         mengambil soal referensi, dan menulis soal sendiri. PUT-nya membalas 204, jadi tidak ada
+         fragmen yang menimpa kolom ini saat Guru masih mengetik. -->
+    <section th:unless="${exercise.locked}" class="card mb-6">
+      <label for="judulExercise" class="label">Judul Exercise</label>
+      <input type="text" id="judulExercise" name="title" th:value="${exercise.title}"
+             th:attr="hx-put=@{/exercise/{id}/judul(id=${exercise.id})}"
+             hx-trigger="change, blur" hx-swap="none" class="input text-lg font-medium">
+    </section>
+
     <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
 
       <!-- Panel kiri: soal yang sudah dirakit, urut sesuai penyajian. -->
       <section class="card">
         <h2 class="card-title mb-3">Soal terpasang</h2>
         <div id="daftar-item" th:replace="~{::item}"></div>
+
+        <!-- Menulis soal sendiri tanpa meninggalkan perakit (BR-E05). Editornya fragmen yang sama
+             dengan Bank Soal, dipanggil tanpa Paket: Guru tidak pernah memilih wadah, karena
+             soal tulisannya memang hidup di Exercise ini saja. -->
+        <div th:unless="${exercise.locked}" class="mt-4">
+          <button type="button"
+                  th:attr="hx-get=@{/exercise/{id}/soal/baru(id=${exercise.id})}"
+                  hx-target="#editor-soal-lepas" hx-swap="innerHTML"
+                  class="btn btn-primary btn-sm">+ Tulis soal baru</button>
+          <!-- Setelah soal tersimpan (POST), editornya diganti formulir kosong: menulis soal
+               berderet adalah kebiasaan, dan menyisakan teks lama di kolom hanya mengundang
+               Guru menyimpannya dua kali. Suntingan (PUT) tidak ikut dibersihkan. -->
+          <div id="editor-soal-lepas" class="mt-3"
+               th:attr="data-baru=@{/exercise/{id}/soal/baru(id=${exercise.id})}"
+               hx-on::after-request="if (event.detail.successful &amp;&amp; event.detail.requestConfig.verb === 'post') htmx.ajax('GET', this.dataset.baru, {target: this, swap: 'innerHTML'})"></div>
+        </div>
       </section>
 
       <!-- Panel kanan: penelusuran bank soal untuk ditambahkan. Sengaja TIDAK ada peringatan
@@ -35,7 +61,7 @@
            hanya MENYARING tampilan pencarian per Paket (ADR-0018) — bukan membatasi soal apa yang
            boleh ditambahkan. -->
       <section th:unless="${exercise.locked}" class="card">
-        <h2 class="card-title mb-3">Cari &amp; tambah soal</h2>
+        <h2 class="card-title mb-3">Ambil dari referensi</h2>
         <!-- "change from:#paketIdBuilder" sengaja TIDAK ikut memicu pencarian: mengganti Paket
              membuat #topicIdBuilder dimuat ulang lewat AJAX terpisah (lihat onchange di bawah)
              yang baru selesai belakangan; mencari lebih dulu hanya akan memakai topicId lama yang
@@ -44,11 +70,11 @@
               hx-trigger="submit, change from:#topicIdBuilder, change from:#typeBuilder, change from:#sembunyikanBuilder"
               class="mb-4 flex flex-wrap items-end gap-2 text-sm">
           <div>
-            <label for="paketIdBuilder" class="label">Paket</label>
+            <label for="paketIdBuilder" class="label">Sumber</label>
             <select id="paketIdBuilder" name="paketId"
                     onchange="htmx.ajax('GET', '/bank-soal/paket/' + this.value + '/topic-options', {target: '#topicIdBuilder', swap: 'innerHTML'})"
                     class="select">
-              <option value="">-- Paket --</option>
+              <option value="">-- Sumber --</option>
               <option th:each="p : ${pakets}" th:value="${p.id}" th:text="${p.title}">Paket</option>
             </select>
           </div>
@@ -101,7 +127,7 @@
                   hx-include="#paketIdBuilder" hx-target="#daftar-item" hx-swap="outerHTML"
                   hx-trigger="click[document.getElementById('paketIdBuilder').value]"
                   class="btn btn-secondary btn-sm">
-            Tambah seluruh Paket ini
+            Tambah semua soal sumber ini
           </button>
         </form>
 
@@ -145,12 +171,17 @@
     <div class="mt-4 flex items-center justify-between text-sm text-ink-2" th:if="${hasil.totalPages > 0}">
       <span th:text="|Halaman ${hasil.number + 1} dari ${hasil.totalPages}|">Halaman</span>
       <div class="flex gap-2">
-        <a th:if="${hasil.hasPrevious()}"
-           th:href="@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1})}"
-           class="btn btn-secondary btn-sm">Sebelumnya</a>
-        <a th:if="${hasil.hasNext()}"
-           th:href="@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1})}"
-           class="btn btn-secondary btn-sm">Berikutnya</a>
+        <!-- Menukar fragmen di tempat, bukan menavigasi (TC-14): rute /cari membalas fragmen
+             "hasil", jadi tautan biasa akan mendaratkan Guru di potongan tabel tanpa layout —
+             tanpa judul Exercise, tanpa soal terpasang, tanpa jalan kembali. -->
+        <button th:if="${hasil.hasPrevious()}" type="button"
+                th:attr="hx-get=@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number - 1})}"
+                hx-target="#hasil-soal" hx-swap="outerHTML"
+                class="btn btn-secondary btn-sm">Sebelumnya</button>
+        <button th:if="${hasil.hasNext()}" type="button"
+                th:attr="hx-get=@{/exercise/{id}/cari(id=${exerciseId}, paketId=${paketId}, topicId=${topicId}, q=${q}, type=${type}, sembunyikanTerpasang=${sembunyikanTerpasang}, page=${hasil.number + 1})}"
+                hx-target="#hasil-soal" hx-swap="outerHTML"
+                class="btn btn-secondary btn-sm">Berikutnya</button>
       </div>
     </div>
     <p th:if="${hasil.totalElements == 0}" class="text-sm text-ink-2">Belum ada soal yang cocok.</p>
@@ -215,6 +246,12 @@
                   class="btn btn-secondary btn-sm px-2 disabled:opacity-30">&uarr;</button>
           <button type="button" onclick="urutkanItem(this, 'bawah')" th:disabled="${it.index == item.size() - 1}"
                   class="btn btn-secondary btn-sm px-2 disabled:opacity-30">&darr;</button>
+          <!-- Hanya soal tulisan Guru yang bisa disunting dari sini (BR-E05): soal referensi
+               milik Paket, dan menyuntingnya akan mengubah isi Paket di luar Exercise ini. -->
+          <button th:if="${lepas.contains(satu.questionId)}" type="button"
+                  th:attr="hx-get=@{/exercise/{eid}/soal/{qid}(eid=${exercise.id},qid=${satu.questionId})}"
+                  hx-target="#editor-soal-lepas" hx-swap="innerHTML"
+                  class="btn btn-secondary btn-sm btn-icon" title="Ubah" aria-label="Ubah">&#9998;</button>
           <button type="button"
                   th:attr="hx-delete=@{/exercise/{eid}/item/{qid}(eid=${exercise.id},qid=${satu.questionId})}"
                   hx-target="#daftar-item" hx-swap="outerHTML"
@@ -242,6 +279,10 @@
   </div>
 
 </div>
+
+<!-- Editor soal dimuat ke dalam halaman ini lewat HTMX (BR-E05), jadi definisi komponennya
+     harus sudah ada di sini — fragmennya sendiri hanya membawa seed. -->
+<th:block th:replace="~{soal/editor :: skrip}"></th:block>
 
 <!-- Reorder tanpa pustaka drag-and-drop baru: tombol naik/turun menukar urutan DOM lalu
      mengirim urutan questionId lengkap lewat PUT /exercise/{id}/urutan (TC-14, fragmen balik). -->

@@ -6,6 +6,7 @@ import com.eduscreen.app.modules.assessment.repository.ExerciseItemRepository;
 import com.eduscreen.app.modules.assessment.repository.ExerciseRepository;
 import com.eduscreen.app.modules.assessment.repository.PaketVersionEntity;
 import com.eduscreen.app.modules.assessment.repository.QuestionEntity;
+import com.eduscreen.app.modules.assessment.repository.PaketItemRepository;
 import com.eduscreen.app.modules.assessment.repository.QuestionRepository;
 import com.eduscreen.app.shared.domain.ClientClock;
 import com.eduscreen.app.shared.web.ResourceNotFoundException;
@@ -27,20 +28,26 @@ import java.util.UUID;
 @Service
 public class ExerciseService {
 
+    /** Judul Exercise yang baru lahir dari perakit, sebelum Guru mengetik judulnya sendiri (BR-E06). */
+    public static final String JUDUL_BAWAAN = "Latihan tanpa judul";
+
     private final ExerciseRepository exercises;
     private final ExerciseItemRepository items;
     private final QuestionRepository questions;
+    private final PaketItemRepository paketItems;
     private final PaketAccessService access;
     private final ClientClock clock;
 
     public ExerciseService(ExerciseRepository exercises,
                            ExerciseItemRepository items,
                            QuestionRepository questions,
+                           PaketItemRepository paketItems,
                            PaketAccessService access,
                            ClientClock clock) {
         this.exercises = exercises;
         this.items = items;
         this.questions = questions;
+        this.paketItems = paketItems;
         this.access = access;
         this.clock = clock;
     }
@@ -68,12 +75,26 @@ public class ExerciseService {
                 .orElseThrow(() -> new ResourceNotFoundException("Exercise tidak ditemukan"));
     }
 
+    /**
+     * Judul kosong diterima dan diganti {@link #JUDUL_BAWAAN} (BR-E06): perakit adalah satu layar
+     * tempat Guru memberi judul, memilih soal referensi, dan menulis soal sendiri, jadi Exercise
+     * harus sudah ada sebelum ia sempat mengetik apa pun.
+     */
     @Transactional
     public ExerciseEntity create(UUID clientId, String title, UUID createdBy) {
+        String judul = title == null || title.isBlank() ? JUDUL_BAWAAN : title.trim();
+        return exercises.save(new ExerciseEntity(clientId, judul, createdBy));
+    }
+
+    /** Mengganti judul dari dalam perakit (BR-E06); Exercise terkunci menolaknya seperti perubahan lain (BR-E04). */
+    @Transactional
+    public ExerciseEntity rename(UUID exerciseId, String title, UUID clientId) {
+        ExerciseEntity exercise = requireUnlocked(exerciseId, clientId);
         if (title == null || title.isBlank()) {
-            throw new IllegalArgumentException("Judul Exercise wajib diisi");
+            throw new IllegalArgumentException("Judul Exercise tidak boleh kosong");
         }
-        return exercises.save(new ExerciseEntity(clientId, title.trim(), createdBy));
+        exercise.setTitle(title.trim());
+        return exercises.save(exercise);
     }
 
     @Transactional(readOnly = true)
@@ -190,6 +211,10 @@ public class ExerciseService {
     public void removeQuestion(UUID exerciseId, UUID questionId, UUID clientId) {
         requireUnlocked(exerciseId, clientId);
         items.findByExerciseIdAndQuestionId(exerciseId, questionId).ifPresent(items::delete);
+        // Soal lepas (BR-E05) tidak punya rumah lain: begitu Exercise terakhir yang memuatnya
+        // melepasnya, ia tidak akan pernah bisa ditemukan lagi lewat layar mana pun. Dihapus di
+        // sini supaya tidak menumpuk sebagai baris yatim yang tak terlihat siapa pun.
+        hapusSoalLepasYatim(questionId, clientId);
         // Posisi dirapatkan ulang supaya tidak bolong; addQuestion menghitung posisi berikutnya
         // dari jumlah item sekarang, dan posisi berlubang akan membuatnya bentrok.
         renumber(exerciseId);
@@ -241,6 +266,23 @@ public class ExerciseService {
                     "Exercise sudah terkunci karena sudah diterbitkan; duplikasikan untuk mengubahnya");
         }
         return exercise;
+    }
+
+    /**
+     * Menghapus lunak soal yang tidak punya penempatan Paket dan tidak lagi dipakai Exercise mana
+     * pun (BR-E05). Soal berpenempatan — miliknya sendiri maupun master — tidak tersentuh: ia
+     * masih hidup di Paketnya. Soal master juga lolos dengan sendirinya karena
+     * {@code findByIdAndClientId} tidak akan mencocokkan {@code client_id} null.
+     */
+    private void hapusSoalLepasYatim(UUID questionId, UUID clientId) {
+        if (!paketItems.findPlacements(List.of(questionId)).isEmpty()
+                || items.existsByQuestionId(questionId)) {
+            return;
+        }
+        questions.findByIdAndClientId(questionId, clientId).ifPresent(soal -> {
+            soal.softDelete(clock.now());
+            questions.save(soal);
+        });
     }
 
     private void renumber(UUID exerciseId) {

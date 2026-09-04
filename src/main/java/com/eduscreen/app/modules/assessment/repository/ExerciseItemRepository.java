@@ -15,5 +15,8 @@ public interface ExerciseItemRepository extends JpaRepository<ExerciseItemEntity
 
     long countByExerciseId(UUID exerciseId);
 
+    /** Apakah soal ini masih dipakai Exercise mana pun — penentu nasib soal lepas (BR-E05). */
+    boolean existsByQuestionId(UUID questionId);
+
     void deleteByExerciseId(UUID exerciseId);
 }

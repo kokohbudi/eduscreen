@@ -283,8 +283,15 @@ public class QuestionService {
      */
     @Transactional
     public QuestionEntity create(QuestionDraft draft, UUID clientId, UUID paketId) {
-        TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
-        PaketVersionEntity version = pakets.draftOf(paketId);
+        // paketId null: soal lepas yang Guru tulis di dalam perakit Exercise (BR-E05). Ia lahir
+        // tanpa penempatan sama sekali — bukan di Paket tersembunyi — sehingga tidak pernah ikut
+        // muncul di panel referensi, yang menuntut adanya paket_item.
+        boolean lepas = paketId == null;
+        if (lepas) {
+            requireTanpaTopic(clientId, draft.topicId());
+        }
+        TopicEntity topic = lepas ? null : requireTopicOf(draft.topicId(), paketId, clientId);
+        PaketVersionEntity version = lepas ? null : pakets.draftOf(paketId);
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
         if (bodyHtml.isBlank()) {
@@ -297,7 +304,9 @@ public class QuestionService {
         question = questions.save(question);
         // Soal baru mendarat di ekor Topic-nya. Tanpa ini setiap soal lahir di posisi 0 dan
         // urutan yang dilihat penulis ditentukan kebetulan.
-        items.save(new PaketItemEntity(version, topic, question, items.nextPosition(version.getId(), topic.getId())));
+        if (!lepas) {
+            items.save(new PaketItemEntity(version, topic, question, items.nextPosition(version.getId(), topic.getId())));
+        }
 
         saveOptions(question.getId(), draft.options());
         return question;
@@ -320,11 +329,21 @@ public class QuestionService {
         if (clientId == null && question.isPublished()) {
             throw new QuestionFrozenException();
         }
-        TopicEntity topic = requireTopicOf(draft.topicId(), paketId, clientId);
-        PaketVersionEntity version = pakets.draftOf(paketId);
+        // paketId null: jalur perakit Exercise, hanya untuk soal lepas (BR-E05). Soal yang punya
+        // penempatan ditolak di sini — menyuntingnya lewat jalur ini akan mengubah isi Paket
+        // tanpa Guru pernah melihat Paket mana yang ia sentuh.
+        boolean lepas = paketId == null;
+        if (lepas) {
+            requireTanpaTopic(clientId, draft.topicId());
+            if (!items.findPlacements(List.of(id)).isEmpty()) {
+                throw new ResourceNotFoundException("Soal tidak ditemukan");
+            }
+        }
+        TopicEntity topic = lepas ? null : requireTopicOf(draft.topicId(), paketId, clientId);
+        PaketVersionEntity version = lepas ? null : pakets.draftOf(paketId);
         // Soal yang tidak ada di versi kerja Paket ini — sudah dibuang dari sana, atau memang
         // milik Paket lain — diperlakukan seolah tidak ada (TC-09).
-        PaketItemEntity item = items.findByPaketVersionIdAndQuestionId(version.getId(), id)
+        PaketItemEntity item = lepas ? null : items.findByPaketVersionIdAndQuestionId(version.getId(), id)
                 .orElseThrow(() -> new ResourceNotFoundException("Soal tidak ditemukan"));
 
         String bodyHtml = sanitizer.sanitize(draft.bodyHtml());
@@ -333,7 +352,7 @@ public class QuestionService {
         }
         validateOptions(draft.type(), draft.options());
 
-        if (!topic.getId().equals(item.getTopicId())) {
+        if (!lepas && !topic.getId().equals(item.getTopicId())) {
             int posisi = items.nextPosition(version.getId(), topic.getId());
             item.moveToTopic(topic);
             item.moveTo(posisi);
@@ -444,6 +463,20 @@ public class QuestionService {
      * pencarian bank soal tapi tetap terbaca oleh Exercise dan sesi yang sudah memakainya —
      * itu ditegakkan lewat {@code @SQLRestriction} plus {@code findAllForSnapshot}.
      */
+    /**
+     * Pagar jalur soal lepas (BR-E05). Topic yang ikut terkirim ditolak, bukan diabaikan: kalau
+     * penulisnya mengira soalnya mendarat di sebuah Topic, diam-diam membuangnya berarti ia baru
+     * tahu setelah mencari soal itu di Paket yang tidak pernah memuatnya.
+     */
+    private static void requireTanpaTopic(UUID clientId, UUID topicId) {
+        if (clientId == null) {
+            throw new IllegalArgumentException("Soal master wajib menyebut Paketnya");
+        }
+        if (topicId != null) {
+            throw new IllegalArgumentException("Soal yang ditulis di perakit Exercise tidak menempati Topic mana pun");
+        }
+    }
+
     @Transactional
     public void softDelete(UUID id, UUID clientId) {
         softDelete(id, clientId, null);

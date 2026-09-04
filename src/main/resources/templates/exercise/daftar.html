@@ -6,15 +6,15 @@
   <div th:fragment="content" th:remove="tag">
 
     <!-- Buat Exercise memakai POST biasa (bukan HTMX): kontraknya membalas 302 ke perakit
-         (BR-E, FR-024), bukan fragmen (TC-14 hanya berlaku untuk endpoint HTMX). -->
-    <section class="card mb-6">
-      <h2 class="card-title mb-3">Buat Exercise</h2>
-      <form th:action="@{/exercise}" method="post" class="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div class="flex-1">
-          <label for="title" class="label">Judul</label>
-          <input type="text" id="title" name="title" required placeholder="mis. Latihan Pecahan Bab 3" class="input">
-        </div>
-        <button type="submit" class="btn btn-primary">Buat &amp; rakit</button>
+         (BR-E, FR-024), bukan fragmen (TC-14 hanya berlaku untuk endpoint HTMX).
+
+         Tanpa kolom judul (BR-E06): judul, pemilihan soal referensi, dan penulisan soal sendiri
+         semuanya terjadi di perakit. Menahan Guru di layar ini hanya untuk satu kolom membuat
+         satu pekerjaan terpecah jadi dua layar. -->
+    <section class="card mb-6 flex flex-wrap items-center justify-between gap-3">
+      <p class="text-sm text-ink-2">Judulnya diisi di dalam perakit, bersama soal-soalnya.</p>
+      <form th:action="@{/exercise}" method="post">
+        <button type="submit" class="btn btn-primary">Buat Exercise</button>
       </form>
     </section>
 

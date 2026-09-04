@@ -254,15 +254,16 @@ class QuestionBankIT extends PostgresTestBase {
         AppUserEntity guruX = data.user(clientX, UserRole.GURU, "Guru X");
         UserPrincipal guruXPrincipal = data.principal(guruX);
 
-        // topicId null: soal tidak boleh menggantung di luar taksonomi (BR-Q02) — tanpa Topic,
-        // soal itu tidak akan pernah muncul lewat navigasi Subject/Topic mana pun di bank soal.
+        // topicId null saat menulis KE DALAM sebuah Paket: soal tidak boleh menggantung di luar
+        // taksonomi Paket itu (BR-Q02) — tanpa Topic ia tidak akan pernah muncul lewat navigasi
+        // Paket/Topic mana pun di bank soal. Soal Lepas di perakit Exercise (BR-E05) lewat jalur
+        // lain: paketId null, dan justru memang tidak punya Topic.
+        PaketEntity paketX = data.paket(clientX, "Matematika Kelas 5 BankSoal2", "Paket AC-Q04");
         QuestionService.QuestionDraft tanpaTopic = new QuestionService.QuestionDraft(
                 null, QuestionType.MULTIPLE_CHOICE, "<p>Soal tanpa topic</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false)));
-        // Belum ada Topic tujuan, jadi belum ada Paket tujuan yang bisa diturunkan — nil dipakai
-        // sekadar mengisi parameter; requireWritableTopic sudah menolak topicId null lebih dulu.
-        assertThatThrownBy(() -> questionService.create(tanpaTopic, guruXPrincipal.clientId(), null))
+        assertThatThrownBy(() -> questionService.create(tanpaTopic, guruXPrincipal.clientId(), paketX.getId()))
                 .isInstanceOf(IllegalArgumentException.class);
 
         // Topic milik Client Y — bukan GLOBAL — harus diperlakukan seolah tidak ada bagi
@@ -274,9 +275,7 @@ class QuestionBankIT extends PostgresTestBase {
                 topicMilikY.getId(), QuestionType.MULTIPLE_CHOICE, "<p>Soal topic asing</p>", null,
                 List.of(new QuestionService.OptionDraft("<p>A</p>", true),
                         new QuestionService.OptionDraft("<p>B</p>", false)));
-        // paketId nil di sini juga: Topic milik Client Y sudah ditolak sebelum paketId sempat
-        // dibandingkan, sama seperti kasus topicId null di atas.
-        assertThatThrownBy(() -> questionService.create(topicAsing, guruXPrincipal.clientId(), null))
+        assertThatThrownBy(() -> questionService.create(topicAsing, guruXPrincipal.clientId(), paketX.getId()))
                 .isInstanceOf(ResourceNotFoundException.class);
     }
 

@@ -65,13 +65,18 @@ Peran: Client Admin dan Guru. Ruang kerja Eduscreen memakai rute kembar berawala
 | Metode | Jalur | Peran | Masukan | Keluaran | Kegagalan |
 | --- | --- | --- | --- | --- | --- |
 | GET | `/exercise` | Client Admin, Guru | `q`, `page` | `page` daftar se-Client (FR-004) | — |
-| POST | `/exercise` | Guru | `title` | `302` ke perakit | `400` |
+| POST | `/exercise` | Guru | `title` (opsional; kosong → judul bawaan, BR-E06) | `302` ke perakit | — |
 | GET | `/exercise/{id}` | Client Admin, Guru | `paketId`, `topicId`, `q`, `page`, `exerciseId`, `type`, `sembunyikanTerpasang` (panel penelusuran) | `page` perakit | `404` |
 | POST | `/exercise/{id}/item` | Guru | `questionId` | `fragment` daftar item | `404`; `409` bila terkunci |
 | POST | `/exercise/{id}/item/topik` | Guru | `topicId` | `fragment` daftar item | `404`; `409` bila terkunci |
 | POST | `/exercise/{id}/item/terpilih` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
 | DELETE | `/exercise/{id}/item/{questionId}` | Guru | — | `fragment` daftar item | `404`; `409` bila terkunci |
 | PUT | `/exercise/{id}/urutan` | Guru | `questionIds[]` | `fragment` daftar item | `404`; `409` bila terkunci |
+| PUT | `/exercise/{id}/judul` | Guru | `title` | `204` | `404`; `409` bila terkunci |
+| GET | `/exercise/{id}/soal/baru` | Guru | — | `fragment` editor soal tanpa Paket (BR-E05) | `404` |
+| GET | `/exercise/{id}/soal/{questionId}` | Guru | — | `fragment` editor soal lepas | `404`, termasuk soal berpenempatan |
+| POST | `/exercise/{id}/soal` | Guru | `type`, `bodyHtml`, `explanationHtml`, `optionBody[]`, `correctIndex` | `fragment` daftar item | `404`; `409` bila terkunci |
+| PUT | `/exercise/{id}/soal/{questionId}` | Guru | sama seperti POST | `fragment` daftar item | `404`, termasuk soal berpenempatan |
 | POST | `/exercise/{id}/duplikat` | Guru | — | `302` ke Exercise baru | `404` |
 
 **Aturan mengikat**

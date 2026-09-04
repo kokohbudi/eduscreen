@@ -155,8 +155,15 @@
   ::placeholder {
     color: var(--ink-3);
   }
+  /*
+   * Pasangan fill + ink, bukan accent-soft sendirian. Tanpa `color` eksplisit teks seleksi
+   * mewarisi warnanya sendiri, sehingga teks yang sudah gelap di tema gelap (`--accent-ink`
+   * pada .btn-primary) hilang di atas sorotan; dan accent-soft di tema gelap hanya
+   * oklch(0.25) di atas latar oklch(0.13) — sorotannya sendiri nyaris tak terlihat.
+   */
   ::selection {
-    background: var(--accent-soft);
+    background: var(--accent-fill);
+    color: var(--accent-ink);
   }
 }
 

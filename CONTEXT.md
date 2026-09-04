@@ -68,6 +68,10 @@ _Hindari_: Edit, Perubahan, Versi Soal
 Hak satu Client membaca satu Paket Eduscreen lewat satu Versi Paket terbit, sampai tanggal tertentu. Diberi Eduscreen Admin, bukan diambil Client. Client memilih sendiri kapan pindah ke versi terbit yang lebih baru.
 _Hindari_: Adopsi, Langganan, Lisensi, Katalog
 
+**Soal Lepas**:
+Question milik Client yang lahir di dalam perakit Exercise dan tidak punya Paket Item mana pun. Ia hidup di Exercise yang memuatnya, tidak muncul di panel referensi, dan hilang saat Exercise terakhir yang memakainya melepasnya.
+_Hindari_: Soal Custom, Soal Manual, Soal Tanpa Paket
+
 **Option**:
 Satu pilihan jawaban pada Question bertipe `MULTIPLE_CHOICE`. Tepat satu Option benar.
 _Hindari_: Pilihan, Choice, Jawaban
@@ -77,7 +81,7 @@ Kumpulan seluruh Question milik satu pemilik — Eduscreen atau satu Client — 
 _Hindari_: Bank Soal, Repository Soal
 
 **Exercise**:
-Templat statis berisi kumpulan Question terurut, diracik untuk satu tujuan tertentu. Boleh memuat Question lintas Subject dan Topic. Netral terhadap mode — Exercise yang sama bisa diterbitkan sebagai Quiz maupun Practice.
+Templat statis berisi kumpulan Question terurut, diracik untuk satu tujuan tertentu. Boleh memuat Question lintas Subject dan Topic. Netral terhadap mode — Exercise yang sama bisa diterbitkan sebagai Quiz maupun Practice. Dari sudut Guru, Paket hanyalah sumber referensi yang dibaca: hasil perakitan selalu Exercise, dan soal yang ia tulis sendiri lahir tanpa penempatan Paket sama sekali (Soal Lepas).
 _Hindari_: Paket Soal, Latihan, Set Soal, Kuis
 
 ## Distribusi

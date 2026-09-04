@@ -8,7 +8,9 @@ import com.eduscreen.app.modules.assessment.service.ExerciseService;
 import com.eduscreen.app.modules.assessment.service.PaketAccessService;
 import com.eduscreen.app.modules.assessment.service.QuestionService;
 import com.eduscreen.app.shared.security.UserPrincipal;
+import com.eduscreen.app.shared.web.ResourceNotFoundException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -18,10 +20,13 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseStatus;
 
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -60,10 +65,28 @@ public class ExerciseController {
         return "exercise/daftar";
     }
 
+    /**
+     * Judul opsional (BR-E06): daftar Exercise cukup punya satu tombol, dan judulnya diketik di
+     * dalam perakit bersama pemilihan soal dan penulisan soal sendiri — satu layar, bukan dua.
+     */
     @PostMapping("/exercise")
-    public String create(@RequestParam String title, @AuthenticationPrincipal UserPrincipal user) {
+    public String create(@RequestParam(required = false) String title,
+                         @AuthenticationPrincipal UserPrincipal user) {
         ExerciseEntity exercise = exercises.create(user.requireClientId(), title, user.userId());
         return "redirect:/exercise/" + exercise.getId();
+    }
+
+    /**
+     * Ganti judul dari dalam perakit. Balasannya kosong (204): kolom judulnya sudah memuat teks
+     * yang benar di layar Guru, jadi menukar fragmen apa pun ke sana hanya akan memindahkan
+     * kursornya di tengah mengetik.
+     */
+    @PutMapping("/exercise/{id}/judul")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void rename(@PathVariable UUID id,
+                       @RequestParam String title,
+                       @AuthenticationPrincipal UserPrincipal user) {
+        exercises.rename(id, title, user.requireClientId());
     }
 
     @GetMapping("/exercise/{id}")
@@ -207,6 +230,89 @@ public class ExerciseController {
         return "exercise/builder :: item";
     }
 
+    /**
+     * Editor soal di dalam perakit (BR-E05). Fragmen yang sama dengan Bank Soal
+     * ({@code soal/editor :: detail}), dipanggil tanpa {@code paket}: dari sudut Guru tidak ada
+     * istilah Paket saat merakit — Paket hanya sumber referensi yang dibaca di panel sebelah.
+     */
+    @GetMapping("/exercise/{id}/soal/baru")
+    public String soalBaru(@PathVariable UUID id, @AuthenticationPrincipal UserPrincipal user, Model model) {
+        exercises.require(id, user.requireClientId());
+        isiEditorLepas(id, null, model);
+        return "soal/editor :: detail";
+    }
+
+    /** Menyunting soal lepas yang sudah terpasang; soal berpenempatan ditolak {@link QuestionService}. */
+    @GetMapping("/exercise/{id}/soal/{soalId}")
+    public String soalSunting(@PathVariable UUID id,
+                              @PathVariable UUID soalId,
+                              @AuthenticationPrincipal UserPrincipal user,
+                              Model model) {
+        UUID clientId = user.requireClientId();
+        exercises.require(id, clientId);
+        QuestionEntity soal = questions.require(soalId, clientId);
+        if (!questions.placementsOf(List.of(soalId)).isEmpty()) {
+            throw new ResourceNotFoundException("Soal tidak ditemukan");
+        }
+        isiEditorLepas(id, soal, model);
+        return "soal/editor :: detail";
+    }
+
+    /**
+     * Menyimpan soal baru dari perakit: ia lahir tanpa penempatan Paket dan langsung terpasang
+     * di Exercise ini (BR-E05). Balasannya daftar item, bukan editor — yang Guru tunggu adalah
+     * soalnya muncul di kolom kiri.
+     */
+    @PostMapping("/exercise/{id}/soal")
+    public String simpanSoal(@PathVariable UUID id,
+                             @RequestParam QuestionType type,
+                             @RequestParam String bodyHtml,
+                             @RequestParam(required = false) String explanationHtml,
+                             @RequestParam(required = false) List<String> optionBody,
+                             @RequestParam(defaultValue = "-1") int correctIndex,
+                             @AuthenticationPrincipal UserPrincipal user,
+                             Model model) {
+        UUID clientId = user.requireClientId();
+        exercises.require(id, clientId);
+        QuestionEntity soal = questions.create(
+                QuestionService.draftOf(null, type, bodyHtml, explanationHtml, optionBody, correctIndex),
+                clientId, null);
+        exercises.addQuestion(id, soal.getId(), clientId);
+        muatItem(id, clientId, model);
+        return "exercise/builder :: item";
+    }
+
+    @PutMapping("/exercise/{id}/soal/{soalId}")
+    public String ubahSoal(@PathVariable UUID id,
+                           @PathVariable UUID soalId,
+                           @RequestParam QuestionType type,
+                           @RequestParam String bodyHtml,
+                           @RequestParam(required = false) String explanationHtml,
+                           @RequestParam(required = false) List<String> optionBody,
+                           @RequestParam(defaultValue = "-1") int correctIndex,
+                           @AuthenticationPrincipal UserPrincipal user,
+                           Model model) {
+        UUID clientId = user.requireClientId();
+        exercises.require(id, clientId);
+        questions.update(soalId,
+                QuestionService.draftOf(null, type, bodyHtml, explanationHtml, optionBody, correctIndex),
+                clientId, null);
+        muatItem(id, clientId, model);
+        return "exercise/builder :: item";
+    }
+
+    /** Model yang dibutuhkan {@code soal/editor :: detail} di luar konteks Paket (BR-E05). */
+    private void isiEditorLepas(UUID exerciseId, QuestionEntity soal, Model model) {
+        model.addAttribute("paket", null);
+        model.addAttribute("topics", List.of());
+        model.addAttribute("topicId", null);
+        model.addAttribute("topicTitle", null);
+        model.addAttribute("revisi", false);
+        model.addAttribute("exerciseId", exerciseId);
+        model.addAttribute("soal", soal);
+        model.addAttribute("opsi", soal == null ? List.of() : questions.optionsOf(soal.getId()));
+    }
+
     @PutMapping("/exercise/{id}/urutan")
     public String reorder(@PathVariable UUID id,
                           @RequestParam List<UUID> questionIds,
@@ -240,5 +346,11 @@ public class ExerciseController {
         model.addAttribute("exercise", exercises.require(exerciseId, clientId));
         model.addAttribute("item", item);
         model.addAttribute("soal", soal);
+        // Soal tanpa penempatan Paket adalah tulisan Guru sendiri (BR-E05); hanya itu yang boleh
+        // disunting dari perakit, jadi daftarnya dikirim ke templat, bukan ditebak di sana.
+        Set<UUID> berpenempatan = questions.placementsOf(soal.keySet()).keySet();
+        Set<UUID> lepas = new LinkedHashSet<>(soal.keySet());
+        lepas.removeAll(berpenempatan);
+        model.addAttribute("lepas", lepas);
     }
 }

@@ -100,10 +100,12 @@
       dan membuat yang belum. Tombol ini karena itu berangkat tanpa topicId — Paket yang masih
       kosong pun punya jalan menulis soal pertamanya.
     -->
-    <p class="mb-4" th:unless="${readOnly ?: false}">
-      <a th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id})}"
+    <!-- Dua tombol tulis (soal baru, pinjam) berdampingan dalam satu baris; membungkus ke baris
+         berikutnya di layar sempit. -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
+      <a th:unless="${readOnly ?: false}"
+         th:href="@{__${basePath ?: '/bank-soal'}__/paket/{id}/soal/baru(id=${paket.id})}"
          class="btn btn-secondary">+ Soal di Topic baru</a>
-    </p>
 
     <!--
       Panel pinjam soal (ADR-0019). Muat pertama halaman ini tetap SSR — kerangka panel di bawah
@@ -137,7 +139,7 @@
       benar. Komentar parser-level lagi, alasan yang sama dengan di atas: komentar HTML biasa
       yang menyebut kata itu akan ikut lolos ke HTML dan memicu guard itu juga.
     */-->
-    <div th:attr="x-data=|pinjamPanel('${paket.id}', '${basePath ?: '/bank-soal'}')|" class="mb-4">
+    <div th:attr="x-data=|pinjamPanel('${paket.id}', '${basePath ?: '/bank-soal'}')|">
       <button type="button" @click="buka()"
               class="btn btn-secondary">
         Pinjam soal dari Paket lain
@@ -441,6 +443,7 @@
         </div>
       </div>
     </div>
+    </div><!-- /baris tombol tulis -->
 
     <!-- Topic adalah pengelompokan di dalam halaman ini, bukan tingkat navigasi keempat.
          Paket 30 soal dengan 3 Topic tidak layak menambah satu klik lagi (ADR-0018). -->

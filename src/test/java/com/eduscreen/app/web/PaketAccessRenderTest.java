@@ -127,7 +127,7 @@ class PaketAccessRenderTest extends PostgresTestBase {
     }
 
     @Test
-    @DisplayName("TC-13 (BR-E01): perakit Exercise menawarkan Paket Eduscreen dan 'Tambah seluruh Paket' memasang soal masternya")
+    @DisplayName("TC-13 (BR-E01): perakit Exercise menawarkan Paket Eduscreen sebagai sumber dan 'Tambah semua soal sumber ini' memasang soal masternya")
     void perakitExerciseMemakaiAkses() throws Exception {
         Siap s = siap("Builder");
         var guruEntity = data.user(s.sekolah(), UserRole.GURU, "Guru");
@@ -143,7 +143,7 @@ class PaketAccessRenderTest extends PostgresTestBase {
         mockMvc.perform(get("/exercise/{id}", exercise.getId()).with(guru))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("Paket akses Builder")))
-                .andExpect(content().string(containsString("Tambah seluruh Paket ini")));
+                .andExpect(content().string(containsString("Tambah semua soal sumber ini")));
 
         mockMvc.perform(post("/exercise/{id}/item/paket", exercise.getId())
                         .param("paketId", s.master().getId().toString())
