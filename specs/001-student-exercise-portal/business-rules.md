@@ -44,7 +44,7 @@ Catatan izin yang tidak jelas dari tabel:
 
 ## 6. Alur Fungsional
 
-### 6.1 Eduscreen Admin — onboarding Client
+### 6.1 Eduscreen Admin — onboarding dan manajemen Client
 
 1. Isi nama Client dan `timezone`.
 2. Isi email Client Admin pertama; sistem mengirim undangan.
@@ -55,6 +55,13 @@ Catatan izin yang tidak jelas dari tabel:
 - **BR-O01** — Onboarding tidak membuat Ruangan maupun akun Siswa. Itu pekerjaan Client Admin.
 - **BR-O02** — Subject `GLOBAL` tidak disalin; ia dibaca langsung oleh semua Client. Paket master pun tidak disalin: Client membacanya lewat Akses Paket (ADR-0021).
 - **BR-O06** — Hanya Eduscreen Admin yang memberi, memperpanjang, mencabut, dan memindahkan versi Akses Paket. Client tidak punya jalan mengambil Paket yang tidak diberikan; Paket master draf atau ditarik tidak bisa diberikan (FR-067). Client Admin boleh memindahkan aksesnya sendiri ke versi terbit yang lebih baru.
+
+Setelah Client berdiri, Eduscreen Admin memperbaiki identitasnya, menghentikan dan memulihkan layanannya, dan mengurus akun Client Admin-nya. Yang boleh disentuh dari sini hanya Client sebagai entitas — nama, zona waktu, status, dan akun Client Admin. Ruangan, akun Guru dan Siswa, serta seluruh data pemakaian sekolah tetap tertutup (BR-P04); layar manajemen tidak menampilkannya, bahkan sebagai angka.
+
+- **BR-O07** — Nama Client boleh diperbaiki kapan saja. Nama adalah label administratif; tidak ada data yang merujuknya.
+- **BR-O08** — Zona waktu Client boleh diubah, tetapi mengubahnya menggeser tafsir setiap Expiration Date yang sudah tersimpan (BR-T02). Layar wajib menyatakan itu sebelum menyimpan, dan sistem tidak menggeser satu pun tanggal sebagai gantinya: memindahkan tanggal diam-diam akan mengubah tenggat yang sudah diumumkan ke Siswa.
+- **BR-O09** — Client `SUSPENDED` menolak login seluruh penggunanya — Client Admin, Guru, dan Siswa. Eduscreen Admin tidak terpengaruh karena ia tidak bernaung di Client mana pun. Penolakannya memakai pesan yang sama dengan password salah; membedakannya mengubah formulir login menjadi alat memeriksa sekolah mana yang sedang bermasalah. Session yang sedang berjalan dibiarkan habis sendiri — suspensi menutup pintu masuk, bukan mengusir yang sudah di dalam.
+- **BR-O10** — Satu Client harus selalu punya minimal satu akun Client Admin yang masih bisa masuk; undangan yang belum ditebus ikut dihitung, karena ia jalan masuk yang sah. Menonaktifkan yang terakhir mengunci sekolah dari akunnya sendiri, dan hanya Eduscreen Admin yang bisa membukanya kembali.
 
 ### 6.2 Eduscreen Admin — konten master
 
@@ -370,6 +377,21 @@ Then seluruh baris valid tersimpan ke Paket dan Topic yang dipilih; kolom `topic
 Given paket master yang diberikan berada di bawah Subject `GLOBAL` `Matematika Kelas 4`
 When onboarding selesai
 Then tidak ada Subject, Paket, Topic, maupun Question baru dibuat untuk Client; yang lahir hanya satu Akses Paket, dan Paket master tetap milik Eduscreen di Subject global yang sama.
+
+**AC-O03** (BR-O07, BR-O08)
+Given sebuah Client tercatat bernama `SMP Nusantara` di zona `Asia/Jakarta`
+When Eduscreen Admin mengubah namanya menjadi `SMP Nusantara 1` dan zonanya menjadi `Asia/Makassar`
+Then keduanya tersimpan, tidak ada Expiration Date yang nilainya ikut berubah, dan zona di luar tiga zona Indonesia ditolak.
+
+**AC-O04** (BR-O09)
+Given Client `A` berstatus `SUSPENDED` sementara Client `B` tetap `ACTIVE`
+When Client Admin, Guru, dan Siswa milik `A` mencoba masuk
+Then ketiganya ditolak dengan pesan yang sama persis dengan pesan password salah, pengguna `B` tetap bisa masuk, Eduscreen Admin tetap bisa masuk, dan mengembalikan `A` ke `ACTIVE` memulihkan login ketiganya.
+
+**AC-O05** (BR-O10)
+Given sebuah Client hanya punya satu akun Client Admin aktif
+When Eduscreen Admin menonaktifkan akun itu
+Then penonaktifan ditolak dengan pesan bahwa Client harus punya minimal satu Client Admin aktif, dan setelah admin kedua ditambahkan penonaktifan yang pertama berhasil.
 
 **AC-Q04** (BR-Q02)
 Given Guru menulis Question tanpa memilih Topic

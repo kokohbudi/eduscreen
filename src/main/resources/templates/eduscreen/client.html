@@ -5,10 +5,6 @@
 <div th:replace="~{layout/base :: page('Client', ~{::content})}">
   <div th:fragment="content" th:remove="tag">
 
-    <div th:if="${param.dibuat}" role="status" class="alert alert-success mb-6">
-      Client dibuat. Undangan sudah dikirim ke Client Admin pertamanya.
-    </div>
-
     <section class="card mb-8 p-0">
       <h2 class="card-title border-b border-line px-5 py-4">Client terdaftar</h2>
       <table class="table">
@@ -21,7 +17,10 @@
         </thead>
         <tbody>
           <tr th:each="c : ${clients}">
-            <td class="font-medium" th:text="${c.name}">Nama</td>
+            <td class="font-medium">
+              <a th:href="@{/eduscreen/client/{id}(id=${c.id})}" th:text="${c.name}"
+                 class="hover:underline">Nama</a>
+            </td>
             <td class="text-ink-2" th:text="${c.timezone}">Asia/Jakarta</td>
             <td><span th:class="${c.status.name() == 'ACTIVE'} ? 'badge badge-success' : 'badge'" th:text="${c.status}">ACTIVE</span></td>
           </tr>

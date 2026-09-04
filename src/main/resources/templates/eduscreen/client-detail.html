@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="id" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{layout/base :: head('Detail Client')}"></head>
+<body>
+<div th:replace="~{layout/base :: page('Detail Client', ~{::content})}">
+  <div th:fragment="content" th:remove="tag">
+
+    <a th:href="@{/eduscreen/client}" class="crumb">← Client</a>
+    <div class="mb-6 flex flex-wrap items-center gap-2">
+      <h2 class="text-lg font-semibold" th:text="${client.name}">Nama Client</h2>
+      <span th:class="${client.status.name() == 'ACTIVE'} ? 'badge badge-success' : 'badge badge-warn'"
+            th:text="${client.status}">ACTIVE</span>
+    </div>
+
+    <div th:if="${param.dibuat}" role="status" class="alert alert-success mb-6">
+      Client dibuat. Undangan sudah dikirim ke Client Admin pertamanya.
+    </div>
+    <div th:if="${param.disimpan}" role="status" class="alert alert-success mb-6">Perubahan tersimpan.</div>
+    <div th:if="${param.diundang}" role="status" class="alert alert-success mb-6">Undangan terkirim.</div>
+
+    <!--
+      Yang sengaja TIDAK ada di halaman ini: jumlah Ruangan, akun Guru dan Siswa, dan angka
+      pemakaian apa pun. Menampilkannya — bahkan sebagai hitungan — adalah membaca data
+      operasional sekolah, dan itu hanya boleh lewat akses dukungan (BR-P04, ADR-0015).
+    -->
+    <section class="card mb-8 p-6">
+      <h2 class="card-title">Identitas</h2>
+      <form method="post" th:action="@{/eduscreen/client/{id}(id=${client.id})}"
+            class="mt-4 grid gap-4 sm:grid-cols-2">
+        <div>
+          <label for="name" class="label">Nama sekolah</label>
+          <input id="name" name="name" required class="input" th:value="${client.name}">
+        </div>
+        <div>
+          <label for="timezone" class="label">Zona waktu</label>
+          <select id="timezone" name="timezone" class="select">
+            <option value="Asia/Jakarta" th:selected="${client.timezone.id == 'Asia/Jakarta'}">Asia/Jakarta (WIB)</option>
+            <option value="Asia/Makassar" th:selected="${client.timezone.id == 'Asia/Makassar'}">Asia/Makassar (WITA)</option>
+            <option value="Asia/Jayapura" th:selected="${client.timezone.id == 'Asia/Jayapura'}">Asia/Jayapura (WIT)</option>
+          </select>
+          <p class="hint">
+            Mengubah zona menggeser tafsir setiap batas akhir Assignment yang sudah tersimpan
+            (BR-O08). Tanggalnya tidak ikut dipindahkan.
+          </p>
+        </div>
+        <div class="sm:col-span-2 border-t border-line pt-4">
+          <button type="submit" class="btn btn-primary w-full sm:w-auto">Simpan</button>
+        </div>
+      </form>
+    </section>
+
+    <!--
+      Suspensi menutup pintu masuk, bukan mengusir yang sudah di dalam (BR-O09): Session yang
+      sedang berjalan dibiarkan habis sendiri. Penegakannya di EduscreenAuthenticationProvider.
+    -->
+    <section class="card mb-8 p-6">
+      <h2 class="card-title">Layanan</h2>
+      <p class="mt-2 text-sm text-ink-2" th:if="${client.status.name() == 'ACTIVE'}">
+        Client aktif. Menghentikan layanan menolak login seluruh penggunanya — Client Admin, Guru,
+        dan Siswa.
+      </p>
+      <p class="mt-2 text-sm text-ink-2" th:unless="${client.status.name() == 'ACTIVE'}">
+        Layanan dihentikan. Seluruh pengguna Client ini tidak bisa masuk sampai layanan dipulihkan.
+      </p>
+      <form method="post" th:action="@{/eduscreen/client/{id}/status(id=${client.id})}" class="mt-4"
+            x-data
+            @submit="if (!confirm($el.dataset.tanya)) $event.preventDefault()"
+            th:attr="data-tanya=${client.status.name() == 'ACTIVE'}
+                     ? 'Hentikan layanan Client ini? Seluruh penggunanya tidak akan bisa masuk.'
+                     : 'Pulihkan layanan Client ini?'">
+        <input type="hidden" name="status" th:value="${client.status.name() == 'ACTIVE'} ? 'SUSPENDED' : 'ACTIVE'">
+        <button type="submit"
+                th:class="${client.status.name() == 'ACTIVE'} ? 'btn btn-secondary text-danger' : 'btn btn-primary'"
+                th:text="${client.status.name() == 'ACTIVE'} ? 'Hentikan layanan' : 'Pulihkan layanan'">
+          Hentikan layanan
+        </button>
+      </form>
+    </section>
+
+    <!-- Hanya akun berperan CLIENT_ADMIN. Guru dan Siswa tidak pernah terbaca dari sini (BR-P04). -->
+    <section class="card mb-8 p-0">
+      <h2 class="card-title border-b border-line px-5 py-4">Client Admin</h2>
+      <table class="table">
+        <thead>
+          <tr>
+            <th scope="col">Nama</th>
+            <th scope="col">Email</th>
+            <th scope="col">Status</th>
+            <th scope="col"><span class="sr-only">Aksi</span></th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr th:each="a : ${admins}">
+            <td class="font-medium" th:text="${a.fullName}">Nama</td>
+            <td class="text-ink-2" th:text="${a.email}">email@sekolah.sch.id</td>
+            <td>
+              <span th:class="${a.status.name() == 'ACTIVE'} ? 'badge badge-success' : 'badge'"
+                    th:text="${a.status}">ACTIVE</span>
+            </td>
+            <td class="text-right">
+              <span class="inline-flex gap-2">
+                <form method="post" th:if="${a.status.name() != 'DEACTIVATED'}"
+                      th:action="@{/eduscreen/client/{id}/admin/{userId}/undang-ulang(id=${client.id},userId=${a.id})}">
+                  <button type="submit" class="btn btn-ghost btn-sm">Undang ulang</button>
+                </form>
+                <!--
+                  BR-O10: Client Admin terakhir yang masih bisa masuk tidak boleh dinonaktifkan.
+                  Tombolnya tetap tampil; penolakannya datang dari ClientDirectoryService sebagai
+                  409, seperti aturan Ruangan ARCHIVED di layar Client Admin.
+                -->
+                <form method="post" th:if="${a.status.name() != 'DEACTIVATED'}"
+                      th:action="@{/eduscreen/client/{id}/admin/{userId}/nonaktif(id=${client.id},userId=${a.id})}"
+                      x-data @submit="if (!confirm('Nonaktifkan akun Client Admin ini?')) $event.preventDefault()">
+                  <button type="submit" class="btn btn-ghost btn-sm text-danger">Nonaktifkan</button>
+                </form>
+              </span>
+            </td>
+          </tr>
+          <tr th:if="${#lists.isEmpty(admins)}">
+            <td colspan="4" class="py-8 text-center text-ink-2">Belum ada Client Admin.</td>
+          </tr>
+        </tbody>
+      </table>
+      <form method="post" th:action="@{/eduscreen/client/{id}/admin(id=${client.id})}"
+            class="grid gap-4 border-t border-line p-5 sm:grid-cols-3">
+        <div>
+          <label for="adminFullName" class="label">Nama</label>
+          <input id="adminFullName" name="fullName" required class="input">
+        </div>
+        <div>
+          <label for="adminEmail" class="label">Email</label>
+          <input type="email" id="adminEmail" name="email" required class="input">
+        </div>
+        <div class="flex items-end">
+          <button type="submit" class="btn btn-secondary w-full">Tambah dan undang</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="card p-6">
+      <h2 class="card-title">Akses Paket</h2>
+      <p class="mt-2 text-sm text-ink-2">
+        Pemberian, perpanjangan, dan pemindahan versi Paket master untuk Client ini diatur di layar
+        Akses Paket (BR-O06).
+      </p>
+      <a th:href="@{/eduscreen/akses(clientId=${client.id})}" class="btn btn-secondary mt-4">
+        Buka Akses Paket
+      </a>
+    </section>
+
+  </div>
+</div>
+</body>
+</html>

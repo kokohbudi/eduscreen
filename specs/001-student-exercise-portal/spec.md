@@ -273,6 +273,16 @@ memperoleh 60, 85, lalu 70; rekap Guru menampilkan 85 dan ketiga pengerjaan teta
 
 - **FR-020**: Eduscreen Admin MUST bisa mendaftarkan Client baru dengan nama, zona waktu, dan
   akun Client Admin pertama (BR-O01).
+- **FR-083**: Eduscreen Admin MUST bisa mengubah nama dan zona waktu sebuah Client yang sudah
+  berdiri; zona di luar tiga zona Indonesia MUST ditolak, dan perubahan zona MUST NOT menggeser
+  satu pun tanggal yang sudah tersimpan (BR-O07, BR-O08).
+- **FR-084**: Eduscreen Admin MUST bisa menghentikan (`SUSPENDED`) dan memulihkan (`ACTIVE`)
+  sebuah Client. Client `SUSPENDED` MUST menolak login seluruh penggunanya dengan pesan yang
+  tidak dapat dibedakan dari pesan password salah (BR-O09).
+- **FR-085**: Eduscreen Admin MUST bisa menambah akun Client Admin sebuah Client, mengirim ulang
+  undangannya, dan menonaktifkannya; menonaktifkan Client Admin aktif yang terakhir MUST ditolak
+  (BR-O10). Layar itu MUST NOT memberi jalan membaca akun Guru, akun Siswa, maupun data
+  pemakaian Client (BR-P04).
 - **FR-021**: Konten master Eduscreen yang diadopsi Client MUST menjadi salinan penuh milik
   Client itu; perubahan di master MUST NOT merambat ke Client yang sudah mengadopsi.
 - **FR-022**: Impor massal MUST menampilkan pratinjau dan laporan kegagalan per baris; kegagalan

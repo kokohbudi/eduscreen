@@ -1,6 +1,7 @@
 package com.eduscreen.app.modules.assessment.repository;
 
 import com.eduscreen.app.modules.assessment.domain.UserRole;
+import com.eduscreen.app.modules.assessment.domain.UserStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -33,4 +34,11 @@ public interface AppUserRepository extends JpaRepository<AppUserEntity, UUID> {
     Page<AppUserEntity> findByClientId(UUID clientId, Pageable pageable);
 
     List<AppUserEntity> findByClientIdAndIdIn(UUID clientId, List<UUID> ids);
+
+    /**
+     * Menjaga BR-O10: sebuah Client tidak boleh kehilangan Client Admin terakhirnya yang masih
+     * bisa masuk. {@code INVITED} ikut dihitung — undangan yang belum ditebus tetap jalan masuk
+     * yang sah, dan menonaktifkannya mengunci sekolah sama rapatnya.
+     */
+    long countByClientIdAndRoleAndStatusNot(UUID clientId, UserRole role, UserStatus status);
 }

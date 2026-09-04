@@ -8,9 +8,7 @@ import com.eduscreen.app.modules.identity.service.UserManagementService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneId;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -19,12 +17,6 @@ import java.util.UUID;
  */
 @Service
 public class ClientOnboardingService {
-
-    /**
-     * Indonesia terbagi tiga zona waktu; hanya tiga ini yang berarti bagi jadwal Assignment
-     * (BR-T01, BR-T02). Zona lain tidak punya sekolah yang dilayani sistem ini.
-     */
-    private static final Set<String> ALLOWED_TIMEZONES = Set.of("Asia/Jakarta", "Asia/Makassar", "Asia/Jayapura");
 
     private final ClientRepository clients;
     private final UserManagementService userManagement;
@@ -48,13 +40,8 @@ public class ClientOnboardingService {
      */
     @Transactional
     public ClientEntity onboard(OnboardingRequest request) {
-        if (!ALLOWED_TIMEZONES.contains(request.timezone())) {
-            throw new IllegalArgumentException(
-                    "Zona waktu tidak didukung: " + request.timezone()
-                            + " (hanya Asia/Jakarta, Asia/Makassar, Asia/Jayapura)");
-        }
-
-        ClientEntity client = clients.save(new ClientEntity(request.name(), ZoneId.of(request.timezone())));
+        ClientEntity client = clients.save(new ClientEntity(
+                request.name(), ClientEntity.requireSupportedTimezone(request.timezone())));
 
         // create() sudah mengirim undangan lewat InvitationService; tidak perlu diulang di sini.
         AppUserEntity admin = userManagement.create(

@@ -1,8 +1,10 @@
 package com.eduscreen.app.shared.security;
 
+import com.eduscreen.app.modules.assessment.domain.ClientStatus;
 import com.eduscreen.app.modules.assessment.domain.UserStatus;
 import com.eduscreen.app.modules.assessment.repository.AppUserEntity;
 import com.eduscreen.app.modules.assessment.repository.AppUserRepository;
+import com.eduscreen.app.modules.assessment.repository.ClientRepository;
 import com.eduscreen.app.modules.identity.port.out.IdentityProviderPort;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,20 +23,24 @@ import java.util.Optional;
  * <p>Pemisahan ini yang membuat migrasi ke Keycloak tidak menyentuh inti bisnis (ADR-0008).
  *
  * <p>Seluruh kegagalan menghasilkan {@link BadCredentialsException} yang sama — akun tidak ada,
- * password salah, dan akun nonaktif tidak boleh dibedakan. Membedakannya mengubah formulir
- * login menjadi alat memeriksa keberadaan email.
+ * password salah, akun nonaktif, dan Client yang sedang {@code SUSPENDED} tidak boleh dibedakan.
+ * Membedakannya mengubah formulir login menjadi alat memeriksa keberadaan email, dan alat
+ * memeriksa sekolah mana yang sedang bermasalah (BR-O09).
  */
 @Component
 public class EduscreenAuthenticationProvider implements AuthenticationProvider {
 
     private final AppUserRepository users;
+    private final ClientRepository clients;
     private final IdentityProviderPort identityProvider;
     private final LoginRateLimiter rateLimiter;
 
     public EduscreenAuthenticationProvider(AppUserRepository users,
+                                           ClientRepository clients,
                                            IdentityProviderPort identityProvider,
                                            LoginRateLimiter rateLimiter) {
         this.users = users;
+        this.clients = clients;
         this.identityProvider = identityProvider;
         this.rateLimiter = rateLimiter;
     }
@@ -56,9 +62,16 @@ public class EduscreenAuthenticationProvider implements AuthenticationProvider {
         Optional<AppUserEntity> found = users.findByEmail(email);
         boolean credentialsValid = identityProvider.authenticate(email, rawPassword);
 
+        // Client yang disuspend menutup pintu masuk seluruh penggunanya (BR-O09). clientId null
+        // hanya benar untuk Eduscreen Admin, yang tidak bernaung di Client mana pun.
+        boolean clientActive = found.isPresent()
+                && (found.get().getClientId() == null
+                    || clients.existsByIdAndStatus(found.get().getClientId(), ClientStatus.ACTIVE));
+
         // Pemeriksaan kredensial tetap dijalankan meski akun tidak ada, agar waktu tanggap
         // tidak membocorkan keberadaan email.
-        if (found.isEmpty() || !credentialsValid || found.get().getStatus() != UserStatus.ACTIVE) {
+        if (found.isEmpty() || !credentialsValid || found.get().getStatus() != UserStatus.ACTIVE
+                || !clientActive) {
             rateLimiter.recordFailure(email, ip);
             throw new BadCredentialsException("Email atau password salah");
         }
